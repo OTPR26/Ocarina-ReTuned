@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "runtime_revision": "17218b0cfdb944645bb5cde5249f313dca7e53ce",
+  "targets": [
+    {"platform": "macOS", "architecture": "arm64", "module_target": "aarch64-apple-darwin", "renderer": "Vulkan via MoltenVK"},
+    {"platform": "Android", "architecture": "arm64-v8a", "module_target": "aarch64-linux-android", "renderer": "Vulkan", "minimum_api": 29}
+  ],
+  "distribution": {
+    "translated_game_code": "generated locally from the user's ROM; never uploaded",
+    "game_assets": "extracted locally from the user's ROM; never uploaded",
+    "restricted_modules": "iMMERSE and DLSS disabled",
+    "release_status": "prototype; no release approved"
+  }
+}

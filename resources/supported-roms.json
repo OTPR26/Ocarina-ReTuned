@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "source": "OTPR26/OOT3DHud v2.0.2",
+  "source_revision": "cca2979884d5f67afeb61304ec7191bae2b83051",
+  "roms": [
+    {"region": "USA", "program_id": "0004000000033500", "sha256": "a12d30e6c2c2e81618ac595ead12d02abe59b0725e1ef788cf74cf02091554cb"},
+    {"region": "EUR", "program_id": "0004000000033600", "sha256": "d1fccdd5afdf04bc104b3d9b69661303baaaea9e006b6f5b4f139004c5a61f43"},
+    {"region": "JP", "program_id": "0004000000033400", "sha256": "d65cf0c94de48e7e45c0e6808b0b584f7647f279371baa35b1637fc4785df342"}
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "application_base": {
+    "repository": "https://github.com/OTPR26/DekUI-Fork",
+    "revision": "1f1e0e2ebfe52114709f718fad83a1b298f185c0",
+    "release": "v0.4.2"
+  },
+  "gameplay_mod": {
+    "repository": "https://github.com/OTPR26/OOT3DHud",
+    "revision": "cca2979884d5f67afeb61304ec7191bae2b83051",
+    "release": "v2.0.2",
+    "source_directory": "release-source/2.0.2/single"
+  },
+  "renderer_reference": {
+    "repository": "https://github.com/coccofresco/TriAevum",
+    "revision": "17218b0cfdb944645bb5cde5249f313dca7e53ce",
+    "status": "research only; no source imported"
+  }
+}

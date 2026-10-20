@@ -1,0 +1,87 @@
+name: Native ARM64 prototype
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-arm64-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  macos-services:
+    name: macOS ARM64 services
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: coccofresco/TriAevum
+          ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
+          path: engine
+          persist-credentials: false
+      - name: Build native module services
+        run: |
+          test "$(uname -m)" = arm64
+          cmake -S engine/runtime/triaevum_module -B build/services -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+          cmake --build build/services --parallel 3 --target triaevum_input_service_tests triaevum_audio_service_tests triaevum_filesystem_service_tests triaevum_module_tests triaevum_tam_metadata_tests triaevum_native_module_loader_tests triaevum_pica_service_adapter_tests
+      - name: Run native service tests
+        run: |
+          set -e
+          for test in triaevum_input_service_tests triaevum_audio_service_tests triaevum_filesystem_service_tests triaevum_module_tests triaevum_tam_metadata_tests triaevum_native_module_loader_tests triaevum_pica_service_adapter_tests; do
+            build/services/"$test"
+          done
+  macos-runtime:
+    name: macOS ARM64 runtime
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: coccofresco/TriAevum
+          ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
+          path: engine
+          persist-credentials: false
+      - name: Install native dependencies
+        run: brew install ninja cmake sdl2 glew libzip libpng nlohmann-json tinyxml2 spdlog libogg libvorbis opus opusfile shaderc molten-vk vulkan-loader vulkan-headers
+      - name: Configure neutral runtime
+        run: |
+          cmake -S engine -B build/runtime -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.4 \
+            -DCMAKE_C_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=." \
+            -DCMAKE_CXX_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=." \
+            -DOOT3D_WHOLE_AOT_PRODUCT_MODE=ON -DOOT3D_DIRECT_AOT_PLUGIN=ON \
+            -DOOT3D_ENABLE_VULKAN_RENDERER=ON -DTHREE_DS_RECOMP_ENABLE_NRI=ON \
+            -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF \
+            -DTHREE_DS_RECOMP_ENABLE_NRI_UPSCALER_SDKS=OFF \
+            -DTHREE_DS_RECOMP_ENABLE_DLSS_MODULE=OFF \
+            -DTHREE_DS_RECOMP_ENABLE_SSSR=OFF -DTHREE_DS_RECOMP_ENABLE_CACAO=OFF \
+            -DTHREE_DS_RECOMP_OFFER_EXPERIMENTAL_GI=OFF \
+            -DENABLE_SCRIPTING=OFF -DINCLUDE_MPQ_SUPPORT=OFF
+      - name: Build neutral runtime
+        run: cmake --build build/runtime --parallel 3 --target triaevum_public_runtime
+  android-services:
+    name: Android ARM64 services
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: coccofresco/TriAevum
+          ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
+          path: engine
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install build tools
+        run: |
+          python -m pip install 'cmake==3.31.6' ninja
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;29.0.14206865'
+      - name: Cross-build neutral Android services
+        env:
+          TRIAEVUM_BUILD_DIR: ${{ github.workspace }}/build/android
+          CMAKE_BUILD_PARALLEL_LEVEL: 3
+        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/29.0.14206865" bash engine/scripts/build-android-native.sh
