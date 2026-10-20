@@ -18,6 +18,13 @@ def apply(engine):
                 compositionDomain ==''', '''            const bool fullTargetRaster =
                 draw.ScissorMode != 1U &&
                 compositionDomain ==''')
+    pipelines=draw.with_name('gfx_vulkan_pica_pipelines.cpp')
+    edit(pipelines,'    attributes.reserve(draw.VertexAttributes.size());',
+         '    attributes.reserve(draw.VertexAttributes.size());\n    bool nativeVertexFormatsSupported = true;')
+    edit(pipelines,'            throw std::runtime_error(\n                "native PICA vertex format is not supported by this GPU");',
+         '            nativeVertexFormatsSupported = false;')
+    edit(pipelines,'    EnsureNativePicaVulkanShaderModules(draw, shader);',
+         '    if (!nativeVertexFormatsSupported)\n        throw std::runtime_error("native PICA vertex format is not supported by the Vulkan fallback");\n    EnsureNativePicaVulkanShaderModules(draw, shader);')
     before='''        // Coverage runs before the native draw: stencil must still have its'''
     start='''        const VkRect2D originalScissor = mScissor;
         Retuned::ScissorParts scissorParts;

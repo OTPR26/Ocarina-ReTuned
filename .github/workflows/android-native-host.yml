@@ -45,6 +45,10 @@ jobs:
           python tools/reframed/apply_renderer_port.py engine
           python tools/native/apply_audio_port.py engine
           python tools/frontend/apply_frontend_port.py engine
+      - name: Check packed integer vertex inputs
+        run: |
+          c++ -std=c++20 -I engine/runtime/three_ds_recomp/include tests/pica_vertex_packing.cpp engine/runtime/three_ds_recomp/src/fast/oot3d/pica_nri_vertex_input.cpp -o vertex-packing-test
+          ./vertex-packing-test
       - name: Configure neutral native host
         run: |
           cmake -S engine/ports/android/runtime -B build/host -G Ninja \
