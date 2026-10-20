@@ -84,6 +84,10 @@ jobs:
             -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF \
             -DTHREE_DS_RECOMP_ENABLE_NRI_UPSCALER_SDKS=OFF \
             -DTHREE_DS_RECOMP_ENABLE_DLSS_MODULE=OFF
+      - name: Check remote and controller menu navigation
+        run: |
+          c++ -std=c++20 -I build/host/_deps/imgui-src tests/menu_navigation.cpp build/host/_deps/imgui-src/imgui.cpp build/host/_deps/imgui-src/imgui_draw.cpp build/host/_deps/imgui-src/imgui_tables.cpp build/host/_deps/imgui-src/imgui_widgets.cpp -o menu-navigation-test
+          ./menu-navigation-test
       - name: Build neutral native host
         run: cmake --build build/host --parallel 3 --target oot3d_native_game oot3d_native_pica_frontend_tests
       - name: Stage neutral libraries

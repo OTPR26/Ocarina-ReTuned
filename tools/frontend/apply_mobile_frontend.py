@@ -24,7 +24,7 @@ def apply(engine):
         marker='target_sources(oot3d_native_game PRIVATE "${CMAKE_CURRENT_LIST_DIR}/touch_input.cpp")'
         if marker not in cmake.read_text():cmake.write_text(cmake.read_text()+'\n'+marker+'\n')
 
-    for name in ('texture_folder.h','settings_pages.h','frontend_state.h','interface_metrics.h','responsive_layout.h','touch_model.h','touch_hud_model.h','touch_hud_state.h','touch_overlay.h','startup_draw.h','startup_layout.h'):
+    for name in ('texture_folder.h','settings_pages.h','frontend_state.h','interface_metrics.h','responsive_layout.h','touch_model.h','touch_hud_model.h','touch_hud_state.h','touch_overlay.h','startup_draw.h','startup_layout.h','menu_navigation.h'):
         (include/('retuned_'+name)).write_text((source/name).read_text().replace('#include "interface_metrics.h"','#include "retuned_interface_metrics.h"').replace('#include "touch_hud_model.h"','#include "retuned_touch_hud_model.h"'))
     artwork=(source.parents[1]/'resources/artwork/ocarina-illustration.png').read_bytes()
     (include/'retuned_artwork.h').write_text('#pragma once\nnamespace RetunedFrontend { inline constexpr unsigned char OcarinaArtwork[] = {\n'+','.join(map(str,artwork))+'\n}; }\n')
@@ -85,6 +85,8 @@ def apply(engine):
          '                    if(sdlEvent.button.which==SDL_TOUCH_MOUSEID && RetunedFrontend::SampleTouch(false).Captured)break;\n                    const int buttonIndex =\n                        Oot3dMouseButtonIndex(sdlEvent.button.button);')
     graphics=engine/'runtime/three_ds_recomp/src/fast/oot3d/graphics_settings_window.cpp'
     edit(graphics,'#include "fast/oot3d/retuned_blue_style.h"','#include "fast/oot3d/retuned_blue_style.h"\n#include "fast/oot3d/retuned_responsive_layout.h"\n#include "fast/oot3d/retuned_touch_overlay.h"')
+    from apply_television_menu import apply as apply_television
+    apply_television(engine)
     # Shared patches can insert adjacent includes at the same anchor. Keep the
     # final translation units stable when preparing a cached engine repeatedly.
     for path in (gui, setup, frame, inputs, graphics):

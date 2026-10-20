@@ -7,7 +7,9 @@
         }
         if(folders.Choose && ImGui::Button("Choose texture folder"))folders.Choose();
         if(folders.Status){const auto message=folders.Status();if(!message.empty())ImGui::TextWrapped("%s",message.c_str());}
-        ImGui::TextWrapped("Searches the selected folder and all subfolders. You can change it before or during gameplay.");
+        if(RetunedFrontend::TelevisionPlatform())
+            ImGui::TextWrapped("Uses the texture pack bundled with this installation, including subfolders. To replace the pack on Apple TV, include it when preparing and signing the app.");
+        else ImGui::TextWrapped("Searches the selected folder and all subfolders. You can change it before or during gameplay.");
         auto& packs=::Oot3d::Renderer::AzaharTexturePackRuntime::Instance();
         if(ImGui::Button("Reload textures"))packs.Reload();
         const auto status=packs.Snapshot();

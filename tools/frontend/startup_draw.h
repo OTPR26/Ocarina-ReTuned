@@ -4,6 +4,7 @@
 #include "retuned_responsive_layout.h"
 #include "retuned_artwork.h"
 #include "retuned_startup_layout.h"
+#include "retuned_menu_navigation.h"
 #include "fast/Fast3dGui.h"
 #include "fast/oot3d/graphics_settings_window.h"
 #include "ship/Context.h"

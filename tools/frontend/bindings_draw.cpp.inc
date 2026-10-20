@@ -10,7 +10,7 @@
       if(selected)ImGui::PopStyleColor();
     }
     ImGui::Spacing();ImGui::SetNextItemWidth(std::min(ImGui::GetContentRegionAvail().x,f*36));
-    ImGui::InputTextWithHint("##ActionFilter","Find a control",mActionFilter.data(),mActionFilter.size());
+    if(!RetunedFrontend::TelevisionPlatform())ImGui::InputTextWithHint("##ActionFilter","Find a control",mActionFilter.data(),mActionFilter.size());
     ImGui::PushID(static_cast<int>(mBindingDevice));
     bool any=false;
     for(const auto groupIndex:{1,2,3,0,4}) {

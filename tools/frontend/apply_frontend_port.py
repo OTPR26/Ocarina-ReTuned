@@ -7,6 +7,14 @@ from apply_native_port import edit
 def apply(engine):
     source=Path(__file__).parent
     runtime=engine/'tools/oot3d/native_game_runtime'
+    for path in (runtime/'oot3d_native_a32_window_setup.cpp',runtime/'oot3d_native_a32_window_frame.cpp',engine/'runtime/three_ds_recomp/src/fast/Fast3dGui.cpp'):
+        seen=set();lines=[]
+        for line in path.read_text().splitlines(keepends=True):
+            if line.startswith('#include ') and 'retuned_' in line:
+                if line in seen:continue
+                seen.add(line)
+            lines.append(line)
+        path.write_text(''.join(lines))
     (runtime/'retuned_reframed_settings.h').write_text((source/'reframed_settings.h').read_text())
     (runtime/'retuned_ocarina_lifecycle.h').write_text((source/'ocarina_lifecycle.h').read_text())
     include=engine/'runtime/three_ds_recomp/include/fast/oot3d'

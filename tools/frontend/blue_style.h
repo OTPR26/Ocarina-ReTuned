@@ -28,7 +28,7 @@ namespace RetunedFrontend {
 inline bool Toggle(const char* label,bool* value) {
     const float f=ImGui::GetFontSize(),width=std::min(ImGui::GetContentRegionAvail().x,f*32),height=f*2.4f;
     const auto p=ImGui::GetCursorScreenPos();
-    const bool pressed=ImGui::InvisibleButton(label,{width,height});if(pressed)*value=!*value;
+    const bool pressed=ImGui::InvisibleButton(label,{width,height},ImGuiButtonFlags_EnableNav);if(pressed)*value=!*value;
     auto* draw=ImGui::GetWindowDrawList();
     draw->AddRectFilled(p,{p.x+width,p.y+height},ImGui::GetColorU32(ImGui::IsItemHovered()?ImGuiCol_FrameBgHovered:ImGuiCol_FrameBg),7);
     draw->AddText({p.x+f*.65f,p.y+(height-f)*.5f},ImGui::GetColorU32(ImGuiCol_Text),label);

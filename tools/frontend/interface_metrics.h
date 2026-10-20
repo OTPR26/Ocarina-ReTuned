@@ -13,6 +13,13 @@ namespace RetunedFrontend {
 inline ImFont* InterfaceBoldFont=nullptr;
 inline std::atomic<float> AndroidDisplayDensity{1.f},AndroidDisplayHeight{0.f};
 inline float MenuSize=1.f;
+inline constexpr bool TelevisionPlatform() {
+#if defined(__APPLE__) && TARGET_OS_TV
+ return true;
+#else
+ return false;
+#endif
+}
 inline constexpr bool MobileSettingsPlatform() {
 #if defined(__IOS__) || defined(__ANDROID__)
  return true;

@@ -12,6 +12,9 @@ int main(){
   assert(SettingsCategories[i].Page!=SettingsCategories[j].Page);
   assert(std::string_view(SettingsCategories[i].Label)!=SettingsCategories[j].Label);
  }
+ std::vector<std::string_view> television;
+ for(const auto& category:SettingsCategories)if(CategoryVisible(category.Page,true,false))television.push_back(category.Label);
+ assert((television==std::vector<std::string_view>{"General","Controls","Graphics","Audio","HUD","Quality of life","About"}));
  assert(!CategoryVisible(SettingsPage::Touch,true,false));
  assert(CategoryVisible(SettingsPage::SaveStates,false,false));
  assert(!CategoryVisible(SettingsPage::Advanced,true,true));
