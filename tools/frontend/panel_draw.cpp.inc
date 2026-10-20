@@ -12,7 +12,9 @@ void GraphicsSettingsPanel::Draw() {
     ImGui::PushItemWidth(std::min(ImGui::GetContentRegionAvail().x,font*26));
     switch(page){
       case 0:drawTabs("General");break;
-      case 1:drawTabs("Reframed controls");ImGui::Separator();drawTabs("Controls");break;
+      case 1:
+        if(ImGui::CollapsingHeader("Game control options")){drawTabs("Reframed controls");ImGui::Separator();}
+        drawTabs("Controls");break;
       case 2:drawTabs("HUD");break;
       case 3:drawTabs("Quality of life");break;
       case 4:
