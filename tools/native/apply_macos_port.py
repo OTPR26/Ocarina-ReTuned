@@ -19,6 +19,9 @@ def apply(root):
          '== SHADER_ID_PICA_TEXTURE_ENV', '== Fast::SHADER_ID_PICA_TEXTURE_ENV'),
     ]
     patches.extend([
+        ('runtime/three_ds_recomp/src/ship/audio/Audio.cpp',
+         '#ifdef __APPLE__\n    return AudioBackend::COREAUDIO;\n#endif',
+         '#ifdef __APPLE__\n    return AudioBackend::SDL;\n#endif'),
         ('tools/oot3d/native_game_runtime/oot3d_native_direct_aot.cpp',
          '#elif defined(__linux__)', '#elif defined(__linux__) || defined(__APPLE__)'),
         ('tools/oot3d/native_game_runtime/oot3d_native_direct_aot.cpp',
