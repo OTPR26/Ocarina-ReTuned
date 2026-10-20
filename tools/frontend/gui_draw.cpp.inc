@@ -15,6 +15,7 @@
         const float scale=RetunedFrontend::MenuScale(viewport->WorkSize.y);
         ImGui::GetIO().FontGlobalScale=RetunedFrontend::InterfaceFontScale(scale);
         ImGui::GetStyle().ScaleAllSizes(scale);
+        ImGui::PushFont(ImGui::GetFont());
         ImGui::SetNextWindowPos(viewport->WorkPos,ImGuiCond_Always);
         ImGui::SetNextWindowSize(viewport->WorkSize,ImGuiCond_Always);
         if(RetunedFrontend::MobileSettingsPlatform()){
@@ -35,8 +36,8 @@
 #endif
             ImGui::Separator();
             ImGui::BeginChild("##UnifiedContents",ImVec2(0,-ImGui::GetFontSize()*2.2f));mPanel.Draw();ImGui::EndChild();
-            ImGui::Spacing();ImGui::TextDisabled("Settings save automatically. Use touch, a controller or the arrow keys to navigate.");
+            ImGui::Spacing();ImGui::TextDisabled("Settings save automatically. Tap an option or use your controller.");
         }
-        ImGui::End();ImGui::GetStyle()=previous;ImGui::GetIO().FontGlobalScale=previousFontScale;
+        ImGui::End();ImGui::GetStyle()=previous;ImGui::GetIO().FontGlobalScale=previousFontScale;ImGui::PopFont();
         if(!IsVisible())Oot3d::EndGraphicsSettingsPreviews();
     }

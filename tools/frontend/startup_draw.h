@@ -29,6 +29,8 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
  const auto previous=ImGui::GetStyle();const float oldScale=ImGui::GetIO().FontGlobalScale;
  BlueStyle(ImGui::GetStyle());ImGui::GetIO().FontGlobalScale=InterfaceFontScale(MenuScale(viewport->WorkSize.y));
  ImGui::GetStyle().ScaleAllSizes(MenuScale(viewport->WorkSize.y));
+ // Refresh ImGui's cached font metrics after changing the interface scale.
+ ImGui::PushFont(ImGui::GetFont());
  ImGui::SetNextWindowPos(viewport->WorkPos);ImGui::SetNextWindowSize(viewport->WorkSize);
  constexpr auto flags=ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoDocking|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse;
  if(ImGui::Begin("Ocarina ReTuned / Startup",nullptr,flags)) {
@@ -42,7 +44,12 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
    draw->AddImage(StartupArt,p,{p.x+size,p.y+size});
   }
   if(InterfaceBoldFont)ImGui::PushFont(InterfaceBoldFont);
-  const float titleScale=std::min(2.2f,(w-margin*2)/ImGui::CalcTextSize("Ocarina ReTuned").x);
+#ifdef __ANDROID__
+  constexpr float maximumTitleScale=1.7f;
+#else
+  constexpr float maximumTitleScale=2.2f;
+#endif
+  const float titleScale=std::min(maximumTitleScale,(w-margin*2)/ImGui::CalcTextSize("Ocarina ReTuned").x);
   ImGui::SetWindowFontScale(titleScale);
   ImGui::SetCursorPos({w-margin-ImGui::CalcTextSize("Ocarina ReTuned").x,30.f*scale});
   ImGui::TextUnformatted("Ocarina ReTuned");
@@ -91,6 +98,6 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
    } else ImGui::OpenPopup("Game setup");
   }
  }
- ImGui::End();ImGui::GetStyle()=previous;ImGui::GetIO().FontGlobalScale=oldScale;
+ ImGui::End();ImGui::GetStyle()=previous;ImGui::GetIO().FontGlobalScale=oldScale;ImGui::PopFont();
 }
 }
