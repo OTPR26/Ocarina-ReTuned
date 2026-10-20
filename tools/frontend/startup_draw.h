@@ -3,6 +3,7 @@
 #include "retuned_frontend_state.h"
 #include "retuned_responsive_layout.h"
 #include "retuned_artwork.h"
+#include "retuned_startup_layout.h"
 #include "fast/Fast3dGui.h"
 #include "fast/oot3d/graphics_settings_window.h"
 #include "ship/Context.h"
@@ -27,15 +28,16 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
  LoadStartupArt(gui);
  const auto* viewport=ImGui::GetMainViewport();
  const auto previous=ImGui::GetStyle();const float oldScale=ImGui::GetIO().FontGlobalScale;
- BlueStyle(ImGui::GetStyle());ImGui::GetIO().FontGlobalScale=InterfaceFontScale(MenuScale(viewport->WorkSize.y));
- ImGui::GetStyle().ScaleAllSizes(MenuScale(viewport->WorkSize.y));
+ const float startupScale=MobileSettingsPlatform()?MenuScale(viewport->WorkSize.y)/std::max(MenuSize,.1f):MenuScale(viewport->WorkSize.y);
+ BlueStyle(ImGui::GetStyle());ImGui::GetIO().FontGlobalScale=InterfaceFontScale(startupScale);
+ ImGui::GetStyle().ScaleAllSizes(startupScale);
  // Refresh ImGui's cached font metrics after changing the interface scale.
  ImGui::PushFont(ImGui::GetFont());
  ImGui::SetNextWindowPos(viewport->WorkPos);ImGui::SetNextWindowSize(viewport->WorkSize);
  constexpr auto flags=ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoDocking|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse;
  if(ImGui::Begin("Ocarina ReTuned / Startup",nullptr,flags)) {
   const float f=ImGui::GetFontSize(),w=ImGui::GetWindowWidth(),h=ImGui::GetWindowHeight();
-  const float scale=MenuScale(viewport->WorkSize.y),margin=40.f*scale;
+  const float scale=startupScale,margin=40.f*scale;
   auto* draw=ImGui::GetWindowDrawList();
   const ImVec2 origin=ImGui::GetWindowPos();
   if(StartupArt) {
@@ -58,21 +60,23 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
   const char* subtitle="Ocarina of Time 3D";
   ImGui::SetCursorPos({w-margin-ImGui::CalcTextSize(subtitle).x,30.f*scale+f*titleScale+8.f*scale});
   ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark),"%s",subtitle);
-  const float buttonWidth=std::min(w*.40f,f*21),buttonHeight=std::max(f*2.2f,44.f*scale),gap=6.f*scale;
-  const float menuY=std::max(h*.36f,h-64.f*scale-4*buttonHeight-3*gap);
+  const auto menu=StartupLayout(w,h,scale,f,MobileSettingsPlatform(),GameFilesReady);
   ImGui::PushStyleColor(ImGuiCol_Button,ImVec4(0,0,0,0));
   ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign,ImVec2(1.f,.5f));
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,ImVec2(12.f*scale,8.f*scale));
   if(InterfaceBoldFont)ImGui::PushFont(InterfaceBoldFont);
+  ImGui::SetWindowFontScale(menu.TextScale);
   auto menuButton=[&](const char* label,int row){
-   ImGui::SetCursorPos({w-margin-buttonWidth,menuY+row*(buttonHeight+gap)});
-   return ImGui::Button(label,{buttonWidth,buttonHeight});
+   ImGui::SetCursorPos({w-margin-menu.Width,menu.Top+row*(menu.Height+menu.Gap)});
+   return ImGui::Button(label,{menu.Width,menu.Height});
   };
-  if(menuButton("Start game",0)){StartupVisible=false;SetupVisible=false;}
+  if(menu.ShowSetup) {
+   if(menuButton("Setup",0))SetupVisible=true;
+  } else if(menuButton("Start game",0)){StartupVisible=false;SetupVisible=false;}
   if(ImGui::IsWindowAppearing())ImGui::SetItemDefaultFocus();
   if(menuButton("Settings",1))Fast::Oot3d::RequestUnifiedSettings();
-  if(menuButton("Setup",2))SetupVisible=true;
-  if(menuButton("About",3))AboutVisible=true;
+  if(menuButton("About",2))AboutVisible=true;
+  ImGui::SetWindowFontScale(1.f);
   if(InterfaceBoldFont)ImGui::PopFont();
   ImGui::PopStyleVar(2);ImGui::PopStyleColor();
   ImGui::SetCursorPos({28.f*scale,h-44.f*scale});
