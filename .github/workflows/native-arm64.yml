@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: native-arm64-${{ github.ref }}
+  group: native-arm64-${{ github.ref }}-${{ inputs.platform }}
   cancel-in-progress: false
 jobs:
   macos-services:
@@ -39,6 +39,10 @@ jobs:
           build/services/triaevum_native_module_loader_tests build/services/triaevum_mock_module.dylib
   macos-runtime:
     name: macOS ARM64 runtime
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.compiler-cache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 2G
     if: inputs.platform != 'android'
     runs-on: macos-15
     timeout-minutes: 120
@@ -50,8 +54,13 @@ jobs:
           ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
           path: engine
           persist-credentials: false
+      - uses: actions/cache@v5
+        with:
+          path: .compiler-cache
+          key: native-macos-arm64-v1-${{ github.sha }}
+          restore-keys: native-macos-arm64-v1-
       - name: Install native dependencies
-        run: brew install ninja cmake sdl2 glew libzip libpng nlohmann-json tinyxml2 spdlog libogg libvorbis opus opusfile shaderc molten-vk vulkan-loader vulkan-headers dylibbundler
+        run: brew install ccache ninja cmake sdl2 glew libzip libpng nlohmann-json tinyxml2 spdlog libogg libvorbis opus opusfile shaderc molten-vk vulkan-loader vulkan-headers dylibbundler
       - name: Apply macOS port fixes
         run: |
           python3 tools/native/apply_macos_port.py engine
@@ -61,6 +70,7 @@ jobs:
         run: |
           cmake -S engine -B build/runtime -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=13.4 \
             -DCMAKE_C_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=." \
             -DCMAKE_CXX_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=. -fexperimental-library" \

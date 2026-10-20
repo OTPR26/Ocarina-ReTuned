@@ -19,13 +19,40 @@ def apply(root):
          '    std::from_chars(text.data(), text.data() + text.size(), parsed);',
          '    std::istringstream parser(text);\n    parser.imbue(std::locale::classic());\n    parser >> parsed;'),
     ]
+    patches.extend([
+        ('runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_device.cpp',
+         '    VkInstanceCreateInfo createInfo{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };',
+         '''    VkInstanceCreateInfo createInfo{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
+#ifdef __APPLE__
+    const bool portabilityAvailable = std::any_of(
+        available.begin(), available.end(), [](const auto& extension) {
+            return std::strcmp(extension.extensionName,
+                               VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME) == 0;
+        });
+    if (portabilityAvailable) {
+        if (std::none_of(extensions.begin(), extensions.end(), [](const char* name) {
+                return std::strcmp(name, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME) == 0;
+            }))
+            extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+        createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    }
+#endif'''),
+        ('runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_device.cpp',
+         '    std::vector<const char*> extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };',
+         '''    std::vector<const char*> extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+#ifdef __APPLE__
+    if (hasExtension("VK_KHR_portability_subset"))
+        extensions.push_back("VK_KHR_portability_subset");
+#endif'''),
+    ])
     for relative, before, after in patches:
         path = root / relative
         source = path.read_text()
-        if source.count(before) == 1:
-            path.write_text(source.replace(before, after))
-        elif source.count(after) != 1:
+        if source.count(after) == 1:
+            continue
+        if source.count(before) != 1:
             raise ValueError('macOS source fix context changed: ' + relative)
+        path.write_text(source.replace(before, after))
 
 
 

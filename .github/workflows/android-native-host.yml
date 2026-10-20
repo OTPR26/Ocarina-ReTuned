@@ -1,0 +1,48 @@
+name: Android native host prototype
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-native-host-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  android-host:
+    name: Android ARM64 native host
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: coccofresco/TriAevum
+          ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
+          path: engine
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install build tools
+        run: |
+          python -m pip install 'cmake==3.31.6' ninja
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;29.0.14206865'
+      - name: Configure neutral native host
+        run: |
+          cmake -S engine/ports/android/runtime -B build/host -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_HOME/ndk/29.0.14206865/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 -DANDROID_STL=c++_shared \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=." \
+            -DCMAKE_CXX_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=." \
+            -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF \
+            -DTHREE_DS_RECOMP_ENABLE_NRI_UPSCALER_SDKS=OFF \
+            -DTHREE_DS_RECOMP_ENABLE_DLSS_MODULE=OFF
+      - name: Build neutral native host
+        run: cmake --build build/host --parallel 3 --target oot3d_native_game oot3d_native_pica_frontend_tests
+      - name: Stage neutral libraries
+        run: python tools/native/stage_android_host.py --engine engine --build build/host --ndk "$ANDROID_HOME/ndk/29.0.14206865" --output artifacts/Ocarina-ReTuned-Native-Android-arm64.tar.gz
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Ocarina-ReTuned-Native-Android-arm64-${{ github.sha }}
+          path: artifacts/Ocarina-ReTuned-Native-Android-arm64.tar.gz
+          if-no-files-found: error
