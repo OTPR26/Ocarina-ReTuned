@@ -66,6 +66,9 @@ jobs:
         run: |
           python3 tools/native/apply_macos_port.py engine
           python3 tools/reframed/apply_native_port.py engine
+          python3 tools/reframed/apply_renderer_port.py engine
+          clang++ -std=c++20 tests/reframed_scissor.cpp -o reframed-scissor-test
+          ./reframed-scissor-test
           clang++ -std=c++20 -Iengine/tools/oot3d/native_a32_runtime/upstream/recomp tests/reframed_vfp_zero.cpp engine/tools/oot3d/native_a32_runtime/upstream/recomp/a32_vfp_binary64.cpp -o reframed-vfp-test
           ./reframed-vfp-test
           clang++ -std=c++20 tools/native/numeric_probe.cpp -o numeric-probe
