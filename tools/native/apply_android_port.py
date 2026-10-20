@@ -13,6 +13,16 @@ def apply(root):
     if subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
         raise ValueError('Unexpected native runtime revision.')
     apply_common(root)
+    window=root/'runtime/three_ds_recomp/src/fast/backends/gfx_sdl2.cpp'
+    def mobile_window(before,after):
+        value=window.read_text()
+        if after in value:return
+        if value.count(before)!=1:raise ValueError('Android window context changed')
+        window.write_text(value.replace(before,after))
+    mobile_window('void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {',
+                  'void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {\n#ifdef __ANDROID__\n    on=true;\n#endif')
+    mobile_window('    Uint32 flags = SDL_WINDOW_BORDERLESS | SDL_WINDOW_SHOWN;',
+                  '    Uint32 flags = SDL_WINDOW_BORDERLESS | SDL_WINDOW_SHOWN;\n#ifdef __ANDROID__\n    flags |= SDL_WINDOW_FULLSCREEN;\n#endif')
     path = root / 'CMake/oot3d/tests.cmake'
     source = path.read_text()
     if source.count('${CMAKE_CURRENT_SOURCE_DIR}') == 3:
