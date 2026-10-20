@@ -19,7 +19,7 @@ void TestReframedDebugString() {
             "empty debug string does not dereference its pointer");
     state.r[0] = 0x1FFC;
     state.r[1] = 5;
-    Require(host.HandleSvc(0x3D, state, memory, context).Action == NativeA32HostAction::Wait,
+    Require(host.HandleSvc(0x3D, state, memory, context).Action == NativeA32HostAction::Fault,
             "debug string rejects an unmapped byte");
     state.r[0] = 0x1000;
     state.r[1] = 0x1000;
