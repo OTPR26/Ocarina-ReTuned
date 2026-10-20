@@ -29,6 +29,7 @@ jobs:
           repository: libsdl-org/SDL
           ref: 5d249570393f7a37e037abf22cd6012a4cc56a71
           path: sdl
+          sparse-checkout: android-project/app/src/main/java
           persist-credentials: false
       - name: Verify host provenance
         env:
