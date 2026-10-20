@@ -2,6 +2,7 @@
 """Configure the neutral development APK; title libraries stay outside the APK."""
 from pathlib import Path
 import argparse
+import shutil
 
 
 def replace(path, before, after):
@@ -15,6 +16,9 @@ def replace(path, before, after):
 
 def prepare(engine):
     root = Path(engine) / 'ports/android'
+    notices=root/'app/src/main/assets/licenses'
+    notices.mkdir(parents=True,exist_ok=True)
+    shutil.copy2(Path(__file__).parents[2]/'resources/fonts/LICENSE.txt',notices/'interface-font-OFL.txt')
     gradle = root / 'app/build.gradle.kts'
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
