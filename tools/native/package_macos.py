@@ -35,7 +35,8 @@ def package(engine, build, output):
         binary = macos / 'retuned-native'
         shutil.copy2(source, binary)
         subprocess.run(['dylibbundler', '-od', '-b', '-x', str(binary), '-d', str(frameworks),
-                        '-p', '@executable_path/../Frameworks/'], check=True)
+                        '-p', '@executable_path/../Frameworks/', '-s', str(build)],
+                        check=True, input='quit\n', text=True, timeout=120)
         molten = Path(run('brew', '--prefix', 'molten-vk'))
         libraries = sorted(molten.rglob('libMoltenVK.dylib'))
         if not libraries:

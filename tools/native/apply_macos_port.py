@@ -20,6 +20,43 @@ def apply(root):
          '    std::istringstream parser(text);\n    parser.imbue(std::locale::classic());\n    parser >> parsed;'),
     ]
     patches.extend([
+        ('tools/oot3d/native_game_runtime/oot3d_native_direct_aot.cpp',
+         '#elif defined(__linux__)', '#elif defined(__linux__) || defined(__APPLE__)'),
+        ('tools/oot3d/native_game_runtime/oot3d_native_direct_aot.cpp',
+         '#if defined(_WIN32) || defined(__linux__)',
+         '#if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)', 4),
+        ('tools/oot3d/native_game_runtime/oot3d_native_direct_aot.cpp',
+         '#include <dlfcn.h>', '#include <dlfcn.h>\n#if defined(__APPLE__)\n#include <mach-o/dyld.h>\n#endif'),
+        ('tools/oot3d/native_game_runtime/oot3d_native_direct_aot.cpp',
+         '#include <span>', '#include <span>\n#include <vector>'),
+        ('tools/oot3d/native_game_runtime/oot3d_native_direct_aot.cpp',
+         '''        path = std::filesystem::read_symlink("/proc/self/exe").parent_path() /
+               "triaevum_title_aot.so";''',
+         '''#if defined(__APPLE__)
+        uint32_t size = 4096;
+        std::vector<char> executable(size);
+        if (_NSGetExecutablePath(executable.data(), &size) != 0) {
+          executable.resize(size);
+          if (_NSGetExecutablePath(executable.data(), &size) != 0) return nullptr;
+        }
+        path = std::filesystem::weakly_canonical(executable.data()).parent_path() /
+               "triaevum_title_aot.dylib";
+#else
+        path = std::filesystem::read_symlink("/proc/self/exe").parent_path() /
+               "triaevum_title_aot.so";
+#endif'''),
+        ('CMake/oot3d/game.cmake',
+         '''        target_link_libraries(oot3d_native_game PRIVATE
+            triaevum_title_aot_stub)''',
+         '''        if(NOT APPLE)
+            target_link_libraries(oot3d_native_game PRIVATE triaevum_title_aot_stub)
+        endif()'''),
+        ('CMake/oot3d/host_services.cmake',
+         '''        target_link_libraries(oot3d_game_module PRIVATE
+            triaevum_title_aot_stub)''',
+         '''        if(NOT APPLE)
+            target_link_libraries(oot3d_game_module PRIVATE triaevum_title_aot_stub)
+        endif()'''),
         ('tools/oot3d/native_game_runtime/oot3d_scene_environment.cpp',
          'std::to_string(error ? 0 : time.time_since_epoch().count())',
          'std::to_string(error ? 0LL : std::chrono::duration_cast<std::chrono::nanoseconds>(time.time_since_epoch()).count())'),
@@ -51,12 +88,13 @@ def apply(root):
         extensions.push_back("VK_KHR_portability_subset");
 #endif'''),
     ])
-    for relative, before, after in patches:
+    for relative, before, after, *counts in patches:
+        expected = counts[0] if counts else 1
         path = root / relative
         source = path.read_text()
-        if source.count(after) == 1:
+        if source.count(after) == expected:
             continue
-        if source.count(before) != 1:
+        if source.count(before) != expected:
             raise ValueError('macOS source fix context changed: ' + relative)
         path.write_text(source.replace(before, after))
 
