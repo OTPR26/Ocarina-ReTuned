@@ -21,6 +21,19 @@ class ReframedImageTests(unittest.TestCase):
             with self.subTest(payload=payload), self.assertRaises(ValueError):
                 image.apply_ips(b'', payload)
 
+    def test_adjusted_hook_return_is_registered(self):
+        code = bytearray(0x200)
+        hook = image.BASE + 0x100
+        # BL hook; the conditional ADD LR, LR, #12 skips three instructions.
+        struct.pack_into('<I', code, 0, 0xEB000000 | ((hook-image.BASE-8)//4))
+        struct.pack_into('<I', code, 0x100, 0x028EE00C)
+        functions = [{'name': 'hook_Menu', 'entry': hook, 'size': 4}]
+        self.assertEqual(image.adjusted_return_sites(code, [(image.BASE,4)], functions), [image.BASE+16])
+        # A matching word in an unpatched interval must not create a resume point.
+        self.assertEqual(image.adjusted_return_sites(code, [], functions), [])
+        struct.pack_into('<I', code, 0x100, 0x024EE004)
+        self.assertEqual(image.adjusted_return_sites(code, [(image.BASE,4)], functions), [image.BASE])
+
     def test_elf_mapping_separates_instructions_and_data(self):
         listing = '''
   1: 005c7000 0 NOTYPE LOCAL DEFAULT 67 $a

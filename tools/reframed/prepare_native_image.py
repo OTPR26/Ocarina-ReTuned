@@ -54,6 +54,44 @@ def apply_ips(base, patch):
     return data, intervals
 
 
+
+def adjusted_return_sites(image, intervals, functions):
+    adjustments = {}
+    for function in functions:
+        if not function['name'].startswith('hook'):
+            continue
+        deltas = set()
+        for address in range(function['entry'], function['entry'] + function['size'], 4):
+            raw = struct.unpack_from('<I', image, address - BASE)[0]
+            if raw & 0x0E0FF000 != 0x020EE000:
+                continue
+            operation = (raw >> 21) & 15
+            if operation not in (2, 4):
+                continue
+            rotate = ((raw >> 8) & 15) * 2
+            value = raw & 255
+            value = ((value >> rotate) | (value << ((32 - rotate) % 32))) & 0xFFFFFFFF
+            deltas.add(value if operation == 4 else -value)
+        if deltas:
+            adjustments[function['entry']] = deltas
+    sites = set()
+    for start, size in intervals:
+        for address in range((start + 3) & ~3, min(start + size, INJECTION), 4):
+            raw = struct.unpack_from('<I', image, address - BASE)[0]
+            if raw & 0x0F000000 != 0x0B000000 or raw >> 28 == 15:
+                continue
+            relative = raw & 0xFFFFFF
+            if relative & 0x800000:
+                relative -= 0x1000000
+            target = address + 8 + relative * 4
+            for delta in adjustments.get(target, ()):
+                resume = address + 4 + delta
+                if resume % 4 or not BASE <= resume < INJECTION:
+                    raise ValueError('Invalid adjusted native return')
+                sites.add(resume)
+    return sorted(sites)
+
+
 def elf_symbols(readelf, elf):
     listing = subprocess.check_output([str(readelf), '-sW', str(elf)], text=True)
     symbols = []
@@ -132,6 +170,12 @@ def _prepare(args):
         rows.append(row)
         known.add(address)
         additions.append({'entry': address, 'size': size, 'name': name})
+    resumes = adjusted_return_sites(image, intervals, additions)
+    (out / 'observed-sites.json').write_text(json.dumps({
+        'format': 'oot3d_whole_aot_observed_sites_v1',
+        'code_sha256': hashlib.sha256(image).hexdigest(),
+        'sites': [{'pc': hex(pc), 'reason': 'mod-adjusted return'} for pc in resumes]
+    }, indent=2) + '\n')
     rows.sort(key=lambda row: int(row['entry'], 0))
     with (out / 'inventory.csv').open('w', newline='') as destination:
         writer = csv.DictWriter(destination, fieldnames=fields)
