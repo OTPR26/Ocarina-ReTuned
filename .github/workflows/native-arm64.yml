@@ -1,6 +1,11 @@
 name: Native ARM64 prototype
 on:
   workflow_dispatch:
+    inputs:
+      platform:
+        type: choice
+        default: both
+        options: [both, macos, android]
 permissions:
   contents: read
 concurrency:
@@ -9,6 +14,7 @@ concurrency:
 jobs:
   macos-services:
     name: macOS ARM64 services
+    if: inputs.platform != 'android'
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -27,11 +33,13 @@ jobs:
       - name: Run native service tests
         run: |
           set -e
-          for test in triaevum_input_service_tests triaevum_audio_service_tests triaevum_filesystem_service_tests triaevum_module_tests triaevum_tam_metadata_tests triaevum_native_module_loader_tests triaevum_pica_service_adapter_tests; do
+          for test in triaevum_input_service_tests triaevum_audio_service_tests triaevum_filesystem_service_tests triaevum_module_tests triaevum_tam_metadata_tests triaevum_pica_service_adapter_tests; do
             build/services/"$test"
           done
+          build/services/triaevum_native_module_loader_tests build/services/triaevum_mock_module.dylib
   macos-runtime:
     name: macOS ARM64 runtime
+    if: inputs.platform != 'android'
     runs-on: macos-15
     timeout-minutes: 120
     steps:
@@ -50,7 +58,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=13.4 \
             -DCMAKE_C_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=." \
-            -DCMAKE_CXX_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=." \
+            -DCMAKE_CXX_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=. -fexperimental-library" \
             -DOOT3D_WHOLE_AOT_PRODUCT_MODE=ON -DOOT3D_DIRECT_AOT_PLUGIN=ON \
             -DOOT3D_ENABLE_VULKAN_RENDERER=ON -DTHREE_DS_RECOMP_ENABLE_NRI=ON \
             -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF \
@@ -63,6 +71,7 @@ jobs:
         run: cmake --build build/runtime --parallel 3 --target triaevum_public_runtime
   android-services:
     name: Android ARM64 services
+    if: inputs.platform != 'macos'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
