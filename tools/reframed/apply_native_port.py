@@ -75,6 +75,8 @@ def apply(engine):
          query + '\nsize_t NativeA32Memory::RegionCount() const {')
     query_svc = Path(__file__).with_name('query_memory_svc.cpp.inc').read_text()
     edit(host, '    case 0x08: {', query_svc + '    case 0x08: {')
+    debug_svc = Path(__file__).with_name('debug_string_svc.cpp.inc').read_text()
+    edit(host, '    case 0x39:', debug_svc + '    case 0x39:')
     hid = header.parent / 'oot3d_native_a32_ctr_host_hid.cpp'
     addition = Path(__file__).with_name('irst_service.cpp.inc').read_text()
     edit(hid, '} // namespace Oot3dNativeGame', addition + '\n} // namespace Oot3dNativeGame')
@@ -90,6 +92,9 @@ def apply(engine):
     if 'void TestReframedQueryMemory()' not in tests.read_text():
         edit(tests, 'int main() {', query_tests + '\nint main() {\n    TestReframedQueryMemory();')
 
+    debug_tests = Path(__file__).with_name('debug_string_tests.cpp.inc').read_text()
+    if 'void TestReframedDebugString()' not in tests.read_text():
+        edit(tests, 'int main() {', debug_tests + '\nint main() {\n    TestReframedDebugString();')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
