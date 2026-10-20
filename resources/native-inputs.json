@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "source_revision": "17218b0cfdb944645bb5cde5249f313dca7e53ce",
+  "inputs": [
+    {
+      "region": "USA",
+      "program_id": "0004000000033500",
+      "code": {"bytes": 4567040, "sha256": "ef210566e1d9d16879a746dfb063fcbad232f0171d860de906531ecc526cc020"},
+      "exheader": {"bytes": 2048, "sha256": "dbe5fa0174d73bffb75d7cf0fbaa05d3e0ee080df0e257afc58b6c45ae5de3d0"},
+      "romfs": {"bytes": 473526272, "sha256": "dd6def65af151d40fcbba7202c36bbdd8ed5b5b431373dc6a8c89bfd708af690"}
+    }
+  ]
+}

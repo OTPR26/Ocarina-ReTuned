@@ -14,6 +14,6 @@
   "renderer_reference": {
     "repository": "https://github.com/coccofresco/TriAevum",
     "revision": "17218b0cfdb944645bb5cde5249f313dca7e53ce",
-    "status": "research only; no source imported"
+    "status": "native runtime baseline; macOS and Android bring-up"
   }
 }

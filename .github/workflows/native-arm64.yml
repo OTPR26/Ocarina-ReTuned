@@ -52,6 +52,8 @@ jobs:
           persist-credentials: false
       - name: Install native dependencies
         run: brew install ninja cmake sdl2 glew libzip libpng nlohmann-json tinyxml2 spdlog libogg libvorbis opus opusfile shaderc molten-vk vulkan-loader vulkan-headers
+      - name: Apply macOS port fixes
+        run: python3 tools/native/apply_macos_port.py engine
       - name: Configure neutral runtime
         run: |
           cmake -S engine -B build/runtime -G Ninja \
