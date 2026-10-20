@@ -2,6 +2,9 @@
 #pragma once
 #include <imgui.h>
 namespace RetunedFrontend {
+inline ImGuiWindowFlags GameCanvasFlags(ImGuiWindowFlags flags) {
+ return flags|ImGuiWindowFlags_NoNav|ImGuiWindowFlags_NoFocusOnAppearing|ImGuiWindowFlags_NoBringToFrontOnFocus;
+}
 inline bool MenuBackClosesSettings(bool back,bool popupBefore,bool editingBefore,bool popupNow) {
  return back && !popupBefore && !editingBefore && !popupNow;
 }

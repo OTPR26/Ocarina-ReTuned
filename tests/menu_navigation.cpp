@@ -2,6 +2,7 @@
 #include <cassert>
 #include "../tools/frontend/menu_navigation.h"
 int main() {
+ for(bool canvasProtected : {false,true}) {
  ImGui::CreateContext();auto& io=ImGui::GetIO();io.IniFilename=nullptr;io.LogFilename=nullptr;
  io.DisplaySize={1280,720};io.DeltaTime=1.f/60;
  RetunedFrontend::EnableMenuNavigation(true);
@@ -13,11 +14,15 @@ int main() {
   RetunedFrontend::Toggle("First option",&first);
   if(ImGui::IsWindowAppearing())ImGui::SetItemDefaultFocus();
   RetunedFrontend::Toggle("Second option",&second);
+  ImGui::End();
+  // The renderer submits its empty canvas after the menu. It must not steal focus.
+  ImGui::Begin("Main Game",nullptr,canvasProtected?RetunedFrontend::GameCanvasFlags(ImGuiWindowFlags_NoTitleBar):ImGuiWindowFlags_NoTitleBar);
   ImGui::End();ImGui::Render();
  };
  frame();frame();
  // Remote click is Enter; the paired controller uses its primary face button.
  io.AddKeyEvent(ImGuiKey_Enter,true);frame();io.AddKeyEvent(ImGuiKey_Enter,false);frame();
+ if(!canvasProtected){assert(!first && !second);ImGui::DestroyContext();continue;}
  assert(first && !second);
  io.AddKeyEvent(ImGuiKey_DownArrow,true);frame();io.AddKeyEvent(ImGuiKey_DownArrow,false);frame();frame();
  io.AddKeyEvent(ImGuiKey_Enter,true);frame();io.AddKeyEvent(ImGuiKey_Enter,false);frame();
@@ -32,4 +37,5 @@ int main() {
  assert(RetunedFrontend::RemoteBackTogglesSettings(true,true,false,false));
  assert(!RetunedFrontend::RemoteBackTogglesSettings(false,true,true,false));
  ImGui::DestroyContext();
+ }
 }

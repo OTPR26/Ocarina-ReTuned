@@ -25,6 +25,12 @@ def apply(engine):
                 }
             }
 '''+anchor)
+    text=gui.read_text()
+    before='    ImGui::Begin("Main Game", nullptr, flags);'
+    after='    if(RetunedFrontend::NativeFrontendEnabled)flags=RetunedFrontend::GameCanvasFlags(flags);\n'+before
+    if after not in text:
+        assert text.count(before)==2
+        gui.write_text(text.replace(before,after))
     core=engine/'runtime/three_ds_recomp/src/ship/window/gui/Gui.cpp'
     text=core.read_text()
     if '(!RetunedFrontend::TelevisionPlatform() && ImGui::IsKeyPressed(ImGuiKey_Escape, false))' not in text:
