@@ -77,6 +77,13 @@ def apply(engine):
     edit(host, '    case 0x08: {', query_svc + '    case 0x08: {')
     debug_svc = Path(__file__).with_name('debug_string_svc.cpp.inc').read_text()
     edit(host, '    case 0x39:', debug_svc + '    case 0x39:')
+    edit(header, 'struct NativeA32CtrHostConfig {',
+         'struct NativeA32CtrHostConfig {\n    bool WritableHidSharedMemory = false;')
+    edit(host, '                 (permissions & 2U) != 0,',
+         '                 (permissions & 2U) != 0 || (mConfig.WritableHidSharedMemory && memoryBlock->Object->Type == "shared_memory:hid"),')
+    setup = header.parent / 'oot3d_native_a32_window_setup.cpp'
+    edit(setup, '  hostConfig.SystemLanguage = languageSettings->SystemId();',
+         '  hostConfig.WritableHidSharedMemory = launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed;\n  hostConfig.SystemLanguage = languageSettings->SystemId();')
     hid = header.parent / 'oot3d_native_a32_ctr_host_hid.cpp'
     addition = Path(__file__).with_name('irst_service.cpp.inc').read_text()
     edit(hid, '} // namespace Oot3dNativeGame', addition + '\n} // namespace Oot3dNativeGame')
@@ -95,6 +102,10 @@ def apply(engine):
     debug_tests = Path(__file__).with_name('debug_string_tests.cpp.inc').read_text()
     if 'void TestReframedDebugString()' not in tests.read_text():
         edit(tests, 'int main() {', debug_tests + '\nint main() {\n    TestReframedDebugString();')
+    hid_tests = Path(__file__).with_name('hid_write_tests.cpp.inc').read_text()
+    if 'void TestReframedHidWrites()' not in tests.read_text():
+        edit(tests, 'int main() {', hid_tests + '\nint main() {\n    TestReframedHidWrites();')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
