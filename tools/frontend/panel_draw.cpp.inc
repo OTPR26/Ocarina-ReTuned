@@ -1,10 +1,15 @@
 void GraphicsSettingsPanel::Draw() {
-    DrawPresentationStatus();
+
     static int page=0;
     const char* pages[]={"General","Controls","HUD","Quality of life","Graphics","Lighting","Textures","Save states","Language","Advanced"};
     const float font=ImGui::GetFontSize();
     ImGui::BeginChild("##Navigation",ImVec2(std::clamp(ImGui::GetContentRegionAvail().x*.23f,font*10,font*15),0),true);
-    for(int i=0;i<10;++i)if(ImGui::Selectable(pages[i],page==i,0,ImVec2(0,font*2.1f)))page=i;
+    for(int i=0;i<10;++i){
+        const bool selected=page==i;
+        if(selected)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));
+        if(ImGui::Button(pages[i],ImVec2(-1,font*2.5f)))page=i;
+        if(selected)ImGui::PopStyleColor();
+    }
     ImGui::EndChild();ImGui::SameLine();
     ImGui::BeginChild("##SettingsPage",ImVec2(0,0),true);
     ImGui::TextColored(ImVec4(.39f,.70f,1,1),"%s",pages[page]);ImGui::Separator();ImGui::Spacing();

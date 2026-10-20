@@ -1,5 +1,6 @@
 #pragma once
 #include "oot3d_native_a32_process.h"
+#include "fast/oot3d/retuned_blue_style.h"
 #include "fast/oot3d/graphics_settings_window.h"
 #include "ship/Context.h"
 #include "ship/config/Config.h"
@@ -113,6 +114,7 @@ class Panel final:public Fast::Oot3d::GraphicsSettingsPanelTab {
         ImGui::BeginDisabled(!settings.Ready());
         auto combo=[&](size_t index,const char* label,const char* choices,const char* help){
             int value=settings.Value(index);
+            if(index==2){bool enabled=value==0;if(Toggle("Motion aiming",&enabled))settings.Set(index,enabled?0:1);ImGui::Spacing();return;}
             ImGui::TextUnformatted(label);ImGui::SetNextItemWidth(std::min(ImGui::GetContentRegionAvail().x,ImGui::GetFontSize()*24));
             ImGui::PushID(static_cast<int>(index));
             if(ImGui::Combo("##value",&value,choices))settings.Set(index,value);

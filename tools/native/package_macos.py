@@ -87,6 +87,7 @@ exec "$contents/MacOS/retuned-native" --launch-profile "$HOME/Library/Applicatio
         (contents / 'Info.plist').write_bytes(plistlib.dumps(metadata))
         notices = resources / 'licenses'
         notices.mkdir()
+        shutil.copy2(Path(__file__).resolve().parents[2] / "resources/fonts/LICENSE.txt", notices / "interface-font-OFL.txt")
         for name in ('LICENSE_SCOPE.md', 'THIRD_PARTY_NOTICES.md'):
             shutil.copy2(engine / name, notices / name)
         for license_name in ('LICENSE', 'LICENSE.md', 'LICENSE.txt'):

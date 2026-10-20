@@ -37,9 +37,31 @@ def apply(engine):
     edit(runtime/'oot3d_native_a32_ctr_host.cpp','    case 0x08: {','    case 0x7E: {\n        event.Name = "OpenFrontendSettings";\n        if (!mConfig.OpenFrontendSettings) return {NativeA32HostAction::Fault};\n        mConfig.OpenFrontendSettings();state.r[0]=kResultSuccess;event.Handled=true;\n        mSvcEvents.push_back(std::move(event));return {NativeA32HostAction::Resume};\n    }\n    case 0x08: {')
     edit(runtime/'oot3d_native_controls_settings_panel.cpp', '"ZL", "ZR", "Select", "Start",', '"ZL", "ZR", "Inventory / pause", "Save menu",')
     controls_panel=runtime/'oot3d_native_controls_settings_panel.cpp'
-    edit(controls_panel,
-         '          // A single scrolling body; persistence never scrolls with the fields.\n          ImGui::BeginChild(label, ImVec2(0.0F, std::max(\n              1.0F, ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() * 3.0F)));\n          draw();\n          ImGui::EndChild();',
-         '          // The unified page owns scrolling, including every binding row.\n          draw();')
+    panel=controls_panel.read_text()
+    body=panel.index('  void Draw() override {')
+    marker='    ImGui::TextDisabled("Select a binding' if '    ImGui::TextDisabled("Select a binding' in panel else '    DrawProfile();'
+    start=panel.index(marker,body)
+    end=panel.index('    DrawBindingCapture();',start)
+    panel=panel[:start]+(source/'controls_sections.cpp.inc').read_text()+panel[end:]
+    start=panel.index('  void DrawBindings()');end=panel.index('  void DrawBindingGroup(',start)
+    panel=panel[:start]+(source/'bindings_draw.cpp.inc').read_text()+panel[end:]
+    start=panel.index('  void DrawBindingGroup(');end=panel.index('\n  void DrawAnalog()',start)
+    panel=panel[:start]+(source/'binding_rows.cpp.inc').read_text()+panel[end:]
+    controls_panel.write_text(panel)
+    for styled in (controls_panel,graphics):
+        text=styled.read_text()
+        if '#include "fast/oot3d/retuned_blue_style.h"' not in text:
+            text='#include "fast/oot3d/retuned_blue_style.h"\n'+text
+        styled.write_text(text.replace('ImGui::Checkbox(', 'RetunedFrontend::Toggle('))
+    font=(source.parents[1]/'resources/fonts/InterfaceSans-Regular.ttf').read_bytes()
+    font_header=include/'retuned_interface_font.h'
+    font_header.write_text('#pragma once\nnamespace RetunedFrontend { inline unsigned char InterfaceFont[] = {\n'+
+        ','.join(str(byte) for byte in font)+'\n}; }\n')
+    gui_core=engine/'runtime/three_ds_recomp/src/ship/window/gui/Gui.cpp'
+    edit(gui_core,'#include "ship/window/gui/Gui.h"','#include "ship/window/gui/Gui.h"\n#include "fast/oot3d/retuned_interface_font.h"')
+    edit(gui_core,'    mImGuiIo->Fonts->AddFontDefault();',
+         '    ImFontConfig interfaceFont; interfaceFont.FontDataOwnedByAtlas=false;\n    interfaceFont.OversampleH=2; interfaceFont.OversampleV=2;\n    mImGuiIo->Fonts->AddFontFromMemoryTTF(RetunedFrontend::InterfaceFont,sizeof(RetunedFrontend::InterfaceFont),40.f,&interfaceFont);\n    mImGuiIo->FontGlobalScale=.5f;')
+    edit(gui_core,'    float baseFontSize = 13.0f;','    float baseFontSize = 40.0f;')
     controls=runtime/'oot3d_native_control_config.cpp'
     edit(controls,'SetKeyboardBinding(config, NativeControlAction::Select,\n                     NativeKeyboardKey::Tab, NativeKeyboardKey::Backspace);\n  SetKeyboardBinding(config, NativeControlAction::Start,\n                     NativeKeyboardKey::Enter);','SetKeyboardBinding(config, NativeControlAction::Select,\n                     NativeKeyboardKey::Enter);\n  SetKeyboardBinding(config, NativeControlAction::Start,\n                     NativeKeyboardKey::Tab, NativeKeyboardKey::Backspace);')
     edit(controls,'SetGamepadBinding(config, NativeControlAction::Select,\n                    NativeGamepadButton::Back);\n  SetGamepadBinding(config, NativeControlAction::Start,\n                    NativeGamepadButton::Start);','SetGamepadBinding(config, NativeControlAction::Select,\n                    NativeGamepadButton::Start);\n  SetGamepadBinding(config, NativeControlAction::Start,\n                    NativeGamepadButton::Back);')
