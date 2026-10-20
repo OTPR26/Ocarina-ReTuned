@@ -39,7 +39,12 @@ jobs:
           python -m pip install 'cmake==3.31.6' ninja
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;29.0.14206865'
       - name: Apply Android port fixes
-        run: python tools/native/apply_android_port.py engine
+        run: |
+          python tools/native/apply_android_port.py engine
+          python tools/reframed/apply_native_port.py engine
+          python tools/reframed/apply_renderer_port.py engine
+          python tools/native/apply_audio_port.py engine
+          python tools/frontend/apply_frontend_port.py engine
       - name: Configure neutral native host
         run: |
           cmake -S engine/ports/android/runtime -B build/host -G Ninja \
