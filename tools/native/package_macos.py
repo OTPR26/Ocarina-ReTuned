@@ -44,6 +44,11 @@ def package(engine, build, output):
             subprocess.run(['dylibbundler', '-od', '-b', '-x', str(frameworks / 'libSDL3.dylib'),
                             '-d', str(frameworks), '-p', '@loader_path/', '-s', str(sdl3.parent)],
                             check=True, input='quit\n', text=True, timeout=120)
+        vulkan = sorted(frameworks.glob('libvulkan.1.*.dylib'))
+        if len(vulkan) != 1:
+            raise ValueError('Expected one Vulkan loader.')
+        (frameworks / 'libvulkan.1.dylib').symlink_to(vulkan[0].name)
+        shutil.copy2(engine / 'runtime/triaevum_resources/gamecontrollerdb.txt', resources)
         molten = Path(run('brew', '--prefix', 'molten-vk'))
         libraries = sorted(molten.rglob('libMoltenVK.dylib'))
         if not libraries:

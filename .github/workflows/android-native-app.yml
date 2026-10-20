@@ -1,0 +1,87 @@
+name: Android native app prototype
+on:
+  workflow_dispatch:
+    inputs:
+      host_run:
+        description: Successful neutral host run ID
+        required: true
+      host_revision:
+        description: Exact neutral host revision
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    name: Android ARM64 prototype APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: coccofresco/TriAevum
+          ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
+          path: engine
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: libsdl-org/SDL
+          ref: 5d249570393f7a37e037abf22cd6012a4cc56a71
+          path: sdl
+          persist-credentials: false
+      - name: Verify host provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOST_RUN: ${{ inputs.host_run }}
+          HOST_REVISION: ${{ inputs.host_revision }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$HOST_RUN" > host-run.json
+          python - <<'PY'
+          import json, os
+          r = json.load(open('host-run.json'))
+          assert r['repository']['full_name'] == os.environ['GITHUB_REPOSITORY']
+          assert r['head_sha'] == os.environ['HOST_REVISION']
+          assert r['conclusion'] == 'success'
+          assert r['path'] == '.github/workflows/android-native-host.yml'
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.host_run }}
+          name: Ocarina-ReTuned-Native-Android-arm64-${{ inputs.host_revision }}
+          path: host
+      - name: Prepare neutral APK
+        run: |
+          python - <<'PY'
+          import tarfile
+          with tarfile.open('host/Ocarina-ReTuned-Native-Android-arm64.tar.gz') as t:
+              t.extractall('stage', filter='data')
+          PY
+          python tools/native/prepare_android_app.py engine
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Package unsigned prototype
+        run: |
+          gradle -p engine/ports/android :app:assembleRelease \
+            -PtriaevumSdlSource="$GITHUB_WORKSPACE/sdl" \
+            -PtriaevumNativeStage="$GITHUB_WORKSPACE/stage/Ocarina-ReTuned-Native-Android"
+          mkdir -p artifacts
+          cp engine/ports/android/app/build/outputs/apk/release/app-release-unsigned.apk artifacts/Ocarina-ReTuned-Native-Android-arm64-unsigned.apk
+          python - <<'PY'
+          import zipfile
+          p = 'artifacts/Ocarina-ReTuned-Native-Android-arm64-unsigned.apk'
+          with zipfile.ZipFile(p) as z:
+              assert not any('title_aot' in n for n in z.namelist()), 'Title code in public APK'
+              assert not any(n.lower().endswith(('.cci','.3ds','.cia','.romfs','.zobj','.pak')) for n in z.namelist())
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Ocarina-ReTuned-Native-Android-APK-${{ github.sha }}
+          path: artifacts/*.apk
+          if-no-files-found: error
