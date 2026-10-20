@@ -83,8 +83,9 @@ def apply(engine):
     (include/'retuned_settings_button.h').write_text((source/'settings_button.h').read_text())
     edit(frame,'#include "retuned_reframed_settings.h"','#include "retuned_reframed_settings.h"\n#include "fast/oot3d/retuned_settings_button.h"')
     edit(gui,'#include "fast/oot3d/retuned_blue_style.h"','#include "fast/oot3d/retuned_blue_style.h"\n#include "fast/oot3d/retuned_tab_hints.h"')
-    edit(gui,'void Fast3dGui::DrawMenu() {\n    Ship::Gui::DrawMenu();',
-         'void Fast3dGui::DrawMenu() {\n    Ship::Gui::DrawMenu();\n    if(!GetAnyGuiWindowVisible())RetunedFrontend::DrawTabHints();')
+    if 'RetunedFrontend::DrawTabHints();' not in gui.read_text():
+        edit(gui,'void Fast3dGui::DrawMenu() {\n    Ship::Gui::DrawMenu();',
+             'void Fast3dGui::DrawMenu() {\n    Ship::Gui::DrawMenu();\n    if(!GetAnyGuiWindowVisible())RetunedFrontend::DrawTabHints();')
     host=runtime/'oot3d_native_a32_ctr_host.cpp'
     edit(runtime/'oot3d_native_a32_ctr_host.h','    std::function<void()> OpenFrontendSettings;','    std::function<void()> OpenFrontendSettings;\n    std::function<void()> PublishPauseTabHints;')
     edit(setup,'#include "retuned_load_texture_aliases.h"','#include "retuned_load_texture_aliases.h"\n#include "fast/oot3d/retuned_tab_hints.h"')

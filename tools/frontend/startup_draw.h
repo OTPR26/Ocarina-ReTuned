@@ -10,7 +10,10 @@
 namespace RetunedFrontend {
 inline ImTextureID StartupArt=0;
 inline void LoadStartupArt(Fast::Fast3dGui& gui) {
- if(StartupArt)return;
+ if(gui.HasTextureByName("retuned-ocarina")) {
+  StartupArt=gui.GetTextureByName("retuned-ocarina");
+  return;
+ }
  auto texture=std::make_shared<Ship::GuiTexture>();
  texture->Data=stbi_load_from_memory(OcarinaArtwork,sizeof(OcarinaArtwork),&texture->Metadata.Width,&texture->Metadata.Height,nullptr,4);
  if(!texture->Data)return;
