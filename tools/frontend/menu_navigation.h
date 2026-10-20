@@ -2,6 +2,10 @@
 #pragma once
 #include <imgui.h>
 namespace RetunedFrontend {
+inline bool RefreshMenuGamepads(int count,int& previous,unsigned now,unsigned& last,bool ready) {
+ const bool refresh=count!=previous || (count>0 && !ready && unsigned(now-last)>=250);
+ previous=count;if(refresh)last=now;return refresh;
+}
 inline ImGuiWindowFlags GameCanvasFlags(ImGuiWindowFlags flags) {
  return flags|ImGuiWindowFlags_NoNav|ImGuiWindowFlags_NoFocusOnAppearing|ImGuiWindowFlags_NoBringToFrontOnFocus;
 }

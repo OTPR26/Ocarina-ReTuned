@@ -45,6 +45,7 @@ int main(int, char**) {
         SDL_setenv("SDL_VULKAN_LIBRARY",[[bundle stringByAppendingPathComponent:@"Frameworks/MoltenVK.framework/MoltenVK"] UTF8String],1);
 #if TARGET_OS_TV
         SDL_SetHint(SDL_HINT_TV_REMOTE_AS_JOYSTICK,"0");
+        SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS,"1");
         SDL_SetHint(SDL_HINT_APPLE_TV_CONTROLLER_UI_EVENTS,"0");
         const NSSearchPathDirectory storageDirectory=NSCachesDirectory;
 #else

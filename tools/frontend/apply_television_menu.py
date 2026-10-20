@@ -10,6 +10,21 @@ def apply(engine):
             ImGui_ImplSDL2_NewFrame();''')
     edit(gui,'            ImGui_ImplSDL2_InitForVulkan(static_cast<SDL_Window*>(mImpl.Vulkan.Window));', '''            ImGui_ImplSDL2_InitForVulkan(static_cast<SDL_Window*>(mImpl.Vulkan.Window));
             if(RetunedFrontend::TelevisionPlatform())ImGui_ImplSDL2_SetGamepadMode(ImGui_ImplSDL2_GamepadMode_AutoAll);''')
+    if 'extern "C" void RetunedTVUpdateRemote' not in gui.read_text():
+        text=gui.read_text()
+        gui.write_text(text.replace('#include "fast/oot3d/retuned_startup_draw.h"',
+             '#include "fast/oot3d/retuned_startup_draw.h"\n#if defined(__APPLE__) && TARGET_OS_TV\nextern "C" void RetunedTVUpdateRemote(bool startup,bool settings);\n#endif',1))
+    if '            RetunedTVUpdateRemote(' not in gui.read_text():
+        edit(gui,'            ImGui_ImplSDL2_NewFrame();', '''#if defined(__APPLE__) && TARGET_OS_TV
+            static int menuGamepadCount=-1;static unsigned lastMenuGamepadRefresh=0;
+            if(RetunedFrontend::RefreshMenuGamepads(SDL_NumJoysticks(),menuGamepadCount,SDL_GetTicks(),lastMenuGamepadRefresh,
+                (ImGui::GetIO().BackendFlags&ImGuiBackendFlags_HasGamepad)!=0))
+                ImGui_ImplSDL2_SetGamepadMode(ImGui_ImplSDL2_GamepadMode_AutoAll);
+#endif
+            ImGui_ImplSDL2_NewFrame();
+#if defined(__APPLE__) && TARGET_OS_TV
+            RetunedTVUpdateRemote(RetunedFrontend::StartupVisible,GetAnyGuiWindowVisible());
+#endif''')
     anchor='            switch (sdlEvent.type) {'
     text=gui.read_text()
     begin=text.find('            if(RetunedFrontend::TelevisionPlatform() && RetunedFrontend::NativeFrontendEnabled &&')

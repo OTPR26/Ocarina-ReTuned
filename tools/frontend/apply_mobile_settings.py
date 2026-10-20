@@ -50,3 +50,7 @@ def apply(engine):
     edit(states,'    if (ImGui::Button("Choose a state file...")) {','    if (!RetunedFrontend::MobileSettingsPlatform() && ImGui::Button("Choose a state file...")) {')
     s=states.read_text().replace('    ImGui::SameLine();','    if(!RetunedFrontend::MobileSettingsPlatform())ImGui::SameLine();');states.write_text(s)
     edit(states,'    ImGui::TextDisabled("Select a state to make it the one F8 loads.");','    ImGui::TextWrapped("Select a state to use with Load last state.");')
+    from apply_render_resolution import apply as apply_resolution
+    apply_resolution(engine)
+    from apply_texture_memory import apply as apply_memory
+    apply_memory(engine)

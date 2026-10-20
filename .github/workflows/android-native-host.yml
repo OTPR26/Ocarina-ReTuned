@@ -63,6 +63,10 @@ jobs:
           ./touch-hud-test
           c++ -std=c++20 tests/settings_categories.cpp -o settings-categories-test
           ./settings-categories-test
+          c++ -std=c++20 tests/render_resolution.cpp -o render-resolution-test
+          ./render-resolution-test
+          c++ -std=c++20 tests/texture_memory.cpp -o texture-memory-test
+          ./texture-memory-test
           c++ -std=c++20 tests/output_gain.cpp -o output-gain-test
           ./output-gain-test
           c++ -std=c++20 tests/texture_folder.cpp -o texture-folder-test
@@ -88,6 +92,8 @@ jobs:
         run: |
           c++ -std=c++20 -I build/host/_deps/imgui-src tests/menu_navigation.cpp build/host/_deps/imgui-src/imgui.cpp build/host/_deps/imgui-src/imgui_draw.cpp build/host/_deps/imgui-src/imgui_tables.cpp build/host/_deps/imgui-src/imgui_widgets.cpp -o menu-navigation-test
           ./menu-navigation-test
+          c++ -std=c++20 -I build/host/_deps/imgui-src tests/television_remote.cpp -o television-remote-test
+          ./television-remote-test
       - name: Build neutral native host
         run: cmake --build build/host --parallel 3 --target oot3d_native_game oot3d_native_pica_frontend_tests
       - name: Stage neutral libraries

@@ -46,7 +46,7 @@ def apply(engine):
          'void GfxWindowBackendSDL2::SetDimensions(uint32_t width, uint32_t height, int32_t posX, int32_t posY) {\n#if defined(__ANDROID__) || defined(__IOS__)')
     app=engine/'ports/apple'
     app.mkdir(parents=True,exist_ok=True)
-    for name in ('app.cmake','apple_main.mm','patch_sdl_scenes.py','finalize_bundle.py','touch_controls.mm','touch_controls.h','touch_input.cpp','touch_input_api.h','texture_folder.mm'):
+    for name in ('app.cmake','apple_main.mm','patch_sdl_scenes.py','finalize_bundle.py','touch_controls.mm','touch_controls.h','touch_input.cpp','touch_input_api.h','texture_folder.mm','television_remote.mm'):
         (app/name).write_text(Path(__file__).with_name(name).read_text())
     from importlib.util import spec_from_file_location,module_from_spec
     artwork_spec=spec_from_file_location('retuned_touch_artwork',Path(__file__).parents[1]/'prepare_touch_artwork.py')

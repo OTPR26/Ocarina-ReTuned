@@ -43,7 +43,7 @@
         }
         ImGui::End();ImGui::GetStyle()=previous;ImGui::GetIO().FontGlobalScale=previousFontScale;ImGui::PopFont();
         if(RetunedFrontend::TelevisionPlatform() && RetunedFrontend::MenuBackClosesSettings(
-           ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight,false),popupBefore,editingBefore,
+           (ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight,false)||ImGui::IsKeyPressed(ImGuiKey_Escape,false)),popupBefore,editingBefore,
            ImGui::IsPopupOpen(nullptr,ImGuiPopupFlags_AnyPopupId|ImGuiPopupFlags_AnyPopupLevel)))SetVisibility(false);
         if(!IsVisible())Oot3d::EndGraphicsSettingsPreviews();
     }

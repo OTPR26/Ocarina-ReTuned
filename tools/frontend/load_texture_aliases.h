@@ -1,5 +1,6 @@
 #pragma once
 #include "oot3d/renderer/azahar_texture_pack.h"
+#include "fast/oot3d/retuned_texture_memory.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <filesystem>
@@ -13,6 +14,7 @@ inline void LoadTextureAliases(const std::filesystem::path& path) {
         if(!entries.is_array() || entries.size()>256)throw std::runtime_error("Invalid texture compatibility manifest");
         for(const auto& entry:entries)aliases.push_back({entry.at("native").get<uint64_t>(),entry.at("original").get<uint64_t>(),entry.at("modern").get<bool>()});
     }
+    PublishInterfaceTextureHashes(aliases);
     Oot3d::Renderer::AzaharTexturePackRuntime::Instance().SetHashAliases(std::move(aliases));
 }
 }
