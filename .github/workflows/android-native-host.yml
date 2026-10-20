@@ -9,6 +9,10 @@ concurrency:
 jobs:
   android-host:
     name: Android ARM64 native host
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.compiler-cache-android
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 2G
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -22,16 +26,27 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
+      - uses: actions/cache/restore@v5
+        id: native_cache
+        with:
+          path: .compiler-cache-android
+          key: native-android-arm64-v1-${{ github.sha }}
+          restore-keys: native-android-arm64-v1-
       - name: Install build tools
         run: |
+          sudo apt-get update
+          sudo apt-get install -y ccache
           python -m pip install 'cmake==3.31.6' ninja
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;29.0.14206865'
+      - name: Apply Android port fixes
+        run: python tools/native/apply_android_port.py engine
       - name: Configure neutral native host
         run: |
           cmake -S engine/ports/android/runtime -B build/host -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$ANDROID_HOME/ndk/29.0.14206865/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 -DANDROID_STL=c++_shared \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_C_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=." \
             -DCMAKE_CXX_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=." \
             -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF \
@@ -46,3 +61,8 @@ jobs:
           name: Ocarina-ReTuned-Native-Android-arm64-${{ github.sha }}
           path: artifacts/Ocarina-ReTuned-Native-Android-arm64.tar.gz
           if-no-files-found: error
+      - uses: actions/cache/save@v5
+        if: always() && steps.native_cache.outputs.cache-hit != 'true'
+        with:
+          path: .compiler-cache-android
+          key: native-android-arm64-v1-${{ github.sha }}

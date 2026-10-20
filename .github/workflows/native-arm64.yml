@@ -54,7 +54,8 @@ jobs:
           ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
           path: engine
           persist-credentials: false
-      - uses: actions/cache@v5
+      - uses: actions/cache/restore@v5
+        id: native_cache
         with:
           path: .compiler-cache
           key: native-macos-arm64-v1-${{ github.sha }}
@@ -91,6 +92,11 @@ jobs:
           name: Ocarina-ReTuned-Native-macOS-arm64-${{ github.sha }}
           path: artifacts/Ocarina-ReTuned-Native-macOS-arm64.zip
           if-no-files-found: error
+      - uses: actions/cache/save@v5
+        if: always() && steps.native_cache.outputs.cache-hit != 'true'
+        with:
+          path: .compiler-cache
+          key: native-macos-arm64-v1-${{ github.sha }}
   android-services:
     name: Android ARM64 services
     if: inputs.platform != 'macos'

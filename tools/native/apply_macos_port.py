@@ -20,6 +20,9 @@ def apply(root):
          '    std::istringstream parser(text);\n    parser.imbue(std::locale::classic());\n    parser >> parsed;'),
     ]
     patches.extend([
+        ('tools/oot3d/native_game_runtime/oot3d_savestate_panel.cpp',
+         'std::chrono::clock_cast<std::chrono::system_clock>(time)',
+         'std::chrono::time_point_cast<std::chrono::system_clock::duration>(std::chrono::file_clock::to_sys(time))'),
         ('runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_device.cpp',
          '    VkInstanceCreateInfo createInfo{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };',
          '''    VkInstanceCreateInfo createInfo{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };

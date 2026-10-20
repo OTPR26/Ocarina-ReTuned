@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+"""Keep CTest registration rooted in the engine when Android embeds it."""
+import argparse
+from pathlib import Path
+import subprocess
+
+REVISION = '17218b0cfdb944645bb5cde5249f313dca7e53ce'
+
+
+def apply(root):
+    root = Path(root)
+    if subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
+        raise ValueError('Unexpected native runtime revision.')
+    path = root / 'CMake/oot3d/tests.cmake'
+    source = path.read_text()
+    if source.count('${CMAKE_CURRENT_SOURCE_DIR}') == 3:
+        return
+    if source.count('${CMAKE_SOURCE_DIR}') != 3:
+        raise ValueError('Native test-registration context changed.')
+    path.write_text(source.replace('${CMAKE_SOURCE_DIR}', '${CMAKE_CURRENT_SOURCE_DIR}'))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('engine', type=Path)
+    apply(parser.parse_args().engine)
