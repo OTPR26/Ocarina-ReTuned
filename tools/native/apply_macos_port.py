@@ -3,6 +3,7 @@
 from pathlib import Path
 import argparse
 import subprocess
+from apply_common_port import apply as apply_common
 
 REVISION = '17218b0cfdb944645bb5cde5249f313dca7e53ce'
 
@@ -12,12 +13,10 @@ def apply(root):
     actual = subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip()
     if actual != REVISION:
         raise ValueError('Runtime revision differs from the tested port baseline.')
+    apply_common(root)
     patches = [
         ('runtime/three_ds_recomp/src/fast/backends/gfx_metal_shader.cpp',
          '== SHADER_ID_PICA_TEXTURE_ENV', '== Fast::SHADER_ID_PICA_TEXTURE_ENV'),
-        ('runtime/three_ds_recomp/src/fast/oot3d/pica_shader_instrumentation.cpp',
-         '    std::from_chars(text.data(), text.data() + text.size(), parsed);',
-         '    std::istringstream parser(text);\n    parser.imbue(std::locale::classic());\n    parser >> parsed;'),
     ]
     patches.extend([
         ('tools/oot3d/native_game_runtime/oot3d_native_direct_aot.cpp',
@@ -57,12 +56,6 @@ def apply(root):
          '''        if(NOT APPLE)
             target_link_libraries(oot3d_game_module PRIVATE triaevum_title_aot_stub)
         endif()'''),
-        ('tools/oot3d/native_game_runtime/oot3d_scene_environment.cpp',
-         'std::to_string(error ? 0 : time.time_since_epoch().count())',
-         'std::to_string(error ? 0LL : std::chrono::duration_cast<std::chrono::nanoseconds>(time.time_since_epoch()).count())'),
-        ('tools/oot3d/native_game_runtime/oot3d_savestate_panel.cpp',
-         'std::chrono::clock_cast<std::chrono::system_clock>(time)',
-         'std::chrono::time_point_cast<std::chrono::system_clock::duration>(std::chrono::file_clock::to_sys(time))'),
         ('runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_device.cpp',
          '    VkInstanceCreateInfo createInfo{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };',
          '''    VkInstanceCreateInfo createInfo{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };

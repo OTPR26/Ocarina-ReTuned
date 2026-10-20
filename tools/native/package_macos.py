@@ -37,6 +37,13 @@ def package(engine, build, output):
         subprocess.run(['dylibbundler', '-od', '-b', '-x', str(binary), '-d', str(frameworks),
                         '-p', '@executable_path/../Frameworks/', '-s', str(build)],
                         check=True, input='quit\n', text=True, timeout=120)
+        # Homebrew SDL2 may be sdl2-compat, which loads SDL3 at runtime.
+        if b'libSDL3.dylib' in (frameworks / 'libSDL2-2.0.0.dylib').read_bytes():
+            sdl3 = Path(run('brew', '--prefix', 'sdl3')) / 'lib/libSDL3.dylib'
+            shutil.copy2(sdl3.resolve(), frameworks / 'libSDL3.dylib')
+            subprocess.run(['dylibbundler', '-od', '-b', '-x', str(frameworks / 'libSDL3.dylib'),
+                            '-d', str(frameworks), '-p', '@loader_path/', '-s', str(sdl3.parent)],
+                            check=True, input='quit\n', text=True, timeout=120)
         molten = Path(run('brew', '--prefix', 'molten-vk'))
         libraries = sorted(molten.rglob('libMoltenVK.dylib'))
         if not libraries:
@@ -56,6 +63,9 @@ def package(engine, build, output):
         launcher.write_text('''#!/bin/sh
 set -eu
 contents=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+data_root="$HOME/Library/Application Support/Ocarina ReTuned"
+mkdir -p "$data_root"
+cd "$data_root"
 export VK_ICD_FILENAMES="$contents/Resources/vulkan/icd.d/MoltenVK_icd.json"
 export DYLD_LIBRARY_PATH="$contents/Frameworks"
 exec "$contents/MacOS/retuned-native" --launch-profile "$HOME/Library/Application Support/Ocarina ReTuned/native-launch.json" "$@"

@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 import subprocess
+from apply_common_port import apply as apply_common
 
 REVISION = '17218b0cfdb944645bb5cde5249f313dca7e53ce'
 
@@ -11,6 +12,7 @@ def apply(root):
     root = Path(root)
     if subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
         raise ValueError('Unexpected native runtime revision.')
+    apply_common(root)
     path = root / 'CMake/oot3d/tests.cmake'
     source = path.read_text()
     if source.count('${CMAKE_CURRENT_SOURCE_DIR}') == 3:
