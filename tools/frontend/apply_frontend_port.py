@@ -49,6 +49,9 @@ def apply(engine):
     start=panel.index(marker,body)
     end=panel.index('    DrawBindingCapture();',start)
     panel=panel[:start]+(source/'controls_sections.cpp.inc').read_text()+panel[end:]
+    start=panel.index('    if (mControlDraft != frameStartDraft)',body)
+    end=panel.index('    DrawPersistence();',start)
+    panel=panel[:start]+(source/'control_changes.cpp.inc').read_text()+panel[end:]
     start=panel.index('  void DrawBindings()');end=panel.index('  void DrawBindingGroup(',start)
     panel=panel[:start]+(source/'bindings_draw.cpp.inc').read_text()+panel[end:]
     start=panel.index('  void DrawBindingGroup(');end=panel.index('\n  void DrawAnalog()',start)
