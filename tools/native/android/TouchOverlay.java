@@ -61,6 +61,7 @@ public final class TouchOverlay extends View {
     public TouchOverlay(Context context) {
         super(context);cross=image("cross");crossItems=image("cross_items");setBackgroundColor(android.graphics.Color.TRANSPARENT);
         setFocusable(false);setContentDescription("Touch controller");
+        try{displayMetrics(getResources().getDisplayMetrics().density,getResources().getDisplayMetrics().heightPixels);}catch(UnsatisfiedLinkError ignored){}
     }
     public void cancelInputs() {
         for(int i=0;i<fingers.size();i++)fingers.valueAt(i).release();fingers.clear();

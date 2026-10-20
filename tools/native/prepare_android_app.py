@@ -37,10 +37,20 @@ def prepare(engine):
     shutil.copy2(Path(__file__).parent/'android/TouchOverlay.java',activity.parent/'TouchOverlay.java')
     replace(activity,'public final class TriAevumActivity extends SDLActivity {',
             'public final class TriAevumActivity extends SDLActivity {\n    private TouchOverlay touchOverlay;')
+    if 'touchOverlay=new TouchOverlay(this);' not in activity.read_text():
+        replace(activity,'        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);',
+                '        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n        touchOverlay=new TouchOverlay(this);\n        addContentView(touchOverlay,new android.view.ViewGroup.LayoutParams(-1,-1));')
+    if '@Override protected void onPause()' not in activity.read_text():
+        replace(activity,'    @Override protected String[] getLibraries() {',
+                '    @Override protected void onPause() { if(touchOverlay!=null)touchOverlay.cancelInputs();super.onPause(); }\n\n    @Override protected String[] getLibraries() {')
+
+    replace(activity,'int maximumShortEdge = 720;','int maximumShortEdge = 0;')
+    replace(activity,'maximumShortEdge = 720;','maximumShortEdge = 0;')
+    replace(activity,'using 720p surface limit','using native output resolution')
     replace(activity,'        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);',
-            '        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n        touchOverlay=new TouchOverlay(this);\n        addContentView(touchOverlay,new android.view.ViewGroup.LayoutParams(-1,-1));')
+            '        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n        applyImmersiveWindow();')
     replace(activity,'    @Override protected String[] getLibraries() {',
-            '    @Override protected void onPause() { if(touchOverlay!=null)touchOverlay.cancelInputs();super.onPause(); }\n\n    @Override protected String[] getLibraries() {')
+            '    @Override public void onWindowFocusChanged(boolean focused) {\n        super.onWindowFocusChanged(focused);\n        if(focused)applyImmersiveWindow();\n    }\n\n    private void applyImmersiveWindow() {\n        if(android.os.Build.VERSION.SDK_INT>=30) {\n            getWindow().setDecorFitsSystemWindows(false);\n            android.view.WindowInsetsController controller=getWindow().getInsetsController();\n            if(controller!=null){\n                controller.hide(android.view.WindowInsets.Type.systemBars());\n                controller.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);\n            }\n        }else getWindow().getDecorView().setSystemUiVisibility(android.view.View.SYSTEM_UI_FLAG_FULLSCREEN | android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE | android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);\n    }\n\n    @Override protected String[] getLibraries() {')
 
     replace(activity,
             'new File(getApplicationInfo().nativeLibraryDir,\n                "libtriaevum_title_aot.so")',

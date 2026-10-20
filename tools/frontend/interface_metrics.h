@@ -37,6 +37,9 @@ inline float InterfaceFontPixels() { return InterfaceAtlasSize*InterfacePixelRat
 inline float InterfaceFontScale(float scale=1.f) { return 20.f*scale/InterfaceFontPixels(); }
 inline void SetInterfacePixelRatio(float logicalWidth,float pixelWidth) {
  InterfacePixelRatio=logicalWidth>0 ? std::clamp(pixelWidth/logicalWidth,1.f,4.f) : 1.f;
+#ifdef __ANDROID__
+ InterfacePixelRatio=std::max(InterfacePixelRatio,std::clamp(AndroidDisplayDensity.load(),1.f,4.f));
+#endif
 #if defined(__APPLE__) && TARGET_OS_IPHONE
  // The font atlas is prepared before Vulkan has created its Metal view.
  InterfacePixelRatio=std::max(InterfacePixelRatio,RetunedAppleScreenScale());

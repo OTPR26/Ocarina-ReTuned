@@ -30,7 +30,7 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
  BlueStyle(ImGui::GetStyle());ImGui::GetIO().FontGlobalScale=InterfaceFontScale(MenuScale(viewport->WorkSize.y));
  ImGui::GetStyle().ScaleAllSizes(MenuScale(viewport->WorkSize.y));
  ImGui::SetNextWindowPos(viewport->WorkPos);ImGui::SetNextWindowSize(viewport->WorkSize);
- constexpr auto flags=ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoDocking|ImGuiWindowFlags_NoSavedSettings;
+ constexpr auto flags=ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoDocking|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse;
  if(ImGui::Begin("Ocarina ReTuned / Startup",nullptr,flags)) {
   const float f=ImGui::GetFontSize(),w=ImGui::GetWindowWidth(),h=ImGui::GetWindowHeight();
   const float scale=MenuScale(viewport->WorkSize.y),margin=40.f*scale;
@@ -68,7 +68,7 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
   if(menuButton("About",3))AboutVisible=true;
   if(InterfaceBoldFont)ImGui::PopFont();
   ImGui::PopStyleVar(2);ImGui::PopStyleColor();
-  ImGui::SetCursorPos({28.f*scale,h-36.f*scale});
+  ImGui::SetCursorPos({28.f*scale,h-44.f*scale});
   ImGui::SetWindowFontScale(.7f);ImGui::TextDisabled("OCARINA RETUNED  -  v0.1.0 Preview");ImGui::SetWindowFontScale(1.f);
   if(AboutVisible){
    ImGui::SetNextWindowSize({std::min(w*.8f,f*28),0},ImGuiCond_Always);

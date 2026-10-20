@@ -7,6 +7,8 @@ int main() {
  static_assert(MobileSettingsPlatform());
  // A capped render surface must still show 20 dp text on a high-density screen.
  AndroidDisplayDensity=3;AndroidDisplayHeight=1440;
+ SetInterfacePixelRatio(1920,1920);
+ assert(InterfaceFontPixels()==192.f); // Density must also size the atlas before the first frame.
  const float surfaceHeight=720;
  const float screenFontPixels=20*MenuScale(surfaceHeight)*1440/surfaceHeight;
  assert(std::abs(screenFontPixels/3-20)<.001f);
