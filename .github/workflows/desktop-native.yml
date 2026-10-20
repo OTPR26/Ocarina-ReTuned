@@ -1,0 +1,141 @@
+name: Desktop native previews
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        type: choice
+        default: both
+        options: [both, windows, linux]
+permissions:
+  contents: read
+concurrency:
+  group: desktop-native-${{ github.ref }}-${{ inputs.platform }}
+  cancel-in-progress: false
+jobs:
+  linux:
+    name: Linux x86_64
+    if: inputs.platform != 'windows'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: coccofresco/TriAevum
+          ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
+          path: engine
+          persist-credentials: false
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cache/ccache
+          key: retuned-linux-x64-v1-${{ github.sha }}
+          restore-keys: retuned-linux-x64-v1-
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build ccache g++-14 libvulkan-dev libshaderc-dev libsdl2-dev libglew-dev libzip-dev libpng-dev nlohmann-json3-dev libtinyxml2-dev libspdlog-dev libogg-dev libvorbis-dev libopus-dev libopusfile-dev libgl1-mesa-dev patchelf
+      - name: Apply shared port
+        run: |
+          python3 tools/native/apply_desktop_port.py engine
+          python3 tools/reframed/apply_native_port.py engine
+          python3 tools/reframed/apply_renderer_port.py engine
+          python3 tools/native/apply_audio_port.py engine
+          python3 tools/frontend/apply_frontend_port.py engine
+          PYTHONPATH=src python3 -m unittest discover -s tests -v
+          g++-14 -std=c++20 -fsanitize=address,undefined tests/texture_memory.cpp -o texture-memory-test
+          ./texture-memory-test
+      - name: Configure neutral runtime
+        run: |
+          cmake -S engine -B build/runtime -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_SCAN_FOR_MODULES=OFF \
+            -DCMAKE_C_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=." \
+            -DCMAKE_CXX_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=." \
+            -DOOT3D_WHOLE_AOT_PRODUCT_MODE=ON -DOOT3D_DIRECT_AOT_PLUGIN=ON \
+            -DOOT3D_ENABLE_VULKAN_RENDERER=ON -DTHREE_DS_RECOMP_ENABLE_NRI=ON \
+            -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF -DTHREE_DS_RECOMP_ENABLE_NRI_UPSCALER_SDKS=OFF \
+            -DTHREE_DS_RECOMP_ENABLE_DLSS_MODULE=OFF -DTHREE_DS_RECOMP_ENABLE_SSSR=OFF \
+            -DTHREE_DS_RECOMP_ENABLE_CACAO=OFF -DTHREE_DS_RECOMP_OFFER_EXPERIMENTAL_GI=OFF \
+            -DENABLE_SCRIPTING=OFF -DINCLUDE_MPQ_SUPPORT=OFF
+      - name: Build and test neutral runtime
+        run: |
+          cmake --build build/runtime --parallel 3 --target triaevum_public_runtime oot3d_native_a32_ctr_host_tests oot3d_native_hd_font_runtime_tests oot3d_native_font_coverage_tests
+          build/runtime/oot3d_native_a32_ctr_host_tests
+          build/runtime/oot3d_native_hd_font_runtime_tests
+          build/runtime/oot3d_native_font_coverage_tests
+          g++-14 -std=c++20 -Ibuild/runtime/_deps/imgui-src tests/settings_navigation.cpp build/runtime/_deps/imgui-src/imgui.cpp build/runtime/_deps/imgui-src/imgui_draw.cpp build/runtime/_deps/imgui-src/imgui_widgets.cpp build/runtime/_deps/imgui-src/imgui_tables.cpp -o settings-navigation-test
+          ./settings-navigation-test
+      - name: Stage neutral preview
+        run: python3 tools/native/stage_desktop_host.py --platform linux --engine engine --build build/runtime --output artifacts
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Ocarina-ReTuned-Native-Linux-x86_64-${{ github.sha }}
+          path: artifacts/*
+          if-no-files-found: error
+  windows:
+    name: Windows x64
+    if: inputs.platform != 'linux'
+    runs-on: windows-2022
+    timeout-minutes: 180
+    env:
+      VULKAN_SDK: C:\VulkanSDK\1.4.328.1
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\vcpkg-cache,readwrite
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: coccofresco/TriAevum
+          ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
+          path: engine
+          persist-credentials: false
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/cache@v5
+        with:
+          path: vcpkg-cache
+          key: retuned-windows-x64-v1-${{ github.sha }}
+          restore-keys: retuned-windows-x64-v1-
+      - name: Install Vulkan build SDK
+        shell: pwsh
+        run: |
+          $url = 'https://sdk.lunarg.com/sdk/download/1.4.328.1/windows/vulkansdk-windows-X64-1.4.328.1.exe'
+          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\vulkan-sdk.exe"
+          $signature = Get-AuthenticodeSignature "$env:RUNNER_TEMP\vulkan-sdk.exe"
+          if ($signature.Status -ne 'Valid') { throw 'Invalid Vulkan SDK signature' }
+          $process = Start-Process "$env:RUNNER_TEMP\vulkan-sdk.exe" -ArgumentList '--root', $env:VULKAN_SDK, '--accept-licenses', '--default-answer', '--confirm-command', 'install' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Vulkan SDK installation failed' }
+      - name: Apply shared port
+        shell: pwsh
+        run: |
+          python tools/native/apply_desktop_port.py engine
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tools/reframed/apply_native_port.py engine
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tools/reframed/apply_renderer_port.py engine
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tools/native/apply_audio_port.py engine
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tools/frontend/apply_frontend_port.py engine
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Configure neutral runtime
+        shell: pwsh
+        run: |
+          cmake -S engine -B build/runtime -G Ninja -DCMAKE_BUILD_TYPE=Release -DAUTOMATE_VCPKG_UPDATE=OFF -DOOT3D_WHOLE_AOT_PRODUCT_MODE=ON -DOOT3D_DIRECT_AOT_PLUGIN=ON -DOOT3D_ENABLE_VULKAN_RENDERER=ON -DTHREE_DS_RECOMP_ENABLE_NRI=ON -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF -DTHREE_DS_RECOMP_ENABLE_NRI_UPSCALER_SDKS=OFF -DTHREE_DS_RECOMP_ENABLE_DLSS_MODULE=OFF -DTHREE_DS_RECOMP_ENABLE_SSSR=OFF -DTHREE_DS_RECOMP_ENABLE_CACAO=OFF -DTHREE_DS_RECOMP_OFFER_EXPERIMENTAL_GI=OFF -DENABLE_SCRIPTING=OFF -DINCLUDE_MPQ_SUPPORT=OFF
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Build and test neutral runtime
+        shell: pwsh
+        run: |
+          cmake --build build/runtime --parallel 3 --target triaevum_public_runtime oot3d_native_a32_ctr_host_tests oot3d_native_hd_font_runtime_tests oot3d_native_font_coverage_tests
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          foreach ($test in @('oot3d_native_a32_ctr_host_tests', 'oot3d_native_hd_font_runtime_tests', 'oot3d_native_font_coverage_tests')) {
+            & "build/runtime/$test.exe"
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+      - name: Stage neutral preview
+        shell: pwsh
+        run: python tools/native/stage_desktop_host.py --platform windows --engine engine --build build/runtime --output artifacts
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Ocarina-ReTuned-Native-Windows-x64-${{ github.sha }}
+          path: artifacts/*
+          if-no-files-found: error
