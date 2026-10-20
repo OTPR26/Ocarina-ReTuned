@@ -67,6 +67,14 @@ def apply(engine):
          'serviceName == "ndm:u" || serviceName == "y2r:u" || serviceName == "ir:rst")')
     edit(host, '        if (*sessionType == "client_session:hid:USER") {',
          '        if (*sessionType == "client_session:ir:rst") {\n            return HandleIrstRequest(state, memory, commandBuffer, std::move(event));\n        }\n        if (*sessionType == "client_session:hid:USER") {')
+    memory_header = header.parent / 'oot3d_native_a32_memory.h'
+    edit(memory_header, '    size_t RegionCount() const;',
+         '    struct RegionInfo { uint32_t BaseAddress, Size, Permissions, State; };\n    RegionInfo QueryRegion(uint32_t address) const;\n    size_t RegionCount() const;')
+    query = Path(__file__).with_name('query_memory.cpp.inc').read_text()
+    edit(memory_header.with_suffix('.cpp'), 'size_t NativeA32Memory::RegionCount() const {',
+         query + '\nsize_t NativeA32Memory::RegionCount() const {')
+    query_svc = Path(__file__).with_name('query_memory_svc.cpp.inc').read_text()
+    edit(host, '    case 0x08: {', query_svc + '    case 0x08: {')
     hid = header.parent / 'oot3d_native_a32_ctr_host_hid.cpp'
     addition = Path(__file__).with_name('irst_service.cpp.inc').read_text()
     edit(hid, '} // namespace Oot3dNativeGame', addition + '\n} // namespace Oot3dNativeGame')
@@ -76,7 +84,11 @@ def apply(engine):
 
     tests = header.parent / 'oot3d_native_a32_ctr_host_tests.cpp'
     test_source = Path(__file__).with_name('irst_tests.cpp.inc').read_text()
-    edit(tests, 'int main() {', test_source + '\nint main() {\n    TestReframedIrst();')
+    if 'void TestReframedIrst()' not in tests.read_text():
+        edit(tests, 'int main() {', test_source + '\nint main() {\n    TestReframedIrst();')
+    query_tests = Path(__file__).with_name('query_memory_tests.cpp.inc').read_text()
+    if 'void TestReframedQueryMemory()' not in tests.read_text():
+        edit(tests, 'int main() {', query_tests + '\nint main() {\n    TestReframedQueryMemory();')
 
 
 if __name__ == '__main__':

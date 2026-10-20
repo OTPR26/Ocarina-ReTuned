@@ -92,6 +92,10 @@ exec "$contents/MacOS/retuned-native" --launch-profile "$HOME/Library/Applicatio
         for license_name in ('LICENSE', 'LICENSE.md', 'LICENSE.txt'):
             if (engine / license_name).is_file():
                 shutil.copy2(engine / license_name, notices / license_name)
+        for formula, license_dir in (('sdl2', 'sdl2-compat'), ('sdl3', 'SDL3')):
+            prefix = Path(run('brew', '--prefix', formula))
+            license_file = prefix / 'share/licenses' / license_dir / 'LICENSE.txt'
+            shutil.copy2(license_file, notices / (formula + '-LICENSE.txt'))
         for path in (binary, *frameworks.iterdir()):
             if path.is_file():
                 subprocess.run(['codesign', '--force', '--sign', '-', str(path)], check=True)
