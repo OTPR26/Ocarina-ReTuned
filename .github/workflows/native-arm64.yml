@@ -68,6 +68,7 @@ jobs:
           python3 tools/reframed/apply_native_port.py engine
           python3 tools/reframed/apply_renderer_port.py engine
           python3 tools/native/apply_audio_port.py engine
+          python3 tools/frontend/apply_frontend_port.py engine
           clang++ -std=c++20 -fsanitize=address,undefined tests/native_audio_buffer.cpp -o native-audio-buffer-test
           ./native-audio-buffer-test
           clang++ -std=c++20 -Iengine/tools/oot3d/native_game_runtime -Iengine/tools/oot3d/typed_gameplay -Iengine/tools/oot3d/native_a32_runtime/upstream/recomp tests/native_audio_timing.cpp engine/tools/oot3d/native_game_runtime/oot3d_native_frame_rate.cpp -o native-audio-timing-test

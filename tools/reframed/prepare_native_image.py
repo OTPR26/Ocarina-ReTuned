@@ -134,6 +134,33 @@ def _prepare(args):
         raise ValueError('Invalid native loader adaptation')
     replacement = struct.pack('<III', 0xE92D4010, 0xEB000000 | ((branch >> 2) & 0xFFFFFF), 0xE8BD8010)
     image[loader - BASE:loader - BASE + 12] = replacement
+    frontend = None
+    if getattr(args, 'native_frontend', False):
+        if not getattr(args, 'save_context', None):
+            raise ValueError('Native frontend requires a verified save-context address')
+        adapters = {
+            'MenuPreferences_Update': (0xE12FFF1E,),
+            'MenuPreferences_Save': (0xE3A00001, 0xE12FFF1E),
+            'MenuOptions_Begin': (0xEF00007E, 0xE12FFF1E),
+            'MenuOptions_Update': (0xE3A00000, 0xE12FFF1E),
+            'MenuOptions_Touch': (0xE3A00000, 0xE12FFF1E),
+            'MenuOptions_Draw': (0xE12FFF1E,),
+        }
+        for name, words in adapters.items():
+            address, length, _, _ = named[name]
+            if length < len(words)*4:
+                raise ValueError('Frontend adapter exceeds function: ' + name)
+            image[address-BASE:address-BASE+len(words)*4] = struct.pack('<'+'I'*len(words), *words)
+        object_symbols = {}
+        for line in subprocess.check_output([str(args.readelf), '-sW', str(args.elf)], text=True).splitlines():
+            parts = line.split()
+            if len(parts)==8 and parts[-1] in ('gSaveContext','gGlobalContext'):
+                object_symbols[parts[-1]]=int(parts[1],16)
+        functions = ('NativeHud_GetScalePercent','NativeHud_SetScalePercent',
+            'Camera_GetDistanceOption','Camera_SetDistanceOption','Camera_GetControlMode',
+            'Camera_SetControlMode','MovementOptions_Get','MovementOptions_Set')
+        frontend = {'schema':1,'context_pointer':object_symbols['gGlobalContext'],
+            'save_context':args.save_context,'functions':{name:named[name][0] for name in functions}}
     out = args.output
     out.mkdir(parents=True)
     (out / 'code.bin').write_bytes(image)
@@ -182,6 +209,8 @@ def _prepare(args):
         writer.writeheader()
         writer.writerows(rows)
     manifest = json.loads(args.manifest.read_text())
+    if frontend is not None:
+        manifest['reframed_frontend'] = frontend
     manifest['source'].update(code_bin_path=str((out / 'code.bin').resolve()),
                               code_bin_sha256=hashlib.sha256(image).hexdigest(), code_bin_size=len(image))
     size = len(image) - (INJECTION - BASE)
@@ -230,5 +259,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('code', 'ips', 'elf', 'inventory', 'manifest', 'readelf', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
+    parser.add_argument('--native-frontend', action='store_true')
+    parser.add_argument('--save-context', type=lambda value: int(value, 0))
     result = prepare(parser.parse_args())
     print(f"Prepared private mod image: {result['patch_records']} patches, {len(result['added_functions'])} mod entries")
