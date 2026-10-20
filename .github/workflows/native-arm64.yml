@@ -109,6 +109,8 @@ jobs:
           build/texture-aliases-test
           c++ -std=c++20 -Itools/frontend tests/settings_button.cpp -o build/settings-button-test
           build/settings-button-test
+          c++ -std=c++20 -Itools/frontend tests/pause_close.cpp -o build/pause-close-test
+          build/pause-close-test
           c++ -std=c++20 -Itools/frontend tests/ocarina_lifecycle.cpp -o build/ocarina-lifecycle-test
           build/ocarina-lifecycle-test
       - name: Bundle neutral prototype

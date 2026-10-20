@@ -1,9 +1,9 @@
 #pragma once
 #include <cstdint>
 namespace RetunedFrontend {
-inline bool RouteSettingsButton(uint32_t& buttons,uint32_t mask,bool& held,bool visible) {
+inline bool RouteSettingsButton(uint32_t& buttons,uint32_t mask,bool& held,bool bindingCaptureActive) {
     const bool down=(buttons&mask)!=0;
-    const bool open=down && !held && !visible;
-    held=down;buttons&=~mask;return open;
+    const bool toggle=down && !held && !bindingCaptureActive;
+    held=down;buttons&=~mask;return toggle;
 }
 }

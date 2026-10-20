@@ -1,6 +1,11 @@
     void Draw() override {
         if (Oot3d::TakeUnifiedSettingsRequest()) SetVisibility(true);
-        if (!IsVisible()) return;
+        if (Oot3d::TakeUnifiedSettingsToggleRequest()) SetVisibility(!IsVisible());
+        if (!IsVisible()) {
+            Oot3d::GraphicsSettingsRuntime::Instance().SavePending();
+            Oot3d::EndGraphicsSettingsPreviews();
+            return;
+        }
         auto& runtime=Oot3d::GraphicsSettingsRuntime::Instance();
         if(!ImGui::IsAnyItemActive())runtime.SavePending();
         const ImGuiStyle previous=ImGui::GetStyle();

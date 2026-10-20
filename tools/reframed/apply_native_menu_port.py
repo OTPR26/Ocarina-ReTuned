@@ -11,6 +11,14 @@ def apply(root):
     touch=root/'include/menu_touch.h'
     edit(touch,'    if (MenuTouch_In(x,y,285,209,70,20)) return 2;','    /* Tab hints occupy the former Options area; it is not a button. */')
     inputs=root/'src/input_remap.c'
+    (root/'include/retuned_pause_close.h').write_text(
+        (Path(__file__).parents[1]/'frontend/pause_close.h').read_text())
+    edit(inputs,'#include "unified_menu_navigation.h"',
+         '#include "unified_menu_navigation.h"\n#include "retuned_pause_close.h"')
+    edit(inputs,'sFooterOpenOptions = sFooterFocus == 2;', 'sFooterOpenOptions = 0;')
+    edit(inputs,'    if (sPauseClosing) {',
+         '    if (sPauseClosing) {\n        const unsigned stillOpen=RetunedPausePageStillOpen(mode);\n        if (stillOpen) {\n            sPauseClosing = sPauseCloseSettled = 0;\n            sItemsMenuOpen = 1;\n            sActivePausePage = stillOpen;\n            return;\n        }')
+
     edit(inputs,'if (pressed & (BUTTON_RIGHT | CPAD_RIGHT)) sFooterFocus = 2;','if (pressed & (BUTTON_RIGHT | CPAD_RIGHT)) sFooterFocus = 1;')
     edit(inputs,'            sFooterFocus = dialogKind == 1 ? 2 : 1;','            sFooterFocus = 1;')
 
