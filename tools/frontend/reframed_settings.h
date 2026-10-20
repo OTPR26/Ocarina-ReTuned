@@ -12,6 +12,7 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 
 namespace RetunedFrontend {
@@ -26,6 +27,7 @@ inline bool Valid(const std::array<int,9>& values) {
 class Settings {
   public:
     void Initialize(const std::filesystem::path& manifest) {
+        std::lock_guard lock(mMutex);
         try {
             std::ifstream stream(manifest);
             nlohmann::json root;stream>>root;
@@ -41,10 +43,11 @@ class Settings {
             mReady=true;
         } catch(const std::exception& e){mError=e.what();}
     }
-    bool Ready()const{return mReady;}
-    const std::string& Error()const{return mError;}
-    int Value(size_t index)const{return mValues.at(index);}
+    bool Ready()const{std::lock_guard lock(mMutex);return mReady;}
+    std::string Error()const{std::lock_guard lock(mMutex);return mError;}
+    int Value(size_t index)const{std::lock_guard lock(mMutex);return mValues.at(index);}
     void Set(size_t index,int value) {
+        std::lock_guard lock(mMutex);
         auto changed=mValues;changed.at(index)=value;
         if(!Valid(changed))return;
         nlohmann::json saved{{"schema",1}};
@@ -55,6 +58,7 @@ class Settings {
         mValues=changed;mConfigured=true;mError.clear();
     }
     void Apply(Oot3dNativeGame::NativeA32Process& process) {
+        std::lock_guard lock(mMutex);
         if(!mReady)return;
         auto& memory=process.Memory();uint32_t context=0;
         if(!memory.Read32(mBridge.at("context_pointer").get<uint32_t>(),&context) || !context)return;
@@ -92,6 +96,7 @@ class Settings {
         }catch(const std::exception& e){mError=e.what();mReady=false;}
     }
   private:
+    mutable std::recursive_mutex mMutex;
     nlohmann::json mBridge;
     std::array<int,9> mValues{0,0,0,2,2,0,0,0,0},mPrevious{};
     bool mReady=false,mConfigured=false,mApplied=false;

@@ -23,6 +23,8 @@ def apply(engine):
     edit(gui,'sdlEvent.key.keysym.scancode == SDL_SCANCODE_F1 &&','(sdlEvent.key.keysym.scancode == SDL_SCANCODE_F1 ||\n                         (sdlEvent.key.keysym.scancode == SDL_SCANCODE_COMMA && (sdlEvent.key.keysym.mod & (KMOD_GUI|KMOD_CTRL)))) &&')
     setup=runtime/'oot3d_native_a32_window_setup.cpp'
     edit(setup,'#include "oot3d_native_a32_window_session.h"','#include "oot3d_native_a32_window_session.h"\n#include "retuned_reframed_settings.h"')
+    edit(setup, '  if (!launch.TopScreenTextureOverridePackPath.empty()) {\n    const auto fontPath = launch.TopScreenTextureOverridePackPath.parent_path() / "font_coverage.zip";',
+         '  {\n    const auto fontPath = launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed\n        ? launch.A32ProcessManifestPath.parent_path() / "font_coverage.zip"\n        : launch.TopScreenTextureOverridePackPath.parent_path() / "font_coverage.zip";')
     edit(setup,'  hostConfig.SystemLanguage = languageSettings->SystemId();','  hostConfig.OpenFrontendSettings = [] { Fast::Oot3d::RequestUnifiedSettings(); };\n  hostConfig.SystemLanguage = languageSettings->SystemId();')
     edit(setup,'  // F1 order: the scene lights join Lighting > Lights & Shadows; then',
          '  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed)\n    for (const auto* page : {"General", "Reframed controls", "HUD", "Quality of life"})\n      applicationSettingsTabs.push_back(std::make_shared<RetunedFrontend::Panel>(page));\n  // F1 order: the scene lights join Lighting > Lights & Shadows; then')

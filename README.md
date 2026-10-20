@@ -64,3 +64,9 @@ licenses and notices; a source-code license does not relicense game content.
 `resources/source-pins.json` and `resources/native-targets.json` identify the
 references and targets. Ignored `work/` contains local reference checkouts and
 private test inputs, never package inputs. No release is approved or published.
+
+The Reframed frontend uses a blue unified settings menu. Gameplay dialogue
+retains the mod’s 80% layout. HD Latin coverage loads automatically from the
+locally prepared font pack beside the process manifest, independently of donor
+UI textures; no font-size or HD-font toggle is exposed. Fonts remain local user
+data and are not bundled into the app.
