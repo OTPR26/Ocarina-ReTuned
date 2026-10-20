@@ -165,7 +165,9 @@ public final class TouchOverlay extends View {
         int action=event.getActionMasked(),index=event.getActionIndex(),id=event.getPointerId(index);
         if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_POINTER_DOWN) {
             float x=event.getX(index),y=event.getY(index);Control chosen=null;
-            for(Control c:controls)if(c.pointer<0&&c.bounds.contains(x,y)&&!(menu&&c.shape==2&&y<getHeight()*.72f)){chosen=c;break;}
+            // Buttons must win over the full-screen floating-stick touch regions.
+            for(Control c:controls)if(c.shape!=2&&c.pointer<0&&c.bounds.contains(x,y)){chosen=c;break;}
+            if(chosen==null)for(Control c:controls)if(c.shape==2&&c.pointer<0&&c.bounds.contains(x,y)&&!(menu&&y<getHeight()*.72f)){chosen=c;break;}
             if(chosen==null)return fingers.size()>0;
             if(chosen.id==-1){cancelInputs();enabled(!shown);shown=!shown;layoutControls();return true;}
             chosen.pointer=id;chosen.down=true;fingers.put(id,chosen);
