@@ -123,6 +123,13 @@ def apply(engine):
 
     from apply_mobile_frontend import apply as apply_mobile
     apply_mobile(engine)
+    bootstrap=engine/'tools/oot3d/native_game_runtime/oot3d_native_game_bootstrap.cpp'
+    edit(bootstrap,'launch.Host.ApplicationName = "TriAevum \\xE2\\x80\\x94 Echoes of Time";',
+         'launch.Host.ApplicationName = "Ocarina ReTuned";')
+    import sys
+    sys.path.insert(0,str(source.parents[1]/"tools/native/apple"))
+    from apply_save_sync import apply as apply_save_sync
+    apply_save_sync(engine)
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('engine',type=Path);apply(p.parse_args().engine)

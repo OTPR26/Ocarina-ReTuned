@@ -13,7 +13,7 @@ inline bool MenuBackClosesSettings(bool back,bool popupBefore,bool editingBefore
  return back && !popupBefore && !editingBefore && !popupNow;
 }
 inline bool RemoteBackTogglesSettings(bool startup,bool settings,bool popup,bool editing) {
- return (!startup || settings) && !popup && !editing;
+ return !startup && !settings && !popup && !editing;
 }
 inline void EnableMenuNavigation(bool television) {
  auto& io=ImGui::GetIO();

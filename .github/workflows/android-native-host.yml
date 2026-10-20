@@ -92,6 +92,8 @@ jobs:
         run: |
           c++ -std=c++20 -I build/host/_deps/imgui-src tests/menu_navigation.cpp build/host/_deps/imgui-src/imgui.cpp build/host/_deps/imgui-src/imgui_draw.cpp build/host/_deps/imgui-src/imgui_tables.cpp build/host/_deps/imgui-src/imgui_widgets.cpp -o menu-navigation-test
           ./menu-navigation-test
+          c++ -std=c++20 -I build/host/_deps/imgui-src tests/settings_navigation.cpp build/host/_deps/imgui-src/imgui.cpp build/host/_deps/imgui-src/imgui_draw.cpp build/host/_deps/imgui-src/imgui_tables.cpp build/host/_deps/imgui-src/imgui_widgets.cpp -o settings-navigation-test
+          ./settings-navigation-test
           c++ -std=c++20 -I build/host/_deps/imgui-src tests/television_remote.cpp -o television-remote-test
           ./television-remote-test
       - name: Build neutral native host

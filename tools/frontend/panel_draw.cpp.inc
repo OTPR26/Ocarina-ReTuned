@@ -11,16 +11,24 @@ void GraphicsSettingsPanel::Draw() {
     static auto previousPage=page;
     const float font=ImGui::GetFontSize();
     ImGui::BeginChild("##Navigation",ImVec2(RetunedFrontend::NavigationWidth(ImGui::GetContentRegionAvail().x,font),0),true);
+    float selectedCategoryY=0;
     for(const auto& category:RetunedFrontend::SettingsCategories){
         if(!RetunedFrontend::CategoryVisible(category.Page,mobile,touch))continue;
         const bool selected=page==category.Page;
         if(selected)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));
-        if(ImGui::Button(category.Label,ImVec2(-1,std::max(font*2.5f,44.f))))page=category.Page;
+        const bool activated=ImGui::Button(category.Label,ImVec2(-1,std::max(font*2.5f,44.f)));
+        if(selected || activated){
+            RetunedFrontend::SettingsNav.SelectedCategory=ImGui::GetItemID();
+            selectedCategoryY=ImGui::GetItemRectMin().y-ImGui::GetWindowPos().y+font;
+        }
+        if(activated){page=category.Page;RetunedFrontend::SettingsNav.ActivateCategory(ImGui::GetItemID());}
         if(selected)ImGui::PopStyleColor();
     }
+    RetunedFrontend::SettingsNav.CategoriesDrawn(selectedCategoryY);
     ImGui::EndChild();ImGui::SameLine();
     if(page!=previousPage){ImGui::SetNextWindowScroll({0,0});previousPage=page;}
     ImGui::BeginChild("##SettingsPage",ImVec2(0,0),true);
+    RetunedFrontend::SettingsNav.PageBegun();
     for(const auto& category:RetunedFrontend::SettingsCategories)if(category.Page==page){
         ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark),"%s",category.Label);
         ImGui::TextWrapped("%s",category.Description);
@@ -31,6 +39,23 @@ void GraphicsSettingsPanel::Draw() {
     switch(page){
       case SettingsPage::General: {
         drawTabs("Language");ImGui::Spacing();
+#ifdef __APPLE__
+        ImGui::SeparatorText("iCloud saves");
+        bool cloudEnabled=RetunedSaveSyncEnabled();
+        if(RetunedFrontend::Toggle("Sync game saves with iCloud",&cloudEnabled))RetunedSaveSyncSetEnabled(cloudEnabled);
+        char cloudStatus[384];RetunedSaveSyncStatus(cloudStatus,sizeof(cloudStatus));
+        ImGui::TextWrapped("%s",cloudStatus);
+        if(cloudEnabled && ImGui::Button("Sync now"))RetunedSaveSyncRequest();
+        if(RetunedSaveSyncConflict()) {
+            ImGui::TextWrapped("Your devices have different progress. Previous saves are backed up before replacement.");
+            ImGui::BeginDisabled(!RetunedFrontend::StartupVisible);
+            if(ImGui::Button("Use this device's saves"))RetunedSaveSyncResolve(false);
+            if(ImGui::Button("Use iCloud saves"))RetunedSaveSyncResolve(true);
+            ImGui::EndDisabled();
+            if(!RetunedFrontend::StartupVisible)ImGui::TextWrapped("Restart to the app startup screen to choose saves safely.");
+        }
+        ImGui::TextWrapped("Only game saves sync. Graphics, controls and texture folders stay on this device.");
+#endif
         auto config=Ship::Context::GetRawInstance()->GetConfig();
         ImGui::SeparatorText("Menu");
         ImGui::SliderFloat("Menu size",&RetunedFrontend::MenuSize,.8f,1.25f,"%.2fx");

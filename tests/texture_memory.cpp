@@ -6,6 +6,12 @@
 struct Entry { uint64_t bytes, last; bool pinned; };
 int main() {
     using namespace RetunedFrontend;
+    auto desktop=SelectDesktopTextureBudgets(16*GiB,8*GiB);
+    assert(desktop.Decoded==GiB && desktop.Uploaded==GiB);
+    desktop=SelectDesktopTextureBudgets(64*GiB,32*GiB);
+    assert(desktop.Decoded==2*GiB && desktop.Uploaded==2*GiB);
+    desktop=SelectDesktopTextureBudgets(16*GiB,GiB);
+    assert(desktop.Decoded==128*MiB && desktop.Uploaded==128*MiB);
     auto low=SelectMobileTextureBudgets(2*GiB,0);
     assert(low.Decoded==96*MiB && low.Uploaded==128*MiB);
     assert(TextureDecodeLimit(low.Decoded,false)==32*MiB);

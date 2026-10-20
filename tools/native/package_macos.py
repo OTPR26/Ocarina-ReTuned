@@ -13,10 +13,13 @@ def run(*args):
     return subprocess.check_output(args, text=True).strip()
 
 
-def package(engine, build, output):
+def package(engine, build, output, identity="-", entitlements=None, profile=None):
     engine, build, output = Path(engine).resolve(), Path(build).resolve(), Path(output).resolve()
     if output.exists():
         raise ValueError('Refusing to overwrite an existing package.')
+    if entitlements and (identity == "-" or not profile):
+        raise ValueError("iCloud entitlements require a real signing identity and matching provisioning profile.")
+    signing = ['--entitlements',str(Path(entitlements).resolve()),'--generate-entitlement-der'] if entitlements else []
     commands = run('ninja', '-C', str(build), '-t', 'commands', 'triaevum_public_runtime')
     forbidden = ('oot3d_whole_aot_shard_', '/oot3d_whole_aot_cpp/', '/oot3d_a32_generated/')
     if any(token in commands for token in forbidden):
@@ -67,21 +70,9 @@ def package(engine, build, output):
         driver = json.loads(manifests[0].read_text())
         driver['ICD']['library_path'] = '../../../Frameworks/libMoltenVK.dylib'
         (icd / 'MoltenVK_icd.json').write_text(json.dumps(driver, indent=2) + '\n')
-        launcher = macos / 'OcarinaReTuned'
-        launcher.write_text('''#!/bin/sh
-set -eu
-contents=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-data_root="$HOME/Library/Application Support/Ocarina ReTuned"
-mkdir -p "$data_root"
-cd "$data_root"
-export VK_ICD_FILENAMES="$contents/Resources/vulkan/icd.d/MoltenVK_icd.json"
-export DYLD_LIBRARY_PATH="$contents/Frameworks"
-exec "$contents/MacOS/retuned-native" --launch-profile "$HOME/Library/Application Support/Ocarina ReTuned/native-launch.json" "$@"
-''')
-        launcher.chmod(0o755)
         shutil.copy2(Path(__file__).resolve().parents[2]/'resources/icons/macos/OcarinaReTuned.icns', resources/'OcarinaReTuned.icns')
         metadata = {'CFBundleIconFile':'OcarinaReTuned.icns', 'CFBundleName': 'Ocarina ReTuned', 'CFBundleDisplayName': 'Ocarina ReTuned',
-            'CFBundleExecutable': 'OcarinaReTuned', 'CFBundleIdentifier': 'io.github.otpr26.ocarinaretuned',
+            'CFBundleExecutable': 'retuned-native', 'CFBundleIdentifier': 'io.github.otpr26.ocarinaretuned',
             'CFBundlePackageType': 'APPL', 'CFBundleVersion': '1',
             'CFBundleShortVersionString': '0.1.0', 'NSHighResolutionCapable': True,
             'LSMinimumSystemVersion': '13.4'}
@@ -98,10 +89,12 @@ exec "$contents/MacOS/retuned-native" --launch-profile "$HOME/Library/Applicatio
             prefix = Path(run('brew', '--prefix', formula))
             license_file = prefix / 'share/licenses' / license_dir / 'LICENSE.txt'
             shutil.copy2(license_file, notices / (formula + '-LICENSE.txt'))
+        if profile:
+            shutil.copy2(profile, contents/'embedded.provisionprofile')
         for path in (binary, *frameworks.iterdir()):
             if path.is_file():
-                subprocess.run(['codesign', '--force', '--sign', '-', str(path)], check=True)
-        subprocess.run(['codesign', '--force', '--deep', '--sign', '-', str(app)], check=True)
+                subprocess.run(['codesign', '--force', '--sign', identity, *(signing+['--identifier','io.github.otpr26.ocarinaretuned'] if path==binary else []), str(path)], check=True)
+        subprocess.run(['codesign', '--force', '--deep', '--sign', identity, *signing, str(app)], check=True)
         subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
         output.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(['ditto', '-c', '-k', '--norsrc', '--noextattr', '--keepParent', str(app), str(output)], check=True)
@@ -112,5 +105,8 @@ if __name__ == '__main__':
     parser.add_argument('--engine', type=Path, required=True)
     parser.add_argument('--build', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--identity',default='-')
+    parser.add_argument('--entitlements',type=Path)
+    parser.add_argument('--profile',type=Path)
     args = parser.parse_args()
-    package(args.engine, args.build, args.output)
+    package(args.engine, args.build, args.output,args.identity,args.entitlements,args.profile)

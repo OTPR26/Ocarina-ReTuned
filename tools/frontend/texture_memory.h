@@ -84,7 +84,7 @@ bool FitsReplacementBudget(const Map& cache, const Frames& frames,
 }
 
 inline void ReportTextureMemory(uint64_t frame, uint64_t gpuBytes, size_t count) {
-#if (defined(__APPLE__) && TARGET_OS_IPHONE) || defined(__ANDROID__)
+#if defined(__APPLE__) || defined(__ANDROID__)
     if (frame % 120 != 0) return;
     const auto memory = ReadTextureMemorySnapshot();
         std::fprintf(stderr, "RETUNED_TEXTURE_MEMORY decoded=%llu gpu=%llu textures=%zu footprint=%llu available=%llu decoded_budget=%llu gpu_budget=%llu\n",

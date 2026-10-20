@@ -5,26 +5,28 @@ from apply_native_port import edit
 def apply(engine):
     engine=Path(engine)
     gui=engine/'runtime/three_ds_recomp/src/fast/Fast3dGui.cpp'
-    edit(gui,'            ImGui_ImplSDL2_NewFrame();', '''            if(RetunedFrontend::NativeFrontendEnabled)
-                RetunedFrontend::EnableMenuNavigation(RetunedFrontend::TelevisionPlatform());
-            ImGui_ImplSDL2_NewFrame();''')
     edit(gui,'            ImGui_ImplSDL2_InitForVulkan(static_cast<SDL_Window*>(mImpl.Vulkan.Window));', '''            ImGui_ImplSDL2_InitForVulkan(static_cast<SDL_Window*>(mImpl.Vulkan.Window));
-            if(RetunedFrontend::TelevisionPlatform())ImGui_ImplSDL2_SetGamepadMode(ImGui_ImplSDL2_GamepadMode_AutoAll);''')
+            if(RetunedFrontend::NativeFrontendEnabled)ImGui_ImplSDL2_SetGamepadMode(ImGui_ImplSDL2_GamepadMode_AutoAll);''')
     if 'extern "C" void RetunedTVUpdateRemote' not in gui.read_text():
         text=gui.read_text()
         gui.write_text(text.replace('#include "fast/oot3d/retuned_startup_draw.h"',
              '#include "fast/oot3d/retuned_startup_draw.h"\n#if defined(__APPLE__) && TARGET_OS_TV\nextern "C" void RetunedTVUpdateRemote(bool startup,bool settings);\n#endif',1))
-    if '            RetunedTVUpdateRemote(' not in gui.read_text():
-        edit(gui,'            ImGui_ImplSDL2_NewFrame();', '''#if defined(__APPLE__) && TARGET_OS_TV
+    text=gui.read_text()
+    function=text.index('void Fast3dGui::ImGuiWMNewFrame()')
+    anchor='        case WindowBackend::FAST3D_SDL_OOT3D_VULKAN:\n#endif\n'
+    begin=text.index(anchor,function)+len(anchor)
+    end=text.index('            ImGui_ImplSDL2_NewFrame();',begin)+len('            ImGui_ImplSDL2_NewFrame();')
+    remote='\n#if defined(__APPLE__) && TARGET_OS_TV\n            RetunedTVUpdateRemote(RetunedFrontend::StartupVisible,GetAnyGuiWindowVisible());\n#endif'
+    if text[end:].startswith(remote):end+=len(remote)
+    body="""            if(RetunedFrontend::NativeFrontendEnabled)
+                RetunedFrontend::EnableMenuNavigation(RetunedFrontend::TelevisionPlatform());
             static int menuGamepadCount=-1;static unsigned lastMenuGamepadRefresh=0;
-            if(RetunedFrontend::RefreshMenuGamepads(SDL_NumJoysticks(),menuGamepadCount,SDL_GetTicks(),lastMenuGamepadRefresh,
+            if(RetunedFrontend::NativeFrontendEnabled && RetunedFrontend::RefreshMenuGamepads(
+                SDL_NumJoysticks(),menuGamepadCount,SDL_GetTicks(),lastMenuGamepadRefresh,
                 (ImGui::GetIO().BackendFlags&ImGuiBackendFlags_HasGamepad)!=0))
                 ImGui_ImplSDL2_SetGamepadMode(ImGui_ImplSDL2_GamepadMode_AutoAll);
-#endif
-            ImGui_ImplSDL2_NewFrame();
-#if defined(__APPLE__) && TARGET_OS_TV
-            RetunedTVUpdateRemote(RetunedFrontend::StartupVisible,GetAnyGuiWindowVisible());
-#endif''')
+            ImGui_ImplSDL2_NewFrame();"""+remote
+    gui.write_text(text[:begin]+body+text[end:])
     anchor='            switch (sdlEvent.type) {'
     text=gui.read_text()
     begin=text.find('            if(RetunedFrontend::TelevisionPlatform() && RetunedFrontend::NativeFrontendEnabled &&')
@@ -32,6 +34,7 @@ def apply(engine):
         end=text.index(anchor,begin)
         gui.write_text(text[:begin]+text[end:])
     edit(gui,anchor,'''            if(RetunedFrontend::TelevisionPlatform() && RetunedFrontend::NativeFrontendEnabled &&
+               !GetAnyGuiWindowVisible() &&
                (sdlEvent.type==SDL_KEYDOWN || sdlEvent.type==SDL_KEYUP) && sdlEvent.key.keysym.scancode==SDL_SCANCODE_ESCAPE) {
                 if(!ImGui::IsPopupOpen(nullptr,ImGuiPopupFlags_AnyPopupId|ImGuiPopupFlags_AnyPopupLevel) && !ImGui::IsAnyItemActive()) {
                     if(sdlEvent.type==SDL_KEYDOWN && !sdlEvent.key.repeat &&

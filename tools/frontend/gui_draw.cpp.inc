@@ -6,8 +6,7 @@
             Oot3d::EndGraphicsSettingsPreviews();
             return;
         }
-        const bool popupBefore=ImGui::IsPopupOpen(nullptr,ImGuiPopupFlags_AnyPopupId|ImGuiPopupFlags_AnyPopupLevel);
-        const bool editingBefore=ImGui::IsAnyItemActive();
+        RetunedFrontend::SettingsNav.Begin(RetunedFrontend::TelevisionPlatform());
         auto& runtime=Oot3d::GraphicsSettingsRuntime::Instance();
         if(!ImGui::IsAnyItemActive())runtime.SavePending();
         const ImGuiStyle previous=ImGui::GetStyle();
@@ -32,18 +31,17 @@
             ImGui::SameLine(std::max(ImGui::GetCursorPosX(),ImGui::GetWindowWidth()-ImGui::GetFontSize()*8));
             if(ImGui::Button(RetunedFrontend::StartupVisible?"Back":"Resume",ImVec2(ImGui::GetFontSize()*6,0)))SetVisibility(false);
 #ifdef __APPLE__
-            if(RetunedFrontend::TelevisionPlatform())ImGui::TextDisabled("Remote Back: settings / resume. Controller View / Minus or L3 + R3: settings.");
+            if(RetunedFrontend::TelevisionPlatform())ImGui::TextDisabled("Remote Back / B: categories, then close. View / Minus or L3 + R3: settings.");
             else if(!RetunedFrontend::TouchPlatform())ImGui::TextDisabled("Select / View / Minus or L3 + R3: settings");
 #else
             if(!RetunedFrontend::TouchPlatform())ImGui::TextDisabled("Control + comma: settings");
 #endif
             ImGui::Separator();
             ImGui::BeginChild("##UnifiedContents",ImVec2(0,-ImGui::GetFontSize()*2.2f));mPanel.Draw();ImGui::EndChild();
-            ImGui::Spacing();ImGui::TextDisabled(RetunedFrontend::TelevisionPlatform()?"Settings save automatically. Directions: move. Click / A: choose. Back / B: return.":"Settings save automatically. Tap an option or use your controller.");
+            ImGui::Spacing();ImGui::TextDisabled(RetunedFrontend::TelevisionPlatform()?"Directions: move. Right / Click / A: enter page. Left / Back / B: categories. Back / B again: close.":"Settings save automatically. Tap an option or use your controller.");
         }
         ImGui::End();ImGui::GetStyle()=previous;ImGui::GetIO().FontGlobalScale=previousFontScale;ImGui::PopFont();
-        if(RetunedFrontend::TelevisionPlatform() && RetunedFrontend::MenuBackClosesSettings(
-           (ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight,false)||ImGui::IsKeyPressed(ImGuiKey_Escape,false)),popupBefore,editingBefore,
-           ImGui::IsPopupOpen(nullptr,ImGuiPopupFlags_AnyPopupId|ImGuiPopupFlags_AnyPopupLevel)))SetVisibility(false);
+        RetunedFrontend::SettingsNav.End();
+        if(RetunedFrontend::SettingsNav.Close)SetVisibility(false);
         if(!IsVisible())Oot3d::EndGraphicsSettingsPreviews();
     }

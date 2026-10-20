@@ -71,6 +71,12 @@ jobs:
           python3 tools/frontend/apply_frontend_port.py engine
           clang++ -std=c++20 -fsanitize=address,undefined tests/native_audio_buffer.cpp -o native-audio-buffer-test
           ./native-audio-buffer-test
+          clang++ -std=c++20 -fsanitize=address,undefined tests/save_sync.cpp -o save-sync-test
+          ./save-sync-test
+          clang++ -std=c++20 -fobjc-arc -fsanitize=address,undefined tests/save_sync_files.mm -framework Foundation -framework CloudKit -framework Security -o save-sync-files-test
+          ./save-sync-files-test
+          clang++ -std=c++20 -fsanitize=address,undefined tests/texture_memory.cpp -o texture-memory-test
+          ./texture-memory-test
           clang++ -std=c++20 -Iengine/tools/oot3d/native_game_runtime -Iengine/tools/oot3d/typed_gameplay -Iengine/tools/oot3d/native_a32_runtime/upstream/recomp tests/native_audio_timing.cpp engine/tools/oot3d/native_game_runtime/oot3d_native_frame_rate.cpp -o native-audio-timing-test
           ./native-audio-timing-test
           clang++ -std=c++20 tests/reframed_scissor.cpp -o reframed-scissor-test

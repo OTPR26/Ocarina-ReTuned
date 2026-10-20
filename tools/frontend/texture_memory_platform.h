@@ -7,10 +7,10 @@
 #include <limits>
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
-#if TARGET_OS_IPHONE
 #include <mach/mach.h>
-#include <os/proc.h>
 #include <sys/sysctl.h>
+#if TARGET_OS_IPHONE
+#include <os/proc.h>
 #endif
 #elif defined(__ANDROID__)
 #include <fstream>
@@ -35,11 +35,20 @@ inline TextureBudgets SelectMobileTextureBudgets(uint64_t physical, uint64_t pro
     if (usable < 5 * GiB) return {192 * MiB, 384 * MiB};
     return {256 * MiB, 512 * MiB};
 }
+// CPU and GPU share physical memory on Apple Silicon. Keep both caches together
+// below one eighth of RAM; available memory may reduce this further at launch.
+inline TextureBudgets SelectDesktopTextureBudgets(uint64_t physical, uint64_t available) {
+    const uint64_t ram = physical ? physical : 8 * GiB;
+    uint64_t total = std::clamp(ram / 8, 512 * MiB, 4 * GiB);
+    if (available != std::numeric_limits<uint64_t>::max())
+        total = std::min(total, std::max(256 * MiB, available / 4));
+    return {total / 2, total / 2};
+}
 inline uint64_t TextureDecodeLimit(uint64_t decodedBudget, bool interfaceTexture) {
     return interfaceTexture ? decodedBudget : decodedBudget - 64 * MiB;
 }
 inline constexpr bool LimitTextureMemory() {
-#if (defined(__APPLE__) && TARGET_OS_IPHONE) || defined(__ANDROID__)
+#if defined(__APPLE__) || defined(__ANDROID__)
     return true;
 #else
     return false;
@@ -58,10 +67,21 @@ struct TextureMemorySnapshot {
 };
 inline TextureMemorySnapshot ReadTextureMemorySnapshot() {
     TextureMemorySnapshot result;
-#if defined(__APPLE__) && TARGET_OS_IPHONE
+#if defined(__APPLE__)
     size_t length = sizeof(result.Physical);
     if (sysctlbyname("hw.memsize", &result.Physical, &length, nullptr, 0) != 0) result.Physical = 0;
+#if TARGET_OS_IPHONE
     result.Available = os_proc_available_memory();
+#else
+    vm_statistics64_data_t vm{};
+    mach_msg_type_number_t vmCount = HOST_VM_INFO64_COUNT;
+    vm_size_t pageSize = 0;
+    const mach_port_t host = mach_host_self();
+    if (host_page_size(host, &pageSize) == KERN_SUCCESS &&
+        host_statistics64(host, HOST_VM_INFO64, reinterpret_cast<host_info64_t>(&vm), &vmCount) == KERN_SUCCESS)
+        result.Available = (uint64_t(vm.free_count) + vm.inactive_count) * pageSize;
+    mach_port_deallocate(mach_task_self(), host);
+#endif
     task_vm_info_data_t info{};
     mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
     if (task_info(mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>(&info), &count) == KERN_SUCCESS)
@@ -91,7 +111,11 @@ struct TextureBudgetState {
         const auto memory = ReadTextureMemorySnapshot();
         Available.store(memory.Available);
         if (LimitTextureMemory() && !FixedTelevisionBudget()) {
+#if defined(__APPLE__) && !TARGET_OS_IPHONE
+            const auto budget = SelectDesktopTextureBudgets(memory.Physical, memory.Available);
+#else
             const auto budget = SelectMobileTextureBudgets(memory.Physical, memory.Allowance);
+#endif
             Decoded.store(budget.Decoded);
             Uploaded.store(budget.Uploaded);
         }
@@ -112,6 +136,11 @@ inline void RefreshTextureMemoryBudget(uint64_t frame) {
     const uint64_t threshold = std::clamp(memory.Physical / 16, 192 * MiB, 512 * MiB);
     if (memory.Available < threshold) {
         // Shrink once under pressure; grow again only on the next app launch.
+#if defined(__APPLE__) && !TARGET_OS_IPHONE
+        state.Decoded.store(std::min(state.Decoded.load(), 256 * MiB));
+        state.Uploaded.store(std::min(state.Uploaded.load(), 256 * MiB));
+        return;
+#endif
         state.Decoded.store(std::min(state.Decoded.load(), 96 * MiB));
         state.Uploaded.store(std::min(state.Uploaded.load(), 192 * MiB));
     }

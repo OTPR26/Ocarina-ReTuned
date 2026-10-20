@@ -34,7 +34,7 @@ int main() {
  assert(!RetunedFrontend::MenuBackClosesSettings(true,false,true,false)); // Stop editing before leaving.
  assert(!RetunedFrontend::RemoteBackTogglesSettings(true,false,false,false));
  assert(RetunedFrontend::RemoteBackTogglesSettings(false,false,false,false));
- assert(RetunedFrontend::RemoteBackTogglesSettings(true,true,false,false));
+ assert(!RetunedFrontend::RemoteBackTogglesSettings(true,true,false,false));
  assert(!RetunedFrontend::RemoteBackTogglesSettings(false,true,true,false));
  ImGui::DestroyContext();
  }
