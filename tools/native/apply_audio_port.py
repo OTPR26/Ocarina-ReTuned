@@ -9,6 +9,7 @@ def apply(engine):
     assets=Path(__file__).with_name('audio')
     include=engine/'runtime/three_ds_recomp/include/ship/audio'
     (include/'pcm_buffer.h').write_text((assets/'pcm_buffer.h').read_text())
+    (include/'retuned_output_gain.h').write_text((assets/'output_gain.h').read_text())
     header=include/'SDLAudioPlayer.h'
     edit(header,'#include "AudioPlayer.h"','#include "AudioPlayer.h"\n#include "pcm_buffer.h"')
     edit(header,'    int Buffered() override;', '    int Buffered() override;\n    uint64_t OutputUnderruns() const override;')

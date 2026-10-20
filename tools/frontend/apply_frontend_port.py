@@ -1,6 +1,6 @@
 """Install the blue unified menu and the shared Reframed option bridge."""
 from pathlib import Path
-import argparse,sys
+import argparse,re,sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'reframed'))
 from apply_native_port import edit
 
@@ -28,8 +28,12 @@ def apply(engine):
          '  {\n    const auto fontPath = launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed\n        ? launch.A32ProcessManifestPath.parent_path() / "font_coverage.zip"\n        : launch.TopScreenTextureOverridePackPath.parent_path() / "font_coverage.zip";')
     if 'hostConfig.OpenFrontendSettings =' not in setup.read_text():
         edit(setup,'  hostConfig.SystemLanguage = languageSettings->SystemId();','  hostConfig.OpenFrontendSettings = [] { Fast::Oot3d::RequestUnifiedSettings(); };\n  hostConfig.SystemLanguage = languageSettings->SystemId();')
-    edit(setup,'  // F1 order: the scene lights join Lighting > Lights & Shadows; then',
-         '  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed)\n    for (const auto* page : {"General", "Reframed controls", "HUD", "Quality of life"})\n      applicationSettingsTabs.push_back(std::make_shared<RetunedFrontend::Panel>(page));\n  // F1 order: the scene lights join Lighting > Lights & Shadows; then')
+    text=setup.read_text()
+    text=re.sub(r'  if \(launch\.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed\)\n    for \(const auto\* page : \{[^\n]+\}\)\n      applicationSettingsTabs\.push_back\(std::make_shared<RetunedFrontend::Panel>\(page\)\);\n', '', text)
+    marker='  // F1 order: the scene lights join Lighting > Lights & Shadows; then'
+    registration='  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed)\n    for (const auto* page : {"Camera", "Reframed controls", "HUD", "Quality of life"})\n      applicationSettingsTabs.push_back(std::make_shared<RetunedFrontend::Panel>(page));\n'
+    assert marker in text
+    setup.write_text(text.replace(marker,registration+marker,1))
     edit(setup,'  context = Ship::Context::GetRawInstance();','  context = Ship::Context::GetRawInstance();\n  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed) RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);')
     frame=runtime/'oot3d_native_a32_window_frame.cpp'
     edit(frame,'#include "oot3d_native_a32_window_session.h"','#include "oot3d_native_a32_window_session.h"\n#include "retuned_reframed_settings.h"')

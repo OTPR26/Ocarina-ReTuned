@@ -132,9 +132,9 @@ class Panel final:public Fast::Oot3d::GraphicsSettingsPanelTab {
             ImGui::TextUnformatted(label);ImGui::SetNextItemWidth(std::min(ImGui::GetContentRegionAvail().x,ImGui::GetFontSize()*24));
             ImGui::PushID(static_cast<int>(index));
             if(ImGui::Combo("##value",&value,choices))settings.Set(index,value);
-            ImGui::PopID();ImGui::TextDisabled("%s",help);ImGui::Spacing();
+            ImGui::PopID();ImGui::PushStyleColor(ImGuiCol_Text,ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));ImGui::TextWrapped("%s",help);ImGui::PopStyleColor();ImGui::Spacing();
         };
-        if(mPage=="General") {
+        if(mPage=="Camera") {
             combo(4,"Camera distance","75%\0 87.5%\0 100%\0 112.5%\0 125%\0 137.5%\0 150%\0","Exploration camera; walls still limit distance.");
         }else if(mPage=="Reframed controls") {
             combo(0,"Targeting mode","Hold\0Switch\0","Choose how targeting stays active.");

@@ -1,6 +1,7 @@
 #include "ship/audio/SDLAudioPlayer.h"
 #include <spdlog/spdlog.h>
 #include <cstring>
+#include "ship/audio/retuned_output_gain.h"
 
 namespace Ship {
 SDLAudioPlayer::~SDLAudioPlayer() {
@@ -27,7 +28,9 @@ bool SDLAudioPlayer::DoInit() {
     want.callback = [](void* userdata, Uint8* bytes, int length) {
         auto& player = *static_cast<SDLAudioPlayer*>(userdata);
         std::memset(bytes, 0, length);
-        player.mPcm.Render({reinterpret_cast<int16_t*>(bytes), size_t(length) / sizeof(int16_t)});
+        auto output=std::span<int16_t>{reinterpret_cast<int16_t*>(bytes), size_t(length) / sizeof(int16_t)};
+        player.mPcm.Render(output);
+        Retuned::ApplyOutputGain(output,Retuned::OutputVolume.load(),Retuned::OutputMuted.load());
     };
     mDevice = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
     if (!mDevice) {

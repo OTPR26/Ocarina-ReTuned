@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
+#include "ship/audio/retuned_output_gain.h"
 #include "retuned_touch_model.h"
 #include "retuned_touch_hud_state.h"
 #include "retuned_blue_style.h"
@@ -84,6 +85,8 @@ inline void InitializeTouch() {
  TouchZRAction=std::clamp(config->GetInt("Touch.ZRAction",-1),-1,15);
  TouchFaceLayout=std::clamp(config->GetInt("Touch.FaceLayout",0),0,2);
  MenuSize=std::clamp(config->GetFloat("Interface.Scale",1.f),.8f,1.25f);
+ Retuned::OutputVolume=Retuned::ValidVolume(config->GetFloat("Audio.Volume",1.f));
+ Retuned::OutputMuted=config->GetBool("Audio.Muted",false);
 }
 inline TouchSnapshot SampleTouch(bool consume) {
  std::lock_guard lock(TouchMutex);

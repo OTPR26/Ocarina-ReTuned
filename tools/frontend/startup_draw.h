@@ -92,7 +92,7 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
     ImGui::TextWrapped("This preview uses your prepared native game files. Saves and settings are kept in this app's own storage.");
     ImGui::Spacing();ImGui::TextUnformatted("Game files: ready");
     ImGui::TextWrapped("Choose and manage your texture pack under Settings > Textures. Controller mappings and game options use the same settings before and during gameplay.");
-    if(ImGui::Button("Texture packs")){RequestedSettingsPage=6;Fast::Oot3d::RequestUnifiedSettings();SetupVisible=false;ImGui::CloseCurrentPopup();}
+    if(ImGui::Button("Texture packs")){RequestedSettingsPage=static_cast<int>(SettingsPage::Graphics);Fast::Oot3d::RequestUnifiedSettings();SetupVisible=false;ImGui::CloseCurrentPopup();}
     ImGui::SameLine();if(ImGui::Button("Done")){SetupVisible=false;ImGui::CloseCurrentPopup();}
     ImGui::EndPopup();
    } else ImGui::OpenPopup("Game setup");

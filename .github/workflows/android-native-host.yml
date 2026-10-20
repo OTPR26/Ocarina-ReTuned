@@ -61,6 +61,10 @@ jobs:
           ./mobile-menu-scale-test
           c++ -std=c++20 tests/touch_hud.cpp -o touch-hud-test
           ./touch-hud-test
+          c++ -std=c++20 tests/settings_categories.cpp -o settings-categories-test
+          ./settings-categories-test
+          c++ -std=c++20 tests/output_gain.cpp -o output-gain-test
+          ./output-gain-test
           PYTHONPATH=src python -m unittest discover -s tests -p 'test_*.py'
       - name: Configure neutral native host
         run: |
