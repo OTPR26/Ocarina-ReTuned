@@ -158,7 +158,8 @@ def _prepare(args):
                 object_symbols[parts[-1]]=int(parts[1],16)
         functions = ('NativeHud_GetScalePercent','NativeHud_SetScalePercent',
             'Camera_GetDistanceOption','Camera_SetDistanceOption','Camera_GetControlMode',
-            'Camera_SetControlMode','MovementOptions_Get','MovementOptions_Set')
+            'Camera_SetControlMode','MovementOptions_Get','MovementOptions_Set',
+            'InputRemap_IsOcarinaUiOpen','InputRemap_IsOcarinaUiReady','InputRemap_CloseOcarinaUi')
         frontend = {'schema':1,'context_pointer':object_symbols['gGlobalContext'],
             'save_context':args.save_context,'functions':{name:named[name][0] for name in functions}}
     out = args.output

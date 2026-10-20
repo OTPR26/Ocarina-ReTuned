@@ -1,5 +1,6 @@
 #pragma once
 #include "oot3d_native_a32_process.h"
+#include "retuned_ocarina_lifecycle.h"
 #include "fast/oot3d/retuned_blue_style.h"
 #include "fast/oot3d/graphics_settings_window.h"
 #include "ship/Context.h"
@@ -72,6 +73,11 @@ class Settings {
             return result;
         };
         try {
+            if(mBridge.at("functions").contains("InputRemap_IsOcarinaUiReady")) {
+                const bool open=invoke("InputRemap_IsOcarinaUiOpen")!=0;
+                const bool ready=open && invoke("InputRemap_IsOcarinaUiReady")!=0;
+                if(mOcarina.Finished(open,ready))invoke("InputRemap_CloseOcarinaUi");
+            }
             if(!mConfigured) {
                 constexpr std::array<uint32_t,3> offsets{0x2D,0x13D8,0xF};
                 for(size_t i=0;i<3;++i){uint8_t v=0;if(!memory.Read8(save+offsets[i],&v))return;mValues[i]=v&1;}
@@ -97,6 +103,7 @@ class Settings {
         }catch(const std::exception& e){mError=e.what();mReady=false;}
     }
   private:
+    OcarinaShortcutLifecycle mOcarina;
     mutable std::recursive_mutex mMutex;
     nlohmann::json mBridge;
     std::array<int,9> mValues{0,0,0,2,2,0,0,0,0},mPrevious{};

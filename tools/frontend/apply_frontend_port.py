@@ -8,6 +8,7 @@ def apply(engine):
     source=Path(__file__).parent
     runtime=engine/'tools/oot3d/native_game_runtime'
     (runtime/'retuned_reframed_settings.h').write_text((source/'reframed_settings.h').read_text())
+    (runtime/'retuned_ocarina_lifecycle.h').write_text((source/'ocarina_lifecycle.h').read_text())
     include=engine/'runtime/three_ds_recomp/include/fast/oot3d'
     (include/'retuned_blue_style.h').write_text((source/'blue_style.h').read_text())
     graphics=engine/'runtime/three_ds_recomp/src/fast/oot3d/graphics_settings_window.cpp'
@@ -35,7 +36,7 @@ def apply(engine):
          '  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed) RetunedFrontend::Current().Apply(process);\n  const auto hidUpdate = hostServices.AdvanceHidToCurrentTick(')
     edit(runtime/'oot3d_native_a32_ctr_host.h','struct NativeA32CtrHostConfig {','struct NativeA32CtrHostConfig {\n    std::function<void()> OpenFrontendSettings;')
     edit(runtime/'oot3d_native_a32_ctr_host.cpp','    case 0x08: {','    case 0x7E: {\n        event.Name = "OpenFrontendSettings";\n        if (!mConfig.OpenFrontendSettings) return {NativeA32HostAction::Fault};\n        mConfig.OpenFrontendSettings();state.r[0]=kResultSuccess;event.Handled=true;\n        mSvcEvents.push_back(std::move(event));return {NativeA32HostAction::Resume};\n    }\n    case 0x08: {')
-    edit(runtime/'oot3d_native_controls_settings_panel.cpp', '"ZL", "ZR", "Select", "Start",', '"ZL", "ZR", "Inventory / pause", "Save menu",')
+    edit(runtime/'oot3d_native_controls_settings_panel.cpp', '"ZL", "ZR", "Select", "Start",', '"ZL", "ZR", "Inventory / pause", "Settings",')
     controls_panel=runtime/'oot3d_native_controls_settings_panel.cpp'
     panel=controls_panel.read_text()
     body=panel.index('  void Draw() override {')
@@ -78,6 +79,21 @@ def apply(engine):
     edit(setup,'#include "retuned_reframed_settings.h"','#include "retuned_reframed_settings.h"\n#include "retuned_load_texture_aliases.h"')
     edit(setup,'  hostConfig.WritableHidSharedMemory = launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed;',
          '  if(launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed)RetunedFrontend::LoadTextureAliases(launch.A32ProcessManifestPath);\n  hostConfig.WritableHidSharedMemory = launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed;')
+    (include/'retuned_tab_hints.h').write_text((source/'tab_hints.h').read_text())
+    (include/'retuned_settings_button.h').write_text((source/'settings_button.h').read_text())
+    edit(frame,'#include "retuned_reframed_settings.h"','#include "retuned_reframed_settings.h"\n#include "fast/oot3d/retuned_settings_button.h"')
+    edit(gui,'#include "fast/oot3d/retuned_blue_style.h"','#include "fast/oot3d/retuned_blue_style.h"\n#include "fast/oot3d/retuned_tab_hints.h"')
+    edit(gui,'void Fast3dGui::DrawMenu() {\n    Ship::Gui::DrawMenu();',
+         'void Fast3dGui::DrawMenu() {\n    Ship::Gui::DrawMenu();\n    if(!GetAnyGuiWindowVisible())RetunedFrontend::DrawTabHints();')
+    host=runtime/'oot3d_native_a32_ctr_host.cpp'
+    edit(runtime/'oot3d_native_a32_ctr_host.h','    std::function<void()> OpenFrontendSettings;','    std::function<void()> OpenFrontendSettings;\n    std::function<void()> PublishPauseTabHints;')
+    edit(setup,'#include "retuned_load_texture_aliases.h"','#include "retuned_load_texture_aliases.h"\n#include "fast/oot3d/retuned_tab_hints.h"')
+    edit(setup,'  hostConfig.OpenFrontendSettings = [] { Fast::Oot3d::RequestUnifiedSettings(); };','  hostConfig.OpenFrontendSettings = [] { Fast::Oot3d::RequestUnifiedSettings(); };\n  hostConfig.PublishPauseTabHints = [] { RetunedFrontend::PublishTabHints(); };')
+    edit(host,'    case 0x7E: {','    case 0x7D: {\n        if(mConfig.PublishPauseTabHints)mConfig.PublishPauseTabHints();state.r[0]=kResultSuccess;\n        event.Name="ShowPauseTabHints";event.Handled=true;mSvcEvents.push_back(std::move(event));\n        return {NativeA32HostAction::Resume};\n    }\n    case 0x7E: {')
+    edit(runtime/'oot3d_native_a32_window_session.h','  bool quickSaveKeyWasDown', '  bool reframedSettingsHeld=false;\n  bool quickSaveKeyWasDown')
+    edit(frame,'  if (physicalInputFrame.Exit || devLabQuit) {',
+         '  if(launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed) {\n    const auto settingsButton=Oot3dNativeGame::NativeA32HidButtonMask(Oot3dNativeGame::NativeA32HidButton::Start);\n    if(RetunedFrontend::RouteSettingsButton(physicalInputFrame.Hid.Buttons,settingsButton,reframedSettingsHeld,hostGuiVisible))Fast::Oot3d::RequestUnifiedSettings();\n  }\n  if (physicalInputFrame.Exit || devLabQuit) {')
+    edit(controls_panel,'"Inventory / pause", "Save menu",','"Inventory / pause", "Settings",')
     controls=runtime/'oot3d_native_control_config.cpp'
     edit(controls,'SetKeyboardBinding(config, NativeControlAction::Select,\n                     NativeKeyboardKey::Tab, NativeKeyboardKey::Backspace);\n  SetKeyboardBinding(config, NativeControlAction::Start,\n                     NativeKeyboardKey::Enter);','SetKeyboardBinding(config, NativeControlAction::Select,\n                     NativeKeyboardKey::Enter);\n  SetKeyboardBinding(config, NativeControlAction::Start,\n                     NativeKeyboardKey::Tab, NativeKeyboardKey::Backspace);')
     edit(controls,'SetGamepadBinding(config, NativeControlAction::Select,\n                    NativeGamepadButton::Back);\n  SetGamepadBinding(config, NativeControlAction::Start,\n                    NativeGamepadButton::Start);','SetGamepadBinding(config, NativeControlAction::Select,\n                    NativeGamepadButton::Start);\n  SetGamepadBinding(config, NativeControlAction::Start,\n                    NativeGamepadButton::Back);')
