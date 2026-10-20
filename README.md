@@ -7,7 +7,8 @@ Majora ReMasked provides the reference for startup, settings and importing.
 The native experiment uses TriAevum's runtime and ahead-of-time translation
 infrastructure. A shared ARM64 architecture does not make macOS and Android
 modules interchangeable: each requires its own ABI, renderer integration,
-input, storage and lifecycle validation. There is no playable ReTuned build yet.
+input, storage and lifecycle validation. The base Mac prototype reaches gameplay;
+the Reframed integration is being tested separately.
 
 ## Current work
 
@@ -20,7 +21,19 @@ input, storage and lifecycle validation. There is no playable ReTuned build yet.
 
 The `Native ARM64 prototype` workflow builds neutral runtime components on
 GitHub. It receives no ROMs, extracted assets, generated title code, saves or
-personal texture packs, Only neutral runtime bundles may be uploaded; generated title libraries stay local.
+personal texture packs. Only neutral runtime bundles may be uploaded; generated title libraries stay local.
+
+## Reframed integration
+
+The native experiment applies the verified Reframed patch before title
+translation. Its HUD, pause menus and camera run as translated mod functions,
+with the original game save format. The host maps the injected code segment
+instead of invoking the console loader's process-permission call. Native IRRST
+shared memory supplies C-stick and shoulder input to the mod.
+
+Game images, mod resources and translated title libraries are prepared locally
+and are excluded from GitHub artifacts. Texture packs are referenced in place.
+The active playtest is not switched until the new host and title checks pass.
 
 ## Development services
 

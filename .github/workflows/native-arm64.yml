@@ -65,6 +65,9 @@ jobs:
       - name: Apply macOS port fixes
         run: |
           python3 tools/native/apply_macos_port.py engine
+          python3 tools/reframed/apply_native_port.py engine
+          clang++ -std=c++20 -Iengine/tools/oot3d/native_a32_runtime/upstream/recomp tests/reframed_vfp_zero.cpp engine/tools/oot3d/native_a32_runtime/upstream/recomp/a32_vfp_binary64.cpp -o reframed-vfp-test
+          ./reframed-vfp-test
           clang++ -std=c++20 tools/native/numeric_probe.cpp -o numeric-probe
           ./numeric-probe
       - name: Configure neutral runtime
@@ -84,7 +87,9 @@ jobs:
             -DTHREE_DS_RECOMP_OFFER_EXPERIMENTAL_GI=OFF \
             -DENABLE_SCRIPTING=OFF -DINCLUDE_MPQ_SUPPORT=OFF
       - name: Build neutral runtime
-        run: cmake --build build/runtime --parallel 3 --target triaevum_public_runtime
+        run: |
+          cmake --build build/runtime --parallel 3 --target triaevum_public_runtime oot3d_native_a32_ctr_host_tests
+          build/runtime/oot3d_native_a32_ctr_host_tests
       - name: Bundle neutral prototype
         run: python3 tools/native/package_macos.py --engine engine --build build/runtime --output artifacts/Ocarina-ReTuned-Native-macOS-arm64.zip
       - uses: actions/upload-artifact@v7

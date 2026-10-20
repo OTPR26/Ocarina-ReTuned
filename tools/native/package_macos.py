@@ -41,9 +41,12 @@ def package(engine, build, output):
         if b'libSDL3.dylib' in (frameworks / 'libSDL2-2.0.0.dylib').read_bytes():
             sdl3 = Path(run('brew', '--prefix', 'sdl3')) / 'lib/libSDL3.dylib'
             shutil.copy2(sdl3.resolve(), frameworks / 'libSDL3.dylib')
-            subprocess.run(['dylibbundler', '-od', '-b', '-x', str(frameworks / 'libSDL3.dylib'),
-                            '-d', str(frameworks), '-p', '@loader_path/', '-s', str(sdl3.parent)],
-                            check=True, input='quit\n', text=True, timeout=120)
+            dependencies = run('otool', '-L', str(frameworks / 'libSDL3.dylib')).splitlines()[2:]
+            if any(not line.strip().split(' ')[0].startswith(('/System/', '/usr/lib/'))
+                   for line in dependencies):
+                raise ValueError('SDL3 has an unpackaged dependency')
+            subprocess.run(['install_name_tool', '-id', '@rpath/libSDL3.dylib',
+                            str(frameworks / 'libSDL3.dylib')], check=True)
         vulkan = sorted(frameworks.glob('libvulkan.1.*.dylib'))
         if len(vulkan) != 1:
             raise ValueError('Expected one Vulkan loader.')
