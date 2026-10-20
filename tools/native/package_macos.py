@@ -79,7 +79,8 @@ export DYLD_LIBRARY_PATH="$contents/Frameworks"
 exec "$contents/MacOS/retuned-native" --launch-profile "$HOME/Library/Application Support/Ocarina ReTuned/native-launch.json" "$@"
 ''')
         launcher.chmod(0o755)
-        metadata = {'CFBundleName': 'Ocarina ReTuned', 'CFBundleDisplayName': 'Ocarina ReTuned',
+        shutil.copy2(Path(__file__).resolve().parents[2]/'resources/icons/macos/OcarinaReTuned.icns', resources/'OcarinaReTuned.icns')
+        metadata = {'CFBundleIconFile':'OcarinaReTuned.icns', 'CFBundleName': 'Ocarina ReTuned', 'CFBundleDisplayName': 'Ocarina ReTuned',
             'CFBundleExecutable': 'OcarinaReTuned', 'CFBundleIdentifier': 'io.github.otpr26.ocarinaretuned',
             'CFBundlePackageType': 'APPL', 'CFBundleVersion': '1',
             'CFBundleShortVersionString': '0.1.0', 'NSHighResolutionCapable': True,

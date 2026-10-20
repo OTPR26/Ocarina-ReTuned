@@ -9,8 +9,12 @@
         auto& runtime=Oot3d::GraphicsSettingsRuntime::Instance();
         if(!ImGui::IsAnyItemActive())runtime.SavePending();
         const ImGuiStyle previous=ImGui::GetStyle();
+        const float previousFontScale=ImGui::GetIO().FontGlobalScale;
         RetunedFrontend::BlueStyle(ImGui::GetStyle());
         const auto* viewport=ImGui::GetMainViewport();
+        const float scale=RetunedFrontend::InterfaceScale(viewport->WorkSize.y);
+        ImGui::GetIO().FontGlobalScale=.5f*scale;
+        ImGui::GetStyle().ScaleAllSizes(scale);
         ImGui::SetNextWindowPos(viewport->WorkPos,ImGuiCond_Always);
         ImGui::SetNextWindowSize(viewport->WorkSize,ImGuiCond_Always);
         constexpr auto flags=ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoDocking;
@@ -19,15 +23,15 @@
             ImGui::TextColored(ImVec4(.39f,.70f,1,1),"Ocarina ReTuned");
             ImGui::SameLine();ImGui::TextUnformatted(" / Settings");
             ImGui::SameLine(std::max(ImGui::GetCursorPosX(),ImGui::GetWindowWidth()-ImGui::GetFontSize()*8));
-            if(ImGui::Button("Resume",ImVec2(ImGui::GetFontSize()*6,0)))SetVisibility(false);
+            if(ImGui::Button(RetunedFrontend::StartupVisible?"Back":"Resume",ImVec2(ImGui::GetFontSize()*6,0)))SetVisibility(false);
 #ifdef __APPLE__
-            ImGui::TextDisabled("Command + comma: settings");
+            ImGui::TextDisabled("Select / View / Minus or L3 + R3: settings");
 #else
             ImGui::TextDisabled("Control + comma: settings");
 #endif
             ImGui::Separator();
             ImGui::BeginChild("##UnifiedContents");mPanel.Draw();ImGui::EndChild();
         }
-        ImGui::End();ImGui::GetStyle()=previous;
+        ImGui::End();ImGui::GetStyle()=previous;ImGui::GetIO().FontGlobalScale=previousFontScale;
         if(!IsVisible())Oot3d::EndGraphicsSettingsPreviews();
     }

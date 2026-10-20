@@ -19,6 +19,9 @@ def prepare(engine):
     notices=root/'app/src/main/assets/licenses'
     notices.mkdir(parents=True,exist_ok=True)
     shutil.copy2(Path(__file__).parents[2]/'resources/fonts/LICENSE.txt',notices/'interface-font-OFL.txt')
+    shutil.copytree(Path(__file__).parents[2]/'resources/icons/android',root/'app/src/main/res',dirs_exist_ok=True)
+    replace(root/'app/src/main/AndroidManifest.xml', 'android:allowBackup="false"',
+            'android:allowBackup="false" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"')
     gradle = root / 'app/build.gradle.kts'
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')

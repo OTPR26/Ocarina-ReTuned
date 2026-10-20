@@ -21,7 +21,7 @@ def apply(engine):
     edit(gui,'#include "fast/oot3d/graphics_settings_window.h"','#include "fast/oot3d/graphics_settings_window.h"\n#include "fast/oot3d/retuned_blue_style.h"')
     text=gui.read_text();start=text.index('    void Draw() override {',text.index('class Oot3dGraphicsSettingsWindow'));end=text.index('\n  protected:',start)
     text=text[:start]+(source/'gui_draw.cpp.inc').read_text()+text[end:];gui.write_text(text)
-    edit(gui,'sdlEvent.key.keysym.scancode == SDL_SCANCODE_F1 &&','(sdlEvent.key.keysym.scancode == SDL_SCANCODE_F1 ||\n                         (sdlEvent.key.keysym.scancode == SDL_SCANCODE_COMMA && (sdlEvent.key.keysym.mod & (KMOD_GUI|KMOD_CTRL)))) &&')
+    edit(gui,'sdlEvent.key.keysym.scancode == SDL_SCANCODE_F1 &&','(sdlEvent.key.keysym.scancode == SDL_SCANCODE_F1 || sdlEvent.key.keysym.scancode == SDL_SCANCODE_AC_BACK ||\n                         (sdlEvent.key.keysym.scancode == SDL_SCANCODE_COMMA && (sdlEvent.key.keysym.mod & (KMOD_GUI|KMOD_CTRL)))) &&')
     setup=runtime/'oot3d_native_a32_window_setup.cpp'
     edit(setup,'#include "oot3d_native_a32_window_session.h"','#include "oot3d_native_a32_window_session.h"\n#include "retuned_reframed_settings.h"')
     edit(setup, '  if (!launch.TopScreenTextureOverridePackPath.empty()) {\n    const auto fontPath = launch.TopScreenTextureOverridePackPath.parent_path() / "font_coverage.zip";',
@@ -100,6 +100,9 @@ def apply(engine):
     controls=runtime/'oot3d_native_control_config.cpp'
     edit(controls,'SetKeyboardBinding(config, NativeControlAction::Select,\n                     NativeKeyboardKey::Tab, NativeKeyboardKey::Backspace);\n  SetKeyboardBinding(config, NativeControlAction::Start,\n                     NativeKeyboardKey::Enter);','SetKeyboardBinding(config, NativeControlAction::Select,\n                     NativeKeyboardKey::Enter);\n  SetKeyboardBinding(config, NativeControlAction::Start,\n                     NativeKeyboardKey::Tab, NativeKeyboardKey::Backspace);')
     edit(controls,'SetGamepadBinding(config, NativeControlAction::Select,\n                    NativeGamepadButton::Back);\n  SetGamepadBinding(config, NativeControlAction::Start,\n                    NativeGamepadButton::Start);','SetGamepadBinding(config, NativeControlAction::Select,\n                    NativeGamepadButton::Start);\n  SetGamepadBinding(config, NativeControlAction::Start,\n                    NativeGamepadButton::Back);')
+
+    from apply_mobile_frontend import apply as apply_mobile
+    apply_mobile(engine)
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('engine',type=Path);apply(p.parse_args().engine)

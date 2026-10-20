@@ -1,13 +1,14 @@
 void GraphicsSettingsPanel::Draw() {
 
     static int page=0;
-    const char* pages[]={"General","Controls","HUD","Quality of life","Graphics","Lighting","Textures","Save states","Language","Advanced"};
+    if(RetunedFrontend::RequestedSettingsPage>=0){page=RetunedFrontend::RequestedSettingsPage;RetunedFrontend::RequestedSettingsPage=-1;}
+    const char* pages[]={"General","Controls","HUD","Quality of life","Graphics","Lighting","Textures","Save states","Language","Advanced","Touch"};
     const float font=ImGui::GetFontSize();
-    ImGui::BeginChild("##Navigation",ImVec2(std::clamp(ImGui::GetContentRegionAvail().x*.23f,font*10,font*15),0),true);
-    for(int i=0;i<10;++i){
+    ImGui::BeginChild("##Navigation",ImVec2(RetunedFrontend::NavigationWidth(ImGui::GetContentRegionAvail().x,font),0),true);
+    for(int i=0;i<11;++i){
         const bool selected=page==i;
         if(selected)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));
-        if(ImGui::Button(pages[i],ImVec2(-1,font*2.5f)))page=i;
+        if(ImGui::Button(pages[i],ImVec2(-1,std::max(font*2.5f,44.f))))page=i;
         if(selected)ImGui::PopStyleColor();
     }
     ImGui::EndChild();ImGui::SameLine();
@@ -28,6 +29,7 @@ void GraphicsSettingsPanel::Draw() {
       case 6:DrawTextureSettings();break;
       case 7:drawTabs("Save states");break;
       case 8:drawTabs("Language");break;
+      case 10:RetunedFrontend::DrawTouchSettings();break;
       case 9:DrawGrassSettings();ImGui::Separator();DrawMaterialsTab();break;
     }
     ImGui::PopItemWidth();ImGui::EndChild();
