@@ -65,6 +65,8 @@ jobs:
           ./settings-categories-test
           c++ -std=c++20 tests/output_gain.cpp -o output-gain-test
           ./output-gain-test
+          c++ -std=c++20 tests/texture_folder.cpp -o texture-folder-test
+          ./texture-folder-test
           PYTHONPATH=src python -m unittest discover -s tests -p 'test_*.py'
       - name: Configure neutral native host
         run: |

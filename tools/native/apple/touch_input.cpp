@@ -36,6 +36,7 @@ extern "C" void RetunedTouchSetEnabled(int enabled) {
 }
 #ifdef __ANDROID__
 #include <jni.h>
+#include "texture_folder_jni.h"
 extern "C" JNIEXPORT jfloat JNICALL Java_org_triaevum_android_TouchOverlay_opacity(JNIEnv*,jclass){return RetunedFrontend::NativeTouchOpacity.load();}
 extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_button(JNIEnv*,jclass,jint button,jboolean down) {RetunedTouchSetButton(button,down);}
 extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_axis(JNIEnv*,jclass,jint axis,jint value) {RetunedTouchSetAxis(axis,value);}
@@ -48,7 +49,7 @@ extern "C" JNIEXPORT jint JNICALL Java_org_triaevum_android_TouchOverlay_state(J
 #ifdef __ANDROID__
 extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_enabled(JNIEnv*,jclass,jboolean enabled){RetunedTouchSetEnabled(enabled);}
 extern "C" JNIEXPORT jfloat JNICALL Java_org_triaevum_android_TouchOverlay_size(JNIEnv*,jclass){return RetunedFrontend::TouchSize.load();}
-extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_displayMetrics(JNIEnv*,jclass,jfloat density,jfloat height){RetunedFrontend::AndroidDisplayDensity=density;RetunedFrontend::AndroidDisplayHeight=height;}
+extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_displayMetrics(JNIEnv*,jclass,jfloat density,jfloat height){RetunedFrontend::InstallAndroidTextureFolder();RetunedFrontend::AndroidDisplayDensity=density;RetunedFrontend::AndroidDisplayHeight=height;}
 #endif
 
 #ifdef __ANDROID__

@@ -34,9 +34,17 @@ def prepare(engine):
     replace(root / 'app/src/main/AndroidManifest.xml',
             'android:label="TriAevum — Echoes of Time"', 'android:label="Ocarina ReTuned"')
     activity = root / 'app/src/main/java/org/triaevum/android/TriAevumActivity.java'
-    shutil.copy2(Path(__file__).parent/'android/TouchOverlay.java',activity.parent/'TouchOverlay.java')
-    replace(activity,'public final class TriAevumActivity extends SDLActivity {',
-            'public final class TriAevumActivity extends SDLActivity {\n    private TouchOverlay touchOverlay;')
+    for name in ('TouchOverlay.java','TextureFolder.java'):
+        shutil.copy2(Path(__file__).parent/'android'/name,activity.parent/name)
+    if 'private TextureFolder retunedTextures;' not in activity.read_text():
+        replace(activity,'public final class TriAevumActivity extends SDLActivity {',
+                'public final class TriAevumActivity extends SDLActivity {\n    private TextureFolder retunedTextures;\n    public void retunedChooseTextureFolder(){if(retunedTextures!=null)retunedTextures.choose();}\n    public String retunedTakeTextureFolder(){return retunedTextures==null?"":retunedTextures.take();}\n    public String retunedTextureFolderStatus(){return retunedTextures==null?"":retunedTextures.status();}\n    public byte[] retunedReadTextureFile(String path){return retunedTextures==null?null:retunedTextures.read(path);}\n    @Override protected void onActivityResult(int request,int result,android.content.Intent data){\n        if(request==TextureFolder.REQUEST&&retunedTextures!=null){retunedTextures.result(result,data);return;}\n        super.onActivityResult(request,result,data);\n    }')
+    if 'retunedTextures=new TextureFolder(this);' not in activity.read_text():
+        replace(activity,'        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);',
+                '        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n        retunedTextures=new TextureFolder(this);')
+    if 'private TouchOverlay touchOverlay;' not in activity.read_text():
+        replace(activity,'public final class TriAevumActivity extends SDLActivity {',
+                'public final class TriAevumActivity extends SDLActivity {\n    private TouchOverlay touchOverlay;')
     if 'touchOverlay=new TouchOverlay(this);' not in activity.read_text():
         replace(activity,'        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);',
                 '        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n        touchOverlay=new TouchOverlay(this);\n        addContentView(touchOverlay,new android.view.ViewGroup.LayoutParams(-1,-1));')

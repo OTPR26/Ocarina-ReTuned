@@ -11,6 +11,9 @@
 #include <vector>
 
 int RetunedNativeMain(int argc, char** argv);
+#if TARGET_OS_IOS && !TARGET_OS_TV
+extern "C" void RetunedInitializeTextureFolder(const char* dataDirectory);
+#endif
 extern "C" float RetunedAppleScreenScale() { return static_cast<float>(UIScreen.mainScreen.nativeScale); }
 
 static id ResolvePaths(id value, NSString* bundle, NSString* data) {
@@ -81,6 +84,9 @@ int main(int, char**) {
                 if (!updated || ![updated writeToFile:settings options:NSDataWritingAtomic error:&error]) return 1;
             }
         }
+#if TARGET_OS_IOS && !TARGET_OS_TV
+        RetunedInitializeTextureFolder(data.UTF8String);
+#endif
         SDL_setenv("RETUNED_DATA_DIRECTORY", data.UTF8String, 1);
         SDL_setenv("RETUNED_RESOURCE_DIRECTORY", [[bundle stringByAppendingPathComponent:@"PrivateGame"] UTF8String], 1);
         std::filesystem::current_path(data.UTF8String);

@@ -8,6 +8,7 @@ void GraphicsSettingsPanel::Draw() {
             if(category.Page==requested && RetunedFrontend::CategoryVisible(requested,mobile,touch))page=requested;
         RetunedFrontend::RequestedSettingsPage=-1;
     }
+    static auto previousPage=page;
     const float font=ImGui::GetFontSize();
     ImGui::BeginChild("##Navigation",ImVec2(RetunedFrontend::NavigationWidth(ImGui::GetContentRegionAvail().x,font),0),true);
     for(const auto& category:RetunedFrontend::SettingsCategories){
@@ -18,6 +19,7 @@ void GraphicsSettingsPanel::Draw() {
         if(selected)ImGui::PopStyleColor();
     }
     ImGui::EndChild();ImGui::SameLine();
+    if(page!=previousPage){ImGui::SetNextWindowScroll({0,0});previousPage=page;}
     ImGui::BeginChild("##SettingsPage",ImVec2(0,0),true);
     for(const auto& category:RetunedFrontend::SettingsCategories)if(category.Page==page){
         ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark),"%s",category.Label);

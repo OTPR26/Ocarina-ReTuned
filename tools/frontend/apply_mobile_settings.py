@@ -20,20 +20,22 @@ def apply(engine):
     widgets=engine/'runtime/three_ds_recomp/include/fast/oot3d/settings_panel_widgets.h';header(widgets)
     edit(widgets,'        ImGui::BeginDisabled(!supported);','        if(RetunedFrontend::MobileSettingsPlatform() && !supported && current!=option)continue;\n        ImGui::BeginDisabled(!supported);')
     textures=graphics/'azahar_texture_pack_panel.cpp';header(textures)
-    edit(textures,'    SynchronizeDirectoryInputs(settings, state);','''    if(RetunedFrontend::MobileSettingsPlatform()) {
-        const bool changed=ImGui::Checkbox("Load custom textures",&settings.LoadCustomTextures);
-        auto& packs=::Oot3d::Renderer::AzaharTexturePackRuntime::Instance();
-        if(ImGui::Button("Reload textures"))packs.Reload();
-        const auto status=packs.Snapshot();
-        if(status.IndexPending)ImGui::TextWrapped("Finding textures...");
-        else if(status.IndexedTextures==0)ImGui::TextWrapped("No texture pack found. Add a pack during app setup.");
-        else ImGui::TextWrapped("%zu textures available; %zu loaded",status.IndexedTextures,status.LoadedTextures);
-        if(status.PendingLoads)ImGui::Text("Loading: %zu",status.PendingLoads);
-        if(status.FailedLoads)ImGui::Text("Could not load: %zu",status.FailedLoads);
-        if(!status.LastError.empty())ImGui::TextWrapped("%s",status.LastError.c_str());
-        return changed;
-    }
-    SynchronizeDirectoryInputs(settings, state);''')
+    header_marker='#include "fast/oot3d/retuned_texture_folder.h"'
+    text=textures.read_text()
+    style='#include "fast/oot3d/retuned_blue_style.h"'
+    if style not in text:textures.write_text(style+'\n'+text)
+    text=textures.read_text()
+    if header_marker not in text:text=header_marker+'\n'+text
+    start=text.index('bool DrawAzaharTexturePackPanel(')
+    body=text.index('{',start)+1
+    end=text.index('    SynchronizeDirectoryInputs(settings, state);',body)
+    text=text[:body]+'\n'+Path(__file__).with_name('mobile_textures.cpp.inc').read_text()+text[end:]
+    textures.write_text(text)
+    loader=graphics/'azahar_texture_pack.cpp'
+    text=loader.read_text()
+    if header_marker not in text:loader.write_text(header_marker+'\n'+text)
+    edit(loader,'std::vector<uint8_t> ReadBinaryFile(const std::filesystem::path& path) {',
+         'std::vector<uint8_t> ReadBinaryFile(const std::filesystem::path& path) {\n    if(RetunedFrontend::TextureFolders.Read && RetunedFrontend::IsTextureDocument(path.string()))return RetunedFrontend::ReadTextureDocument(path.string());')
     controls=runtime/'oot3d_native_controls_settings_panel.cpp';header(controls)
     edit(controls,'  void DrawDevices() {','''  void DrawDevices() {
     if(RetunedFrontend::MobileSettingsPlatform()) {
