@@ -26,7 +26,8 @@ def apply(engine):
     edit(setup,'#include "oot3d_native_a32_window_session.h"','#include "oot3d_native_a32_window_session.h"\n#include "retuned_reframed_settings.h"')
     edit(setup, '  if (!launch.TopScreenTextureOverridePackPath.empty()) {\n    const auto fontPath = launch.TopScreenTextureOverridePackPath.parent_path() / "font_coverage.zip";',
          '  {\n    const auto fontPath = launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed\n        ? launch.A32ProcessManifestPath.parent_path() / "font_coverage.zip"\n        : launch.TopScreenTextureOverridePackPath.parent_path() / "font_coverage.zip";')
-    edit(setup,'  hostConfig.SystemLanguage = languageSettings->SystemId();','  hostConfig.OpenFrontendSettings = [] { Fast::Oot3d::RequestUnifiedSettings(); };\n  hostConfig.SystemLanguage = languageSettings->SystemId();')
+    if 'hostConfig.OpenFrontendSettings =' not in setup.read_text():
+        edit(setup,'  hostConfig.SystemLanguage = languageSettings->SystemId();','  hostConfig.OpenFrontendSettings = [] { Fast::Oot3d::RequestUnifiedSettings(); };\n  hostConfig.SystemLanguage = languageSettings->SystemId();')
     edit(setup,'  // F1 order: the scene lights join Lighting > Lights & Shadows; then',
          '  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed)\n    for (const auto* page : {"General", "Reframed controls", "HUD", "Quality of life"})\n      applicationSettingsTabs.push_back(std::make_shared<RetunedFrontend::Panel>(page));\n  // F1 order: the scene lights join Lighting > Lights & Shadows; then')
     edit(setup,'  context = Ship::Context::GetRawInstance();','  context = Ship::Context::GetRawInstance();\n  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed) RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);')
@@ -55,14 +56,17 @@ def apply(engine):
             text='#include "fast/oot3d/retuned_blue_style.h"\n'+text
         styled.write_text(text.replace('ImGui::Checkbox(', 'RetunedFrontend::Toggle('))
     font=(source.parents[1]/'resources/fonts/InterfaceSans-Regular.ttf').read_bytes()
+    bold=(source.parents[1]/'resources/fonts/InterfaceSans-Bold.ttf').read_bytes()
     font_header=include/'retuned_interface_font.h'
     font_header.write_text('#pragma once\nnamespace RetunedFrontend { inline unsigned char InterfaceFont[] = {\n'+
-        ','.join(str(byte) for byte in font)+'\n}; }\n')
+        ','.join(str(byte) for byte in font)+'\n}; inline unsigned char InterfaceBold[] = {\n'+','.join(str(byte) for byte in bold)+'\n}; }\n')
     gui_core=engine/'runtime/three_ds_recomp/src/ship/window/gui/Gui.cpp'
-    edit(gui_core,'#include "ship/window/gui/Gui.h"','#include "ship/window/gui/Gui.h"\n#include "fast/oot3d/retuned_interface_font.h"')
+    edit(gui_core,'#include "ship/window/gui/Gui.h"','#include "ship/window/gui/Gui.h"\n#include "fast/oot3d/retuned_interface_font.h"\n#include "fast/oot3d/retuned_interface_metrics.h"')
     edit(gui_core,'    mImGuiIo->Fonts->AddFontDefault();',
-         '    ImFontConfig interfaceFont; interfaceFont.FontDataOwnedByAtlas=false;\n    interfaceFont.OversampleH=2; interfaceFont.OversampleV=2;\n    mImGuiIo->Fonts->AddFontFromMemoryTTF(RetunedFrontend::InterfaceFont,sizeof(RetunedFrontend::InterfaceFont),40.f,&interfaceFont);\n    mImGuiIo->FontGlobalScale=.5f;')
-    edit(gui_core,'    float baseFontSize = 13.0f;','    float baseFontSize = 40.0f;')
+         '    ImFontConfig interfaceFont; interfaceFont.FontDataOwnedByAtlas=false;\n    interfaceFont.OversampleH=2; interfaceFont.OversampleV=2;\n    mImGuiIo->Fonts->AddFontFromMemoryTTF(RetunedFrontend::InterfaceFont,sizeof(RetunedFrontend::InterfaceFont),RetunedFrontend::InterfaceFontPixels(),&interfaceFont);\n    mImGuiIo->FontGlobalScale=RetunedFrontend::InterfaceFontScale();')
+    edit(gui_core,'                                                          &iconsConfig, sIconsRanges);',
+         '                                                          &iconsConfig, sIconsRanges);\n    RetunedFrontend::InterfaceBoldFont=mImGuiIo->Fonts->AddFontFromMemoryTTF(RetunedFrontend::InterfaceBold,sizeof(RetunedFrontend::InterfaceBold),RetunedFrontend::InterfaceFontPixels(),&interfaceFont);')
+    edit(gui_core,'    float baseFontSize = 13.0f;','    float baseFontSize = RetunedFrontend::InterfaceFontPixels();')
     (include/'retuned_texture_aliases.h').write_text((source/'texture_aliases.h').read_text())
     (runtime/'retuned_load_texture_aliases.h').write_text((source/'load_texture_aliases.h').read_text())
     texture_header=engine/'runtime/three_ds_recomp/include/oot3d/renderer/azahar_texture_pack.h'

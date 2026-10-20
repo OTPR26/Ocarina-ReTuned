@@ -117,6 +117,21 @@ def elf_symbols(readelf, elf):
     return [symbol for symbol in symbols if is_arm(symbol) or symbol[3] == '__text_end']
 
 
+def touch_action_owner(image, entry):
+    # Resolve the global owner referenced by our own mod's action adapter.
+    # Require the literal-load/dereference pair, rather than a ROM address.
+    candidates=[]
+    for pc in range(entry, entry+64, 4):
+        word, following=struct.unpack_from('<II',image,pc-BASE)
+        if word & 0xFFFFF000 == 0xE59F3000 and following == 0xE5933000:
+            literal=pc+8+(word&0xFFF)
+            if entry<=literal<len(image)+BASE-4:
+                candidates.append(struct.unpack_from('<I',image,literal-BASE)[0])
+    if len(candidates)!=1:
+        raise ValueError('Unknown native action-owner adapter')
+    return candidates[0]
+
+
 def _prepare(args):
     if args.output.exists():
         raise ValueError('Refusing to replace a private title experiment')
@@ -154,14 +169,22 @@ def _prepare(args):
         object_symbols = {}
         for line in subprocess.check_output([str(args.readelf), '-sW', str(args.elf)], text=True).splitlines():
             parts = line.split()
-            if len(parts)==8 and parts[-1] in ('gSaveContext','gGlobalContext'):
+            if len(parts)==8 and parts[-1] in ('gSaveContext','gGlobalContext','gNativeHudPositions','gNativeHudUVs','sNativeHudPauseLayout','sNativeHudOcarinaLayout','sNativeActionSource'):
                 object_symbols[parts[-1]]=int(parts[1],16)
         functions = ('NativeHud_GetScalePercent','NativeHud_SetScalePercent',
             'Camera_GetDistanceOption','Camera_SetDistanceOption','Camera_GetControlMode',
             'Camera_SetControlMode','MovementOptions_Get','MovementOptions_Set',
             'InputRemap_IsOcarinaUiOpen','InputRemap_IsOcarinaUiReady','InputRemap_CloseOcarinaUi')
         frontend = {'schema':1,'context_pointer':object_symbols['gGlobalContext'],
-            'save_context':args.save_context,'functions':{name:named[name][0] for name in functions}}
+            'save_context':args.save_context,'functions':{name:named[name][0] for name in functions},
+            'touch_hud':{'upload_positions':named['NativeHud_UploadPositions'][0],
+                'prepare_action':named['NativeHud_PrepareActionPrompt'][0],
+                'positions':object_symbols['gNativeHudPositions'],
+                'uvs':object_symbols['gNativeHudUVs'],
+                'pause_layout':object_symbols['sNativeHudPauseLayout'],
+                'ocarina_layout':object_symbols['sNativeHudOcarinaLayout'],
+                'action_source':object_symbols['sNativeActionSource'],
+                'action_owner':touch_action_owner(image,named['NativeHud_PrepareActionPrompt'][0])}}
     out = args.output
     out.mkdir(parents=True)
     (out / 'code.bin').write_bytes(image)

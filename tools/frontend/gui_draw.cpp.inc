@@ -12,25 +12,30 @@
         const float previousFontScale=ImGui::GetIO().FontGlobalScale;
         RetunedFrontend::BlueStyle(ImGui::GetStyle());
         const auto* viewport=ImGui::GetMainViewport();
-        const float scale=RetunedFrontend::InterfaceScale(viewport->WorkSize.y);
-        ImGui::GetIO().FontGlobalScale=.5f*scale;
+        const float scale=RetunedFrontend::MenuScale(viewport->WorkSize.y);
+        ImGui::GetIO().FontGlobalScale=RetunedFrontend::InterfaceFontScale(scale);
         ImGui::GetStyle().ScaleAllSizes(scale);
         ImGui::SetNextWindowPos(viewport->WorkPos,ImGuiCond_Always);
         ImGui::SetNextWindowSize(viewport->WorkSize,ImGuiCond_Always);
+        if(RetunedFrontend::MobileSettingsPlatform()){
+            ImGui::GetStyle().FramePadding.y=std::max(ImGui::GetStyle().FramePadding.y,12.f*scale);
+            ImGui::GetStyle().WindowPadding.x=std::max(ImGui::GetStyle().WindowPadding.x,40.f*scale);
+        }
         constexpr auto flags=ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoDocking;
         if(ImGui::Begin("Ocarina ReTuned / Settings",nullptr,flags)) {
             ImGui::SetWindowFontScale(1.0f);
-            ImGui::TextColored(ImVec4(.39f,.70f,1,1),"Ocarina ReTuned");
+            ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark),"Ocarina ReTuned");
             ImGui::SameLine();ImGui::TextUnformatted(" / Settings");
             ImGui::SameLine(std::max(ImGui::GetCursorPosX(),ImGui::GetWindowWidth()-ImGui::GetFontSize()*8));
             if(ImGui::Button(RetunedFrontend::StartupVisible?"Back":"Resume",ImVec2(ImGui::GetFontSize()*6,0)))SetVisibility(false);
 #ifdef __APPLE__
-            ImGui::TextDisabled("Select / View / Minus or L3 + R3: settings");
+            if(!RetunedFrontend::TouchPlatform())ImGui::TextDisabled("Select / View / Minus or L3 + R3: settings");
 #else
-            ImGui::TextDisabled("Control + comma: settings");
+            if(!RetunedFrontend::TouchPlatform())ImGui::TextDisabled("Control + comma: settings");
 #endif
             ImGui::Separator();
-            ImGui::BeginChild("##UnifiedContents");mPanel.Draw();ImGui::EndChild();
+            ImGui::BeginChild("##UnifiedContents",ImVec2(0,-ImGui::GetFontSize()*2.2f));mPanel.Draw();ImGui::EndChild();
+            ImGui::Spacing();ImGui::TextDisabled("Settings save automatically. Use touch, a controller or the arrow keys to navigate.");
         }
         ImGui::End();ImGui::GetStyle()=previous;ImGui::GetIO().FontGlobalScale=previousFontScale;
         if(!IsVisible())Oot3d::EndGraphicsSettingsPreviews();

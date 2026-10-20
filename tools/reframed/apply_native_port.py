@@ -74,22 +74,26 @@ def apply(engine):
     edit(memory_header.with_suffix('.cpp'), 'size_t NativeA32Memory::RegionCount() const {',
          query + '\nsize_t NativeA32Memory::RegionCount() const {')
     query_svc = Path(__file__).with_name('query_memory_svc.cpp.inc').read_text()
-    edit(host, '    case 0x08: {', query_svc + '    case 0x08: {')
+    if 'case 0x02:' not in host.read_text():
+        edit(host, '    case 0x08: {', query_svc + '    case 0x08: {')
     debug_svc = Path(__file__).with_name('debug_string_svc.cpp.inc').read_text()
     edit(host, '    case 0x39:', debug_svc + '    case 0x39:')
-    edit(header, 'struct NativeA32CtrHostConfig {',
-         'struct NativeA32CtrHostConfig {\n    bool WritableHidSharedMemory = false;')
+    if 'bool WritableHidSharedMemory' not in header.read_text():
+        edit(header, 'struct NativeA32CtrHostConfig {',
+             'struct NativeA32CtrHostConfig {\n    bool WritableHidSharedMemory = false;')
     edit(host, '                 (permissions & 2U) != 0,',
          '                 (permissions & 2U) != 0 || (mConfig.WritableHidSharedMemory && memoryBlock->Object->Type == "shared_memory:hid"),')
     setup = header.parent / 'oot3d_native_a32_window_setup.cpp'
-    edit(setup, '  hostConfig.SystemLanguage = languageSettings->SystemId();',
-         '  hostConfig.WritableHidSharedMemory = launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed;\n  hostConfig.SystemLanguage = languageSettings->SystemId();')
+    if 'hostConfig.WritableHidSharedMemory =' not in setup.read_text():
+        edit(setup, '  hostConfig.SystemLanguage = languageSettings->SystemId();',
+             '  hostConfig.WritableHidSharedMemory = launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed;\n  hostConfig.SystemLanguage = languageSettings->SystemId();')
     hid = header.parent / 'oot3d_native_a32_ctr_host_hid.cpp'
     addition = Path(__file__).with_name('irst_service.cpp.inc').read_text()
     edit(hid, '} // namespace Oot3dNativeGame', addition + '\n} // namespace Oot3dNativeGame')
     frame = header.parent / 'oot3d_native_a32_window_frame.cpp'
-    edit(frame, '  const auto hidUpdate = hostServices.AdvanceHidToCurrentTick(',
-         '  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed &&\n      !hostServices.WriteIrstSample(process.Memory(), inputFrame.CStick.X, inputFrame.CStick.Y, inputFrame.Hid.Buttons)) {\n    throw std::runtime_error("Cannot publish Reframed C-stick input");\n  }\n  const auto hidUpdate = hostServices.AdvanceHidToCurrentTick(')
+    if 'hostServices.WriteIrstSample(process.Memory()' not in frame.read_text():
+        edit(frame, '  const auto hidUpdate = hostServices.AdvanceHidToCurrentTick(',
+             '  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed &&\n      !hostServices.WriteIrstSample(process.Memory(), inputFrame.CStick.X, inputFrame.CStick.Y, inputFrame.Hid.Buttons)) {\n    throw std::runtime_error("Cannot publish Reframed C-stick input");\n  }\n  const auto hidUpdate = hostServices.AdvanceHidToCurrentTick(')
 
     tests = header.parent / 'oot3d_native_a32_ctr_host_tests.cpp'
     test_source = Path(__file__).with_name('irst_tests.cpp.inc').read_text()

@@ -38,10 +38,20 @@ def apply(engine):
             before=before.replace('    const char* home = getenv("HOME");', '    if (const char* root = getenv("'+variable+'")) return root;\n    const char* home = getenv("HOME");')
             text=text[:start]+before+text[end:]
     context.write_text(text)
+    edit(runtime/'src/fast/backends/gfx_sdl2.cpp',
+         '    Uint32 flags = SDL_WINDOW_BORDERLESS | SDL_WINDOW_SHOWN;',
+         '    Uint32 flags = SDL_WINDOW_BORDERLESS | SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI;')
+    edit(runtime/'src/fast/backends/gfx_sdl2.cpp',
+         'void GfxWindowBackendSDL2::SetDimensions(uint32_t width, uint32_t height, int32_t posX, int32_t posY) {\n#ifdef __ANDROID__',
+         'void GfxWindowBackendSDL2::SetDimensions(uint32_t width, uint32_t height, int32_t posX, int32_t posY) {\n#if defined(__ANDROID__) || defined(__IOS__)')
     app=engine/'ports/apple'
     app.mkdir(parents=True,exist_ok=True)
-    for name in ('app.cmake','apple_main.mm','patch_sdl_scenes.py','finalize_bundle.py'):
+    for name in ('app.cmake','apple_main.mm','patch_sdl_scenes.py','finalize_bundle.py','touch_controls.mm','touch_controls.h','touch_input.cpp','touch_input_api.h'):
         (app/name).write_text(Path(__file__).with_name(name).read_text())
+    from importlib.util import spec_from_file_location,module_from_spec
+    artwork_spec=spec_from_file_location('retuned_touch_artwork',Path(__file__).parents[1]/'prepare_touch_artwork.py')
+    artwork=module_from_spec(artwork_spec);artwork_spec.loader.exec_module(artwork)
+    artwork.generate(app/'touch_dpad.h')
     import shutil
     for platform in ('ios','tvos'):
         shutil.copytree(Path(__file__).resolve().parents[3]/'resources/icons'/platform/'Assets.xcassets',app/'assets'/platform/'Assets.xcassets',dirs_exist_ok=True)

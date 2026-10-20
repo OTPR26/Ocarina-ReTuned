@@ -53,6 +53,15 @@ jobs:
         run: |
           c++ -std=c++20 tests/mobile_touch.cpp -o mobile-touch-test
           ./mobile-touch-test
+          c++ -std=c++20 tests/touch_game_axes.cpp -o touch-game-axes-test
+          ./touch-game-axes-test
+          c++ -std=c++20 -Itests/lifecycle_stub tests/mobile_lifecycle.cpp -o mobile-lifecycle-test
+          ./mobile-lifecycle-test
+          c++ -std=c++20 tests/mobile_menu_scale.cpp -o mobile-menu-scale-test
+          ./mobile-menu-scale-test
+          c++ -std=c++20 tests/touch_hud.cpp -o touch-hud-test
+          ./touch-hud-test
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_*.py'
       - name: Configure neutral native host
         run: |
           cmake -S engine/ports/android/runtime -B build/host -G Ninja \

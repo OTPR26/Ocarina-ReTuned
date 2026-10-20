@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#pragma once
+#include <algorithm>
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+extern "C" float RetunedAppleScreenScale();
+#endif
+#endif
+#include <atomic>
+struct ImFont;
+namespace RetunedFrontend {
+inline ImFont* InterfaceBoldFont=nullptr;
+inline std::atomic<float> AndroidDisplayDensity{1.f},AndroidDisplayHeight{0.f};
+inline float MenuSize=1.f;
+inline constexpr bool MobileSettingsPlatform() {
+#if defined(__IOS__) || defined(__ANDROID__)
+ return true;
+#else
+ return false;
+#endif
+}
+inline float MenuScale(float height) {
+#ifdef __ANDROID__
+ const float displayHeight=AndroidDisplayHeight.load();
+ return MenuSize*(displayHeight>0 ? AndroidDisplayDensity.load()*height/displayHeight : 1.f);
+#elif defined(__APPLE__) && TARGET_OS_IOS && !TARGET_OS_TV
+ return MenuSize;
+#else
+ return MenuSize*std::clamp(height/720.f,.75f,1.5f);
+#endif
+}
+
+inline float InterfacePixelRatio=1.f;
+inline constexpr float InterfaceAtlasSize=64.f;
+inline float InterfaceFontPixels() { return InterfaceAtlasSize*InterfacePixelRatio; }
+inline float InterfaceFontScale(float scale=1.f) { return 20.f*scale/InterfaceFontPixels(); }
+inline void SetInterfacePixelRatio(float logicalWidth,float pixelWidth) {
+ InterfacePixelRatio=logicalWidth>0 ? std::clamp(pixelWidth/logicalWidth,1.f,4.f) : 1.f;
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+ // The font atlas is prepared before Vulkan has created its Metal view.
+ InterfacePixelRatio=std::max(InterfacePixelRatio,RetunedAppleScreenScale());
+#endif
+}
+}

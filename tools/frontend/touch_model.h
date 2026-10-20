@@ -7,6 +7,15 @@
 #include <map>
 namespace RetunedFrontend {
 enum class TouchAction { A,B,X,Y,Target,Shield,ItemI,ItemII,Inventory,Settings,Up,Down,Left,Right,Move,Look,Count };
+inline int ExtraShoulderAction(bool enabled,int action) {
+ if(!enabled)return -1;
+ switch(static_cast<TouchAction>(action)) {
+ case TouchAction::A:case TouchAction::B:case TouchAction::X:case TouchAction::Y:
+ case TouchAction::Target:case TouchAction::Shield:case TouchAction::Inventory:
+ case TouchAction::Up:case TouchAction::Down:case TouchAction::Left:case TouchAction::Right:return action;
+ default:return -1;
+ }
+}
 struct TouchControl { TouchAction Action; const char* Label; float X,Y,Radius; };
 inline constexpr std::array<TouchControl,16> TouchLayout{{
  {TouchAction::A,"A",.91f,.70f,.056f},{TouchAction::B,"B",.82f,.81f,.056f},
@@ -19,6 +28,31 @@ inline constexpr std::array<TouchControl,16> TouchLayout{{
  {TouchAction::Move,"",.16f,.72f,.12f},{TouchAction::Look,"",.65f,.72f,.095f}
 }};
 struct TouchSnapshot { uint32_t Buttons=0; float MoveX=0,MoveY=0,LookX=0,LookY=0; bool Captured=false; };
+class NativeTouchState {
+ uint32_t held=0,pending=0;
+ std::map<int,TouchAction> sources;
+public:
+ float MoveX=0,MoveY=0,LookX=0,LookY=0;
+ void Button(TouchAction action,bool down) {
+  const auto bit=uint32_t{1}<<static_cast<unsigned>(action);
+  if(down){if(!(held&bit))pending|=bit;held|=bit;}else held&=~bit;
+ }
+ void SourceButton(int source,TouchAction action,bool down) {
+  auto previous=sources.find(source);
+  if(previous!=sources.end() && (!down || previous->second!=action)) {
+   const auto old=previous->second;sources.erase(previous);
+   bool another=false;for(const auto& entry:sources)another|=entry.second==old;
+   if(!another)Button(old,false);
+  }
+  if(down && !sources.contains(source)){sources[source]=action;Button(action,true);}
+ }
+ void Reset(){sources.clear();held=pending=0;MoveX=MoveY=LookX=LookY=0;}
+ TouchSnapshot Sample(bool consume){
+  TouchSnapshot s{held|pending,MoveX,MoveY,LookX,LookY,held!=0||MoveX!=0||MoveY!=0||LookX!=0||LookY!=0};
+  if(consume)pending=0;
+  return s;
+ }
+};
 class TouchModel {
  struct Finger { TouchAction Action; float X,Y; };
  std::map<int64_t,Finger> fingers;

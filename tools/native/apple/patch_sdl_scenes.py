@@ -10,7 +10,8 @@ def change(path, before, after):
 
 def apply(root):
     root=Path(root)/'src/video/uikit'
-    change(root/'SDL_uikitappdelegate.m', '@implementation SDLUIKitDelegate {', '''/* Ocarina ReTuned: bridge SDL's main loop to the required UIKit scene lifecycle. */
+    if '@interface RetunedSceneDelegate' not in (root/'SDL_uikitappdelegate.m').read_text():
+        change(root/'SDL_uikitappdelegate.m', '@implementation SDLUIKitDelegate {', '''/* Ocarina ReTuned: bridge SDL's main loop to the required UIKit scene lifecycle. */
 @interface RetunedSceneDelegate : NSObject <UIWindowSceneDelegate>
 @property (nonatomic, strong) UIWindow *window;
 @end
@@ -26,6 +27,11 @@ def apply(root):
 @end
 
 @implementation SDLUIKitDelegate {''')
+    change(root/'SDL_uikitappdelegate.m','@implementation RetunedSceneDelegate', '''@implementation RetunedSceneDelegate
+- (void)sceneWillResignActive:(UIScene *)scene { SDL_OnApplicationWillResignActive(); }
+- (void)sceneDidEnterBackground:(UIScene *)scene { SDL_OnApplicationDidEnterBackground(); }
+- (void)sceneWillEnterForeground:(UIScene *)scene { SDL_OnApplicationWillEnterForeground(); }
+- (void)sceneDidBecomeActive:(UIScene *)scene { SDL_OnApplicationDidBecomeActive(); }''')
     change(root/'SDL_uikitappdelegate.m','    [self performSelector:@selector(postFinishLaunch) withObject:nil afterDelay:0.0];','    /* The scene delegate starts the SDL main loop after its window scene connects. */')
     change(root/'SDL_uikitwindow.m','        uiwindow = [[SDL_uikitwindow alloc] initWithFrame:data.uiscreen.bounds];','''        UIWindowScene *windowScene = nil;
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {

@@ -16,6 +16,7 @@ def replace(path, before, after):
 
 def prepare(engine):
     root = Path(engine) / 'ports/android'
+    shutil.copytree(Path(__file__).parent/'android/drawable',root/'app/src/main/res/drawable',dirs_exist_ok=True)
     notices=root/'app/src/main/assets/licenses'
     notices.mkdir(parents=True,exist_ok=True)
     shutil.copy2(Path(__file__).parents[2]/'resources/fonts/LICENSE.txt',notices/'interface-font-OFL.txt')
@@ -33,6 +34,14 @@ def prepare(engine):
     replace(root / 'app/src/main/AndroidManifest.xml',
             'android:label="TriAevum — Echoes of Time"', 'android:label="Ocarina ReTuned"')
     activity = root / 'app/src/main/java/org/triaevum/android/TriAevumActivity.java'
+    shutil.copy2(Path(__file__).parent/'android/TouchOverlay.java',activity.parent/'TouchOverlay.java')
+    replace(activity,'public final class TriAevumActivity extends SDLActivity {',
+            'public final class TriAevumActivity extends SDLActivity {\n    private TouchOverlay touchOverlay;')
+    replace(activity,'        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);',
+            '        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n        touchOverlay=new TouchOverlay(this);\n        addContentView(touchOverlay,new android.view.ViewGroup.LayoutParams(-1,-1));')
+    replace(activity,'    @Override protected String[] getLibraries() {',
+            '    @Override protected void onPause() { if(touchOverlay!=null)touchOverlay.cancelInputs();super.onPause(); }\n\n    @Override protected String[] getLibraries() {')
+
     replace(activity,
             'new File(getApplicationInfo().nativeLibraryDir,\n                "libtriaevum_title_aot.so")',
             'new File(getFilesDir(), "native/triaevum_title_aot.so")')

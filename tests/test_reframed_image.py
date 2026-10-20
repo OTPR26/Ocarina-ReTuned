@@ -10,6 +10,15 @@ spec.loader.exec_module(image)
 
 
 class ReframedImageTests(unittest.TestCase):
+    def test_touch_action_owner_requires_matching_adapter(self):
+        code=bytearray(128)
+        struct.pack_into('<II',code,8,0xE59F3030,0xE5933000)
+        struct.pack_into('<I',code,64,0x12345678)
+        self.assertEqual(image.touch_action_owner(code,image.BASE),0x12345678)
+        struct.pack_into('<I',code,12,0xE5933004)
+        with self.assertRaises(ValueError):
+            image.touch_action_owner(code,image.BASE)
+
     def test_literal_and_rle_records(self):
         payload = b'PATCH' + b'\x00\x00\x02\x00\x02AB' + b'\x00\x00\x06\x00\x00\x00\x03ZEOF'
         result, intervals = image.apply_ips(bytes(5), payload)

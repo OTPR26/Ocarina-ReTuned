@@ -1,6 +1,8 @@
   void DrawBindings() {
     const float f=ImGui::GetFontSize();
+    if(RetunedFrontend::MobileSettingsPlatform())mBindingDevice=BindingDevice::Controller;
     for(const auto& [label,device]:std::array{std::pair{"Controller",BindingDevice::Controller},std::pair{"Keyboard",BindingDevice::Keyboard},std::pair{"Mouse",BindingDevice::Mouse}}) {
+      if(RetunedFrontend::MobileSettingsPlatform() && device!=BindingDevice::Controller)continue;
       if(device!=BindingDevice::Controller)ImGui::SameLine();
       const bool selected=mBindingDevice==device;
       if(selected)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));

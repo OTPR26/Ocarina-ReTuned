@@ -1,6 +1,7 @@
 #pragma once
 #include "oot3d_native_a32_process.h"
 #include "retuned_ocarina_lifecycle.h"
+#include "retuned_touch_hud_runtime.h"
 #include "fast/oot3d/retuned_blue_style.h"
 #include "fast/oot3d/graphics_settings_window.h"
 #include "ship/Context.h"
@@ -100,6 +101,12 @@ class Settings {
                 for(uint32_t i=0;i<3;++i){const std::array<uint32_t,2> args{i,uint32_t(mValues[6+i])};invoke("MovementOptions_Set",args);}
                 mPrevious=mValues;mApplied=true;
             }
+            const bool touchHud=NativeTouchHud.Ready()&&TouchHudActive.load();
+            if(touchHud||mTouchHudApplied){
+                constexpr std::array<uint32_t,4> sizes{0,75,100,125};
+                uint32_t value=sizes[mValues[3]];invoke("NativeHud_SetScalePercent",{&value,1});
+            }
+            mTouchHudApplied=touchHud;
         }catch(const std::exception& e){mError=e.what();mReady=false;}
     }
   private:
@@ -107,7 +114,7 @@ class Settings {
     mutable std::recursive_mutex mMutex;
     nlohmann::json mBridge;
     std::array<int,9> mValues{0,0,0,2,2,0,0,0,0},mPrevious{};
-    bool mReady=false,mConfigured=false,mApplied=false;
+    bool mReady=false,mConfigured=false,mApplied=false,mTouchHudApplied=false;
     std::string mError;
 };
 inline Settings& Current(){static Settings instance;return instance;}

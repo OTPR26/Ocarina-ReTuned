@@ -15,7 +15,7 @@
         {T::Up,NativeControlAction::DpadUp},{T::Down,NativeControlAction::DpadDown},
         {T::Left,NativeControlAction::DpadLeft},{T::Right,NativeControlAction::DpadRight}})
           host.Actions[static_cast<size_t>(gameAction)] |= (touch.Buttons&RetunedFrontend::TouchModel::Bit(touchAction))!=0;
-      if(touch.MoveX||touch.MoveY){host.LeftStickX=static_cast<int16_t>(touch.MoveX*32767);host.LeftStickY=static_cast<int16_t>(-touch.MoveY*32767);}
-      if(touch.LookX||touch.LookY){host.RightStickX=static_cast<int16_t>(touch.LookX*32767);host.RightStickY=static_cast<int16_t>(-touch.LookY*32767);}
+      if(touch.MoveX||touch.MoveY){host.LeftStickX=static_cast<int16_t>(touch.MoveX*32767);host.LeftStickY=static_cast<int16_t>(touch.MoveY*32767);}
+      if(touch.LookX||touch.LookY){host.RightStickX=static_cast<int16_t>(touch.LookX*32767);host.RightStickY=static_cast<int16_t>(touch.LookY*32767);}
     }
   }

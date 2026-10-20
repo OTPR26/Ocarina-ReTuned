@@ -1,12 +1,17 @@
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 #import <TargetConditionals.h>
 #include <SDL.h>
+#ifndef __IOS__
+#error Apple mobile host must use the same iOS platform definition as the renderer
+#endif
 #include <cstdio>
 #include <filesystem>
 #include <string>
 #include <vector>
 
 int RetunedNativeMain(int argc, char** argv);
+extern "C" float RetunedAppleScreenScale() { return static_cast<float>(UIScreen.mainScreen.nativeScale); }
 
 static id ResolvePaths(id value, NSString* bundle, NSString* data) {
     if ([value isKindOfClass:NSString.class]) {
