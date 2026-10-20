@@ -21,8 +21,17 @@ def apply(root):
         window.write_text(value.replace(before,after))
     mobile_window('void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {',
                   'void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {\n#ifdef __ANDROID__\n    on=true;\n#endif')
-    mobile_window('    Uint32 flags = SDL_WINDOW_BORDERLESS | SDL_WINDOW_SHOWN;',
-                  '    Uint32 flags = SDL_WINDOW_BORDERLESS | SDL_WINDOW_SHOWN;\n#ifdef __ANDROID__\n    flags |= SDL_WINDOW_FULLSCREEN;\n#endif')
+    legacy='#ifdef __ANDROID__\n    flags |= SDL_WINDOW_FULLSCREEN;\n#endif\n'
+    window.write_text(window.read_text().replace(legacy,''))
+    mobile_window('    if (mUsesVulkan) {\n#ifndef _WIN32',
+                  '#ifdef __ANDROID__\n    flags |= SDL_WINDOW_FULLSCREEN;\n    startFullScreen=true;\n#endif\n    if (mUsesVulkan) {\n#ifndef _WIN32')
+    frame=root/'runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_frame.cpp'
+    before='    const Oot3d::TitlePresentationSettingsView& settings,\n    std::string* error) {'
+    after='    const Oot3d::TitlePresentationSettingsView& requestedSettings,\n    std::string* error) {\n    auto settings=requestedSettings;\n#ifdef __ANDROID__\n    settings.WindowMode=1;\n    int32_t outputX=0,outputY=0;\n    mWindowBackend->GetDimensions(&settings.Width,&settings.Height,&outputX,&outputY);\n#endif'
+    value=frame.read_text()
+    if after not in value:
+        if value.count(before)!=1:raise ValueError('Android presentation context changed')
+        frame.write_text(value.replace(before,after))
     path = root / 'CMake/oot3d/tests.cmake'
     source = path.read_text()
     if source.count('${CMAKE_CURRENT_SOURCE_DIR}') == 3:
