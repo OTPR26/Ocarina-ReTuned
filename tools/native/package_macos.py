@@ -57,7 +57,7 @@ set -eu
 contents=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 export VK_ICD_FILENAMES="$contents/Resources/vulkan/icd.d/MoltenVK_icd.json"
 export DYLD_LIBRARY_PATH="$contents/Frameworks"
-exec "$contents/MacOS/retuned-native" --launch-profile "$HOME/Library/Application Support/Ocarina ReTuned/native-launch.json"
+exec "$contents/MacOS/retuned-native" --launch-profile "$HOME/Library/Application Support/Ocarina ReTuned/native-launch.json" "$@"
 ''')
         launcher.chmod(0o755)
         metadata = {'CFBundleName': 'Ocarina ReTuned', 'CFBundleDisplayName': 'Ocarina ReTuned',

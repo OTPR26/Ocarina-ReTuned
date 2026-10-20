@@ -20,6 +20,9 @@ def apply(root):
          '    std::istringstream parser(text);\n    parser.imbue(std::locale::classic());\n    parser >> parsed;'),
     ]
     patches.extend([
+        ('tools/oot3d/native_game_runtime/oot3d_scene_environment.cpp',
+         'std::to_string(error ? 0 : time.time_since_epoch().count())',
+         'std::to_string(error ? 0LL : std::chrono::duration_cast<std::chrono::nanoseconds>(time.time_since_epoch()).count())'),
         ('tools/oot3d/native_game_runtime/oot3d_savestate_panel.cpp',
          'std::chrono::clock_cast<std::chrono::system_clock>(time)',
          'std::chrono::time_point_cast<std::chrono::system_clock::duration>(std::chrono::file_clock::to_sys(time))'),
