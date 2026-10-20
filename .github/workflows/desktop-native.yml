@@ -33,7 +33,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build ccache g++-14 libvulkan-dev libshaderc-dev libsdl2-dev libglew-dev libzip-dev libpng-dev nlohmann-json3-dev libtinyxml2-dev libspdlog-dev libogg-dev libvorbis-dev libopus-dev libopusfile-dev libgl1-mesa-dev patchelf
+          sudo apt-get install -y ninja-build ccache g++-14 libvulkan-dev libshaderc-dev libsdl2-dev libglew-dev libzip-dev zipcmp zipmerge ziptool libpng-dev nlohmann-json3-dev libtinyxml2-dev libspdlog-dev libogg-dev libvorbis-dev libopus-dev libopusfile-dev libgl1-mesa-dev patchelf
       - name: Apply shared port
         run: |
           python3 tools/native/apply_desktop_port.py engine
@@ -89,6 +89,12 @@ jobs:
           ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
           path: engine
           persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: microsoft/vcpkg
+          ref: ef7dbf94b9198bc58f45951adcf1f041fcbc5ea0
+          path: dependencies/vcpkg
+          persist-credentials: false
       - uses: ilammy/msvc-dev-cmd@v1
       - uses: actions/cache@v5
         with:
@@ -120,7 +126,7 @@ jobs:
       - name: Configure neutral runtime
         shell: pwsh
         run: |
-          cmake -S engine -B build/runtime -G Ninja -DCMAKE_BUILD_TYPE=Release -DAUTOMATE_VCPKG_UPDATE=OFF -DOOT3D_WHOLE_AOT_PRODUCT_MODE=ON -DOOT3D_DIRECT_AOT_PLUGIN=ON -DOOT3D_ENABLE_VULKAN_RENDERER=ON -DTHREE_DS_RECOMP_ENABLE_NRI=ON -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF -DTHREE_DS_RECOMP_ENABLE_NRI_UPSCALER_SDKS=OFF -DTHREE_DS_RECOMP_ENABLE_DLSS_MODULE=OFF -DTHREE_DS_RECOMP_ENABLE_SSSR=OFF -DTHREE_DS_RECOMP_ENABLE_CACAO=OFF -DTHREE_DS_RECOMP_OFFER_EXPERIMENTAL_GI=OFF -DENABLE_SCRIPTING=OFF -DINCLUDE_MPQ_SUPPORT=OFF
+          cmake -S engine -B build/runtime -G Ninja -DCMAKE_BUILD_TYPE=Release -DVCPKG_ROOT="$env:GITHUB_WORKSPACE/dependencies/vcpkg" -DVCPKG_TARGET_TRIPLET=x64-windows-static -DVCPKG_TRIPLET=x64-windows-static -DAUTOMATE_VCPKG_UPDATE=OFF -DOOT3D_WHOLE_AOT_PRODUCT_MODE=ON -DOOT3D_DIRECT_AOT_PLUGIN=ON -DOOT3D_ENABLE_VULKAN_RENDERER=ON -DTHREE_DS_RECOMP_ENABLE_NRI=ON -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF -DTHREE_DS_RECOMP_ENABLE_NRI_UPSCALER_SDKS=OFF -DTHREE_DS_RECOMP_ENABLE_DLSS_MODULE=OFF -DTHREE_DS_RECOMP_ENABLE_SSSR=OFF -DTHREE_DS_RECOMP_ENABLE_CACAO=OFF -DTHREE_DS_RECOMP_OFFER_EXPERIMENTAL_GI=OFF -DENABLE_SCRIPTING=OFF -DINCLUDE_MPQ_SUPPORT=OFF
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Build and test neutral runtime
         shell: pwsh
