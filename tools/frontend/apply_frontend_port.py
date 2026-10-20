@@ -62,6 +62,22 @@ def apply(engine):
     edit(gui_core,'    mImGuiIo->Fonts->AddFontDefault();',
          '    ImFontConfig interfaceFont; interfaceFont.FontDataOwnedByAtlas=false;\n    interfaceFont.OversampleH=2; interfaceFont.OversampleV=2;\n    mImGuiIo->Fonts->AddFontFromMemoryTTF(RetunedFrontend::InterfaceFont,sizeof(RetunedFrontend::InterfaceFont),40.f,&interfaceFont);\n    mImGuiIo->FontGlobalScale=.5f;')
     edit(gui_core,'    float baseFontSize = 13.0f;','    float baseFontSize = 40.0f;')
+    (include/'retuned_texture_aliases.h').write_text((source/'texture_aliases.h').read_text())
+    (runtime/'retuned_load_texture_aliases.h').write_text((source/'load_texture_aliases.h').read_text())
+    texture_header=engine/'runtime/three_ds_recomp/include/oot3d/renderer/azahar_texture_pack.h'
+    texture_cpp=engine/'runtime/three_ds_recomp/src/fast/oot3d/azahar_texture_pack.cpp'
+    edit(texture_header,'#pragma once','#pragma once\n#include "fast/oot3d/retuned_texture_aliases.h"')
+    edit(texture_header,'    void Configure(AzaharTexturePackConfiguration configuration);','    void Configure(AzaharTexturePackConfiguration configuration);\n    void SetHashAliases(std::vector<TextureHashAlias> aliases);')
+    edit(texture_cpp,'    void Configure(AzaharTexturePackConfiguration configuration) {',
+         '    void SetHashAliases(std::vector<TextureHashAlias> aliases) {\n        std::scoped_lock lock(mMutex);\n        if(mHashAliases==aliases)return;\n        mHashAliases=std::move(aliases);\n        if(mConfigured)RequestRebuildLocked();\n    }\n    void Configure(AzaharTexturePackConfiguration configuration) {')
+    edit(texture_cpp,'    PackState mPack;','    PackState mPack;\n    std::vector<TextureHashAlias> mHashAliases;')
+    edit(texture_cpp,'            index = IndexTexturePack(loadDirectory, pack, unsupported, materials, &error);',
+         '            index = IndexTexturePack(loadDirectory, pack, unsupported, materials, &error);\n            {std::scoped_lock lock(mMutex);ApplyTextureHashAliases(index,mHashAliases,pack.UseNewHash);}')
+    edit(texture_cpp,'void AzaharTexturePackRuntime::Reload() {',
+         'void AzaharTexturePackRuntime::SetHashAliases(std::vector<TextureHashAlias> aliases) { mImpl->SetHashAliases(std::move(aliases)); }\n\nvoid AzaharTexturePackRuntime::Reload() {')
+    edit(setup,'#include "retuned_reframed_settings.h"','#include "retuned_reframed_settings.h"\n#include "retuned_load_texture_aliases.h"')
+    edit(setup,'  hostConfig.WritableHidSharedMemory = launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed;',
+         '  if(launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed)RetunedFrontend::LoadTextureAliases(launch.A32ProcessManifestPath);\n  hostConfig.WritableHidSharedMemory = launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed;')
     controls=runtime/'oot3d_native_control_config.cpp'
     edit(controls,'SetKeyboardBinding(config, NativeControlAction::Select,\n                     NativeKeyboardKey::Tab, NativeKeyboardKey::Backspace);\n  SetKeyboardBinding(config, NativeControlAction::Start,\n                     NativeKeyboardKey::Enter);','SetKeyboardBinding(config, NativeControlAction::Select,\n                     NativeKeyboardKey::Enter);\n  SetKeyboardBinding(config, NativeControlAction::Start,\n                     NativeKeyboardKey::Tab, NativeKeyboardKey::Backspace);')
     edit(controls,'SetGamepadBinding(config, NativeControlAction::Select,\n                    NativeGamepadButton::Back);\n  SetGamepadBinding(config, NativeControlAction::Start,\n                    NativeGamepadButton::Start);','SetGamepadBinding(config, NativeControlAction::Select,\n                    NativeGamepadButton::Start);\n  SetGamepadBinding(config, NativeControlAction::Start,\n                    NativeGamepadButton::Back);')

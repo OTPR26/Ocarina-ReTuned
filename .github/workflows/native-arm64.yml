@@ -105,6 +105,8 @@ jobs:
         run: |
           c++ -std=c++20 -Iengine/tools/oot3d/ui_topscreen tests/reframed_fonts.cpp engine/tools/oot3d/ui_topscreen/oot3d_native_font_coverage.cpp -o build/reframed-font-test
           build/reframed-font-test
+          c++ -std=c++20 -Itools/frontend tests/texture_aliases.cpp -o build/texture-aliases-test
+          build/texture-aliases-test
       - name: Bundle neutral prototype
         run: python3 tools/native/package_macos.py --engine engine --build build/runtime --output artifacts/Ocarina-ReTuned-Native-macOS-arm64.zip
       - uses: actions/upload-artifact@v7
