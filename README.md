@@ -20,7 +20,7 @@ input, storage and lifecycle validation. There is no playable ReTuned build yet.
 
 The `Native ARM64 prototype` workflow builds neutral runtime components on
 GitHub. It receives no ROMs, extracted assets, generated title code, saves or
-personal texture packs, and uploads no binary artifacts during initial bring-up.
+personal texture packs, Only neutral runtime bundles may be uploaded; generated title libraries stay local.
 
 ## Development services
 

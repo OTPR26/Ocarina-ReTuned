@@ -12,15 +12,21 @@ def apply(root):
     actual = subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip()
     if actual != REVISION:
         raise ValueError('Runtime revision differs from the tested port baseline.')
-    path = root / 'runtime/three_ds_recomp/src/fast/backends/gfx_metal_shader.cpp'
-    source = path.read_text()
-    before = '== SHADER_ID_PICA_TEXTURE_ENV'
-    after = '== Fast::SHADER_ID_PICA_TEXTURE_ENV'
-    if source.count(before) != 1:
-        if source.count(after) == 1:
-            return
-        raise ValueError('Metal shader fix context changed.')
-    path.write_text(source.replace(before, after))
+    patches = [
+        ('runtime/three_ds_recomp/src/fast/backends/gfx_metal_shader.cpp',
+         '== SHADER_ID_PICA_TEXTURE_ENV', '== Fast::SHADER_ID_PICA_TEXTURE_ENV'),
+        ('runtime/three_ds_recomp/src/fast/oot3d/pica_shader_instrumentation.cpp',
+         '    std::from_chars(text.data(), text.data() + text.size(), parsed);',
+         '    std::istringstream parser(text);\n    parser.imbue(std::locale::classic());\n    parser >> parsed;'),
+    ]
+    for relative, before, after in patches:
+        path = root / relative
+        source = path.read_text()
+        if source.count(before) == 1:
+            path.write_text(source.replace(before, after))
+        elif source.count(after) != 1:
+            raise ValueError('macOS source fix context changed: ' + relative)
+
 
 
 if __name__ == '__main__':

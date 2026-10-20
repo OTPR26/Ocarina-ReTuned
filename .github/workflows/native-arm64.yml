@@ -51,9 +51,12 @@ jobs:
           path: engine
           persist-credentials: false
       - name: Install native dependencies
-        run: brew install ninja cmake sdl2 glew libzip libpng nlohmann-json tinyxml2 spdlog libogg libvorbis opus opusfile shaderc molten-vk vulkan-loader vulkan-headers
+        run: brew install ninja cmake sdl2 glew libzip libpng nlohmann-json tinyxml2 spdlog libogg libvorbis opus opusfile shaderc molten-vk vulkan-loader vulkan-headers dylibbundler
       - name: Apply macOS port fixes
-        run: python3 tools/native/apply_macos_port.py engine
+        run: |
+          python3 tools/native/apply_macos_port.py engine
+          clang++ -std=c++20 tools/native/numeric_probe.cpp -o numeric-probe
+          ./numeric-probe
       - name: Configure neutral runtime
         run: |
           cmake -S engine -B build/runtime -G Ninja \
@@ -71,6 +74,13 @@ jobs:
             -DENABLE_SCRIPTING=OFF -DINCLUDE_MPQ_SUPPORT=OFF
       - name: Build neutral runtime
         run: cmake --build build/runtime --parallel 3 --target triaevum_public_runtime
+      - name: Bundle neutral prototype
+        run: python3 tools/native/package_macos.py --engine engine --build build/runtime --output artifacts/Ocarina-ReTuned-Native-macOS-arm64.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Ocarina-ReTuned-Native-macOS-arm64-${{ github.sha }}
+          path: artifacts/Ocarina-ReTuned-Native-macOS-arm64.zip
+          if-no-files-found: error
   android-services:
     name: Android ARM64 services
     if: inputs.platform != 'macos'
@@ -96,3 +106,28 @@ jobs:
           TRIAEVUM_BUILD_DIR: ${{ github.workspace }}/build/android
           CMAKE_BUILD_PARALLEL_LEVEL: 3
         run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/29.0.14206865" bash engine/scripts/build-android-native.sh
+  android-renderer:
+    name: Android ARM64 renderer
+    if: inputs.platform != 'macos'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: coccofresco/TriAevum
+          ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
+          path: engine
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install build tools
+        run: |
+          python -m pip install 'cmake==3.31.6' ninja
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;29.0.14206865'
+      - name: Cross-build neutral Android renderer
+        env:
+          TRIAEVUM_ANDROID_RENDERER_BUILD_DIR: ${{ github.workspace }}/build/android-renderer
+          CMAKE_BUILD_PARALLEL_LEVEL: 3
+        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/29.0.14206865" bash engine/scripts/build-android-renderer.sh
