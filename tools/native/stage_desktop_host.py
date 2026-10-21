@@ -63,6 +63,45 @@ def linux_dependency_notices(libraries, notices, doc_root=Path('/usr/share/doc')
     (notices / 'linux-dependency-sources.json').write_text(json.dumps({'schema': 1, 'dependencies': records}, indent=2) + '\n')
 
 
+def windows_dependency_notices(vcpkg, notices):
+    """Static libraries still require notices and their versioned port recipes."""
+    revision = run('git', '-C', str(vcpkg), 'rev-parse', 'HEAD').strip()
+    if not re.fullmatch(r'[0-9a-f]{40}', revision):
+        raise ValueError('Cannot identify vcpkg source revision')
+    installed = vcpkg / 'installed'
+    paragraphs = (installed / 'vcpkg/status').read_text().split('\n\n')
+    records = []
+    for paragraph in paragraphs:
+        fields = dict(line.split(': ', 1) for line in paragraph.splitlines() if ': ' in line and not line.startswith(' '))
+        if fields.get('Architecture') != 'x64-windows-static' or 'Feature' in fields:
+            continue
+        name, version = fields.get('Package', ''), fields.get('Version', '')
+        if not re.fullmatch(r'[a-z0-9-]+', name) or not version:
+            raise ValueError('Incomplete vcpkg dependency identity')
+        source = vcpkg / 'ports' / name
+        copyright_file = installed / 'x64-windows-static/share' / name / 'copyright'
+        if not source.is_dir() or not copyright_file.is_file():
+            raise ValueError('Missing vcpkg dependency notice or recipe: ' + name)
+        if any(path.is_symlink() for path in source.rglob('*')):
+            raise ValueError('Unexpected link in dependency recipe: ' + name)
+        recipe = json.loads((source / 'vcpkg.json').read_text())
+        recipe_version = next((recipe[key] for key in ('version', 'version-string', 'version-semver', 'version-date') if key in recipe), None)
+        if recipe_version != version or str(recipe.get('port-version', 0)) != fields.get('Port-Version', '0'):
+            raise ValueError('Installed dependency needs a different versioned port recipe: ' + name)
+        destination = notices / 'vcpkg' / name
+        destination.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(copyright_file, destination / 'copyright')
+        shutil.copytree(source, destination / 'port', symlinks=False)
+        records.append({'package': name, 'version': version, 'port_version': fields.get('Port-Version', '0'),
+            'port_source': 'https://github.com/microsoft/vcpkg/tree/' + revision + '/ports/' + name,
+            'copyright': (destination / 'copyright').relative_to(notices).as_posix()})
+    if not records:
+        raise ValueError('No Windows static dependency notices were collected')
+    (notices / 'windows-dependency-sources.json').write_text(json.dumps({'schema': 1,
+        'vcpkg_revision': revision, 'dependencies': records,
+        'project_modifications': ['tools/native/fix_windows_fmt.py (format-checker compatibility patch; project source)']}, indent=2) + '\n')
+
+
 def stage(platform, engine, build, output):
     engine, build, output = map(lambda p: Path(p).resolve(), (engine, build, output))
     check_neutral_commands(run('ninja', '-C', str(build), '-t', 'commands', 'triaevum_public_runtime'))
@@ -136,6 +175,8 @@ def stage(platform, engine, build, output):
         shutil.copy2(Path(__file__).resolve().parents[2] / 'resources/fonts/LICENSE.txt', notices / 'interface-font-OFL.txt')
         if platform == 'linux':
             linux_dependency_notices(dependency_sources, notices)
+        else:
+            windows_dependency_notices(engine.parent / 'dependencies/vcpkg', notices)
         (root / 'README.txt').write_text('Ocarina ReTuned desktop host preview\n\nThis neutral host contains no ROM, title library or game assets.\nA locally prepared, platform-matching title is required for gameplay.\nUse --launch-profile with your local launch profile for testing.\n')
         if platform == 'linux':
             launcher = root / 'Ocarina-ReTuned.sh'

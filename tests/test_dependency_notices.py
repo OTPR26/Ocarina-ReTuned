@@ -38,3 +38,23 @@ class DependencyNotices(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary, patch.object(stage.subprocess, 'run', return_value=absent):
             with self.assertRaisesRegex(ValueError, 'Cannot identify dependency package'):
                 stage.linux_dependency_notices([Path(temporary) / 'unknown.so'], Path(temporary))
+
+    def test_static_windows_dependency_rejects_a_mismatched_recipe(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'installed/vcpkg').mkdir(parents=True)
+            (root / 'installed/vcpkg/status').write_text('Package: example\nVersion: 1.2\nArchitecture: x64-windows-static\n')
+            port = root / 'ports/example'
+            port.mkdir(parents=True)
+            (port / 'vcpkg.json').write_text(json.dumps({'name': 'example', 'version': '1.3'}))
+            notice = root / 'installed/x64-windows-static/share/example/copyright'
+            notice.parent.mkdir(parents=True)
+            notice.write_text('complete original notice')
+            with patch.object(stage, 'run', return_value='a' * 40):
+                with self.assertRaisesRegex(ValueError, 'different versioned port'):
+                    stage.windows_dependency_notices(root, root / 'notices')
+                (port / 'vcpkg.json').write_text(json.dumps({'name': 'example', 'version': '1.2'}))
+                stage.windows_dependency_notices(root, root / 'notices')
+            result = json.loads((root / 'notices/windows-dependency-sources.json').read_text())
+            self.assertEqual(result['dependencies'][0]['version'], '1.2')
+            self.assertEqual((root / 'notices/vcpkg/example/copyright').read_text(), 'complete original notice')
