@@ -367,10 +367,13 @@ def load_kit(path, host=None):
         if not result.is_relative_to(path.parent):
             raise SetupError('Preparation kit link escapes its directory')
         return result
+    cmake_args = list(kit.get('cmake_args', []))
+    if 'json_include' in kit:
+        cmake_args.append('-DRETUNED_JSON_INCLUDE_DIR=' + str(asset('json_include')))
     return {'engine': asset('engine'), 'ips': asset('ips'), 'elf': asset('elf'),
         'host': Path(host).resolve() if host is not None else asset('host'),
         'readelf': asset('readelf') if 'readelf' in kit else 'unused',
-        'cmake_args': kit.get('cmake_args', [])}
+        'cmake_args': cmake_args}
 
 
 class FileCancellation:

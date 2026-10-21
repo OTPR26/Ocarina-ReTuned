@@ -172,6 +172,8 @@ def stage(platform, engine, build, output):
         for name in ('LICENSE', 'LICENSE.md', 'LICENSE.txt', 'LICENSE_SCOPE.md', 'THIRD_PARTY_NOTICES.md'):
             if (engine / name).is_file():
                 shutil.copy2(engine / name, notices / name)
+        if (engine / 'LICENSES').is_dir():
+            shutil.copytree(engine / 'LICENSES', notices / 'runtime-notices')
         shutil.copy2(Path(__file__).resolve().parents[2] / 'resources/fonts/LICENSE.txt', notices / 'interface-font-OFL.txt')
         if platform == 'linux':
             linux_dependency_notices(dependency_sources, notices)

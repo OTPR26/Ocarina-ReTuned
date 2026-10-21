@@ -172,3 +172,17 @@ class PreparationKitHost(unittest.TestCase):
                 'engine': '../outside', 'ips': 'hud.ips', 'elf': 'hud.elf'}))
             with self.assertRaises(setup.SetupError):
                 setup.load_kit(kit, host=root / 'app')
+
+    def test_bundled_headers_are_resolved_without_machine_specific_paths(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            kit = root / 'kit.json'
+            metadata = {'format': 'retuned_rom_preparation_kit_v1', 'engine': 'engine',
+                'ips': 'hud.ips', 'elf': 'hud.elf', 'json_include': 'headers'}
+            kit.write_text(json.dumps(metadata))
+            options = setup.load_kit(kit, host=root / 'app')
+            self.assertEqual(options['cmake_args'], ['-DRETUNED_JSON_INCLUDE_DIR=' + str(root / 'headers')])
+            metadata['json_include'] = '../outside'
+            kit.write_text(json.dumps(metadata))
+            with self.assertRaises(setup.SetupError):
+                setup.load_kit(kit, host=root / 'app')

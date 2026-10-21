@@ -2,11 +2,12 @@
 
 First-run setup is under development. It is not a release-ready ROM importer yet.
 The desktop pipeline has prepared a clean ROM, compiled its native module, and
-rendered the opening scene in an isolated data directory. Android's bundled
-compiler has compiled, linked and executed a local test library on the Odin;
-the complete Android preparation flow is being tested on-device. The first-run
-ROM picker, isolated foreground service and invalid-ROM retry have passed on
-the Odin. Full native module linking and gameplay verification remain.
+rendered the opening scene in an isolated data directory. Android's complete
+first-run flow has passed on an ARM64 device: the document picker, sealed tools,
+isolated foreground service, translation, native compilation/linking, module
+verification, atomic activation and handoff into the rendered opening scene.
+Invalid-ROM retry has also passed. These tests used separate app identities and
+preserved the existing game installation and saves.
 
 The Preview requires Android users to be able to choose and prepare their ROM
 on the device. A desktop companion is not a substitute for that requirement.
@@ -43,6 +44,17 @@ trees pass integrity checks without shipping Git history. The explicit-input
 source generator does not read upstream developer operational-input settings.
 Compiler SDK notices and platform package audits remain separate release gates.
 
+## Desktop build tools
+
+The staged desktop toolkits include a platform-specific Python runtime,
+Capstone and neutral JSON headers. They still require CMake 3.30 or newer,
+Ninja and a C++20 compiler with the platform SDK. Those compiler prerequisites
+are not currently installed by the first-run screen. Windows preparation needs
+the Visual Studio C++ build environment available to its compiler. Complete
+Windows/Linux preparation and gameplay checks remain outstanding; a Windows
+Python/Capstone and host product-info check under Wine is only a compatibility
+smoke test. These staged toolkits are not yet public release assets.
+
 ## Installation transaction
 
 Preparation runs in a temporary directory under the selected app data root.
@@ -60,4 +72,5 @@ and an isolated foreground preparation service, with progress, cancellation and
 interruption recovery. Generated native modules remain in internal app storage;
 the existing external app directory retains saves, preferences and launch settings.
 The original launcher component is preserved for existing home-screen shortcuts.
-The production toolkit and complete gameplay handoff still require verification.
+Android's sealed toolkit and opening-scene handoff have passed. Final public
+package provenance/notices and desktop platform checks remain release gates.

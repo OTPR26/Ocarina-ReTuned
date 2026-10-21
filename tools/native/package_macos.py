@@ -96,6 +96,8 @@ def package(engine, build, output, identity="-", entitlements=None, profile=None
         shutil.copy2(Path(__file__).resolve().parents[2] / "resources/fonts/LICENSE.txt", notices / "interface-font-OFL.txt")
         for name in ('LICENSE_SCOPE.md', 'THIRD_PARTY_NOTICES.md'):
             shutil.copy2(engine / name, notices / name)
+        if (engine / 'LICENSES').is_dir():
+            shutil.copytree(engine / 'LICENSES', notices / 'runtime-notices')
         for license_name in ('LICENSE', 'LICENSE.md', 'LICENSE.txt'):
             if (engine / license_name).is_file():
                 shutil.copy2(engine / license_name, notices / license_name)

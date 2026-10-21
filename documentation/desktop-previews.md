@@ -20,5 +20,9 @@ inputs and outputs must never be uploaded.
 
 Release gates include a dependency/package audit, a real launch and gameplay
 check, and a supported ROM-preparation path documented for new users. The
-current Setup dialog is not a full ROM importer. Do not label these hosts as
-ready-to-play release packages before those gates pass.
+Setup dialog invokes the local ROM-preparation pipeline when its matching
+toolkit is installed beside the host. Private Windows/Linux toolkits now carry
+Python, Capstone and JSON headers; CMake, Ninja and the platform C++ compiler/SDK
+remain prerequisites. Windows and Linux host builds and archive audits pass,
+but full preparation and gameplay on those systems remain unverified. Do not
+label these hosts as ready-to-play release packages before those gates pass.
