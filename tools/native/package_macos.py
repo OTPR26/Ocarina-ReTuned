@@ -3,6 +3,7 @@
 import argparse
 from audit_neutral_shaders import verify as verify_neutral_shaders
 import json
+import os
 from pathlib import Path
 import plistlib
 import shutil
@@ -14,12 +15,23 @@ def run(*args):
     return subprocess.check_output(args, text=True).strip()
 
 
-def package(engine, build, output, identity="-", entitlements=None, profile=None):
+def package(engine, build, output, identity="-", entitlements=None, profile=None, private_kit=None):
     engine, build, output = Path(engine).resolve(), Path(build).resolve(), Path(output).resolve()
     if output.exists():
         raise ValueError('Refusing to overwrite an existing package.')
     if entitlements and (identity == "-" or not profile):
         raise ValueError("iCloud entitlements require a real signing identity and matching provisioning profile.")
+    if private_kit is not None:
+        private_root = (Path(__file__).resolve().parents[2]/'work/private').resolve()
+        private_kit = Path(private_kit).resolve()
+        if os.environ.get('GITHUB_ACTIONS') or not private_kit.is_relative_to(private_root) or not output.is_relative_to(private_root):
+            raise ValueError('Private preparation test kits and their packages must stay local.')
+        kit = json.loads((private_kit/'kit.json').read_text())
+        if kit.get('format') != 'retuned_rom_preparation_kit_v1':
+            raise ValueError('Unsupported private preparation test kit')
+        for path in private_kit.rglob('*'):
+            if path.is_symlink() and not path.resolve().is_relative_to(private_kit):
+                raise ValueError('Preparation test kit has an external symlink')
     signing = ['--entitlements',str(Path(entitlements).resolve()),'--generate-entitlement-der'] if entitlements else []
     commands = run('ninja', '-C', str(build), '-t', 'commands', 'triaevum_public_runtime')
     forbidden = ('oot3d_whole_aot_shard_', '/oot3d_whole_aot_cpp/', '/oot3d_a32_generated/')
@@ -91,6 +103,19 @@ def package(engine, build, output, identity="-", entitlements=None, profile=None
             prefix = Path(run('brew', '--prefix', formula))
             license_file = prefix / 'share/licenses' / license_dir / 'LICENSE.txt'
             shutil.copy2(license_file, notices / (formula + '-LICENSE.txt'))
+        if private_kit is not None:
+            shutil.copytree(private_kit, resources/'setup', symlinks=True,
+                            ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+            # Sign each nested interpreter/extension before sealing the bundle.
+            # These are neutral vendor tools, never generated game modules.
+            for path in sorted((resources/'setup').rglob('*')):
+                if not path.is_file() or path.is_symlink():
+                    continue
+                with path.open('rb') as stream:
+                    magic = stream.read(4)
+                if magic in (b'\xcf\xfa\xed\xfe', b'\xfe\xed\xfa\xcf', b'\xca\xfe\xba\xbe', b'\xbe\xba\xfe\xca'):
+                    subprocess.run(['codesign', '--force', '--sign', identity, str(path)], check=True)
+            print('Private preparation toolkit staged; this test package must remain local.')
         if profile:
             shutil.copy2(profile, contents/'embedded.provisionprofile')
         for path in (binary, *frameworks.iterdir()):
@@ -110,5 +135,6 @@ if __name__ == '__main__':
     parser.add_argument('--identity',default='-')
     parser.add_argument('--entitlements',type=Path)
     parser.add_argument('--profile',type=Path)
+    parser.add_argument('--private-preparation-kit',type=Path)
     args = parser.parse_args()
-    package(args.engine, args.build, args.output,args.identity,args.entitlements,args.profile)
+    package(args.engine, args.build, args.output,args.identity,args.entitlements,args.profile,args.private_preparation_kit)

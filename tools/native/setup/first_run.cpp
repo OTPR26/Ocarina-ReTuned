@@ -18,6 +18,7 @@
 #include <vector>
 #if defined(__APPLE__)
 #include <OpenGL/gl3.h>
+#include <mach-o/dyld.h>
 #else
 #include <GL/glew.h>
 #endif
@@ -51,6 +52,22 @@ Path DefaultRoot() {
     const char* base=std::getenv("HOME");
     if(!base)throw std::runtime_error("User home directory is unavailable");
     return Path(base)/".local/share/Ocarina ReTuned";
+#endif
+}
+// Use this running host for ABI checks, rather than duplicating it in the kit.
+Path ExecutablePath() {
+#if defined(_WIN32)
+    std::wstring value(32768, L'\0');
+    DWORD length=GetModuleFileNameW(nullptr,value.data(),static_cast<DWORD>(value.size()));
+    if(!length||length>=value.size())throw std::runtime_error("Cannot locate the running app");
+    value.resize(length);return Path(value);
+#elif defined(__APPLE__)
+    uint32_t size=0;_NSGetExecutablePath(nullptr,&size);std::string value(size,'\0');
+    if(_NSGetExecutablePath(value.data(),&size))throw std::runtime_error("Cannot locate the running app");
+    return std::filesystem::weakly_canonical(Path(value.c_str()));
+#else
+    std::error_code error;auto value=std::filesystem::read_symlink("/proc/self/exe",error);
+    if(error)throw std::runtime_error("Cannot locate the running app");return value;
 #endif
 }
 #if defined(_WIN32)
@@ -179,7 +196,7 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
             try {
                 const auto metadata=Read(kit);const auto base=std::filesystem::absolute(kit).parent_path();
                 const auto resolve=[&](const char* name){return Text(base/FromText(metadata.at(name).get<std::string>()));};
-                auto arguments=std::vector<std::string>{resolve("python"),resolve("script"),"--kit",Text(std::filesystem::absolute(kit)),"--rom",pathText,"--data-root",Text(root),"--progress-file",Text(progress),"--cancel-file",Text(cancel)};
+                auto arguments=std::vector<std::string>{resolve("python"),resolve("script"),"--kit",Text(std::filesystem::absolute(kit)),"--host",Text(ExecutablePath()),"--rom",pathText,"--data-root",Text(root),"--progress-file",Text(progress),"--cancel-file",Text(cancel)};
                 std::filesystem::create_directories(root);std::filesystem::remove(progress);std::filesystem::remove(cancel);running=true;status="Starting local preparation...";
                 worker=std::thread([&,arguments]{result=Run(arguments);finished=true;});
             }catch(const std::exception& e){status=e.what();}

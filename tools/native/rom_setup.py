@@ -162,6 +162,7 @@ class RomSetup:
         self.log = None
         self.profile_root = Path(profile_root).resolve() if profile_root is not None else None
         self.environment = dict(os.environ)
+        self.environment['PYTHONDONTWRITEBYTECODE'] = '1'
         if sys.platform == 'darwin':
             self.environment['RETUNED_MAC_BOOTSTRAPPED'] = '1'
 
@@ -353,7 +354,7 @@ def launch_profile(root, installation):
     return {'format': 'oot3d_native_game_launch_profile_v1', 'arguments': arguments}
 
 
-def load_kit(path):
+def load_kit(path, host=None):
     path = Path(path).resolve()
     kit = json.loads(path.read_text())
     if kit.get('format') != 'retuned_rom_preparation_kit_v1':
@@ -367,7 +368,8 @@ def load_kit(path):
             raise SetupError('Preparation kit link escapes its directory')
         return result
     return {'engine': asset('engine'), 'ips': asset('ips'), 'elf': asset('elf'),
-        'host': asset('host'), 'readelf': asset('readelf') if 'readelf' in kit else 'unused',
+        'host': Path(host).resolve() if host is not None else asset('host'),
+        'readelf': asset('readelf') if 'readelf' in kit else 'unused',
         'cmake_args': kit.get('cmake_args', [])}
 
 
@@ -386,8 +388,9 @@ class FileCancellation:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for field in ('rom', 'data-root'):
-        parser.add_argument('--' + field, type=Path, required=True)
+        parser.add_argument('--' + field, type=Path)
     parser.add_argument('--kit', type=Path)
+    parser.add_argument('--check-kit', action='store_true', help='Verify local preparation tools without reading a ROM or changing game data')
     for field in ('engine', 'ips', 'elf', 'host'):
         parser.add_argument('--' + field, type=Path)
     parser.add_argument('--readelf', default='arm-none-eabi-readelf')
@@ -396,6 +399,8 @@ def main():
     parser.add_argument('--progress-file', type=Path)
     parser.add_argument('--cancel-file', type=Path)
     args = parser.parse_args()
+    if not args.check_kit and (args.rom is None or args.data_root is None):
+        parser.error('--rom and --data-root are required for preparation')
     def progress(value):
         print(json.dumps(value), flush=True)
         if args.progress_file:
@@ -403,13 +408,17 @@ def main():
             write_json(temporary, value)
             os.replace(temporary, args.progress_file)
     try:
-        options = load_kit(args.kit) if args.kit else dict(engine=args.engine, ips=args.ips,
+        options = load_kit(args.kit, host=args.host) if args.kit else dict(engine=args.engine, ips=args.ips,
             elf=args.elf, host=args.host, readelf=args.readelf, cmake_args=args.cmake_arg)
         if any(options[name] is None for name in ('engine', 'ips', 'elf', 'host')):
             raise SetupError('The local preparation kit is incomplete.')
         setup = RomSetup(**options, jobs=args.jobs, progress=progress,
             cancel=FileCancellation(args.cancel_file) if args.cancel_file else None)
-        setup.prepare(args.rom, args.data_root)
+        if args.check_kit:
+            setup.preflight()
+            progress({'stage': 'checked', 'message': 'Local preparation tools are ready.'})
+        else:
+            setup.prepare(args.rom, args.data_root)
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         progress({'stage': 'error', 'message': str(error)})
         return 1
@@ -417,4 +426,5 @@ def main():
 
 
 if __name__ == '__main__':
+    sys.dont_write_bytecode = True
     raise SystemExit(main())

@@ -6,6 +6,7 @@ import sys
 
 def prepare(kit_path, native_directory, rom_path, internal_root, userdata_root,
             cancel_path, callback):
+    sys.dont_write_bytecode = True
     kit = Path(kit_path)
     os.environ['LIBCAPSTONE_PATH'] = native_directory
     sys.path[:0] = [str(kit / 'project/tools/native/android'),

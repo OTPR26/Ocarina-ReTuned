@@ -149,3 +149,26 @@ class PreparationSourceIntegrity(unittest.TestCase):
         self.save_manifest()
         with self.assertRaises(setup.SetupError):
             setup.verify_preparation_source(self.root)
+
+
+class PreparationKitHost(unittest.TestCase):
+    def test_running_host_override_needs_no_duplicate_binary_in_kit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            kit = root / 'setup/kit.json'
+            kit.parent.mkdir()
+            kit.write_text(json.dumps({'format': 'retuned_rom_preparation_kit_v1',
+                'engine': 'engine', 'ips': 'hud.ips', 'elf': 'hud.elf'}))
+            options = setup.load_kit(kit, host=root / 'app')
+            self.assertEqual(options['host'], root / 'app')
+            self.assertEqual(options['engine'], root / 'setup/engine')
+            self.assertEqual(options['readelf'], 'unused')
+
+    def test_kit_metadata_still_cannot_point_outside_its_tree(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            kit = root / 'kit.json'
+            kit.write_text(json.dumps({'format': 'retuned_rom_preparation_kit_v1',
+                'engine': '../outside', 'ips': 'hud.ips', 'elf': 'hud.elf'}))
+            with self.assertRaises(setup.SetupError):
+                setup.load_kit(kit, host=root / 'app')
