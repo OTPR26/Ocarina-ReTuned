@@ -51,6 +51,37 @@ def write_json(path, value):
     Path(path).write_text(json.dumps(value, indent=2) + '\n', encoding='utf-8')
 
 
+def verify_preparation_source(engine):
+    """Accept a pinned development checkout or a sealed minimal runtime tree."""
+    engine = Path(engine).resolve()
+    if (engine / '.git').exists():
+        revision = subprocess.check_output(['git', '-C', str(engine), 'rev-parse', 'HEAD'], text=True).strip()
+        if revision != RUNTIME_REVISION:
+            raise SetupError('The preparation tools do not match this app.')
+        return
+    try:
+        metadata = json.loads((engine / 'preparation-runtime.json').read_text())
+        if (metadata.get('format') != 'retuned_preparation_runtime_v1' or
+                metadata.get('source_revision') != RUNTIME_REVISION):
+            raise ValueError('Unsupported preparation source')
+        files = metadata['files']
+        if not isinstance(files, dict) or not files:
+            raise ValueError('Empty preparation source')
+        for name, expected in files.items():
+            relative = Path(name)
+            path = (engine / relative).resolve()
+            if relative.is_absolute() or '..' in relative.parts or not path.is_relative_to(engine):
+                raise ValueError('Preparation source path escapes its tree')
+            if (engine / relative).is_symlink() or digest(path) != expected:
+                raise ValueError('Preparation source checksum mismatch')
+        actual = {p.relative_to(engine).as_posix() for p in engine.rglob('*')
+                  if p.is_file() and '__pycache__' not in p.parts and p.name != 'preparation-runtime.json'}
+        if actual != set(files):
+            raise ValueError('Unexpected preparation source files')
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        raise SetupError('The preparation source is incomplete or failed its integrity check.') from error
+
+
 def load_module(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
@@ -167,16 +198,14 @@ class RomSetup:
         for path in (self.ips, self.elf, self.host):
             if not path.is_file():
                 raise SetupError('The local preparation kit is incomplete.')
-        revision = subprocess.check_output(['git', '-C', str(self.engine), 'rev-parse', 'HEAD'], text=True).strip()
-        if revision != RUNTIME_REVISION:
-            raise SetupError('The preparation tools do not match this app.')
+        verify_preparation_source(self.engine)
         try:
             import capstone
         except ImportError as error:
             raise SetupError('The preparation runtime is missing its Capstone dependency.') from error
         subprocess.run([str(self.host), '--product-info'], check=True, env=self.environment,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for tool in (self.cmake, self.readelf, 'ninja'):
+        for tool in (self.cmake, 'ninja'):
             if shutil.which(tool) is None:
                 raise SetupError('Required local build tool is missing: ' + Path(tool).name)
 
@@ -242,7 +271,8 @@ class RomSetup:
         del program, functions
         gc.collect()
         generated = work / 'title-source'
-        self.run([sys.executable, a32 / 'generate_whole_aot_cpp.py', '--program', work / 'aot-program.json',
+        self.run([sys.executable, PROJECT / 'tools/native/generate_title_sources.py', '--engine', engine,
+            '--program', work / 'aot-program.json',
             '--selection', work / 'selection.json', '--code', image / 'code.bin', '--output', generated,
             '--shards', '64'])
         sources = {p.name: digest(p) for p in generated.iterdir() if p.suffix in ('.cpp', '.h')}
@@ -337,7 +367,7 @@ def load_kit(path):
             raise SetupError('Preparation kit link escapes its directory')
         return result
     return {'engine': asset('engine'), 'ips': asset('ips'), 'elf': asset('elf'),
-        'host': asset('host'), 'readelf': asset('readelf'),
+        'host': asset('host'), 'readelf': asset('readelf') if 'readelf' in kit else 'unused',
         'cmake_args': kit.get('cmake_args', [])}
 
 

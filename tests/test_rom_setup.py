@@ -112,3 +112,40 @@ class RomSetupTransactions(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PreparationSourceIntegrity(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        (self.root / 'translator.py').write_text('def translate(value): return value\n')
+        self.metadata = {'format': 'retuned_preparation_runtime_v1',
+            'source_revision': setup.RUNTIME_REVISION,
+            'files': {'translator.py': setup.digest(self.root / 'translator.py')}}
+        self.save_manifest()
+
+    def save_manifest(self):
+        (self.root / 'preparation-runtime.json').write_text(json.dumps(self.metadata))
+
+    def test_minimal_tree_without_git_and_python_caches(self):
+        setup.verify_preparation_source(self.root)
+        cache = self.root / '__pycache__'
+        cache.mkdir()
+        (cache / 'translator.cpython.pyc').write_bytes(b'local interpreter cache')
+        setup.verify_preparation_source(self.root)
+
+    def test_modified_or_extra_source_is_rejected(self):
+        (self.root / 'translator.py').write_text('changed source\n')
+        with self.assertRaises(setup.SetupError):
+            setup.verify_preparation_source(self.root)
+        (self.root / 'translator.py').write_text('def translate(value): return value\n')
+        (self.root / 'extra.py').write_text('unexpected source\n')
+        with self.assertRaises(setup.SetupError):
+            setup.verify_preparation_source(self.root)
+
+    def test_source_paths_cannot_escape_tree(self):
+        self.metadata['files'] = {'../outside.py': '0' * 64}
+        self.save_manifest()
+        with self.assertRaises(setup.SetupError):
+            setup.verify_preparation_source(self.root)

@@ -14,10 +14,8 @@ def edit(path, before, after):
     path.write_text(source.replace(before, after))
 
 
-def apply(engine):
-    actual = subprocess.check_output(['git', '-C', str(engine), 'rev-parse', 'HEAD'], text=True).strip()
-    if actual != '17218b0cfdb944645bb5cde5249f313dca7e53ce':
-        raise ValueError('Unexpected native runtime revision')
+def apply_translation_support(engine):
+    """Generic ARM lowering and memory support, also used by preparation kits."""
     root = Path(engine) / 'tools/oot3d/native_a32_runtime'
     edit(root / 'whole_aot_cpp.py',
          '    if unary in {0x0EB10B40, 0x0EB10BC0, 0x0EB40B40, 0x0EB40BC0}:',
@@ -50,6 +48,21 @@ def apply(engine):
          """                f"    {_lane(destination)}, {_lane(right)},",\n                f"    {'true' if unary == 0x0EB40AC0 else 'false'});",""",
          """                f"    {_lane(destination)}, {'0U' if unary & 0x10000 else _lane(right)},",\n                f"    {'true' if unary & 0x80 else 'false'});",""")
 
+    memory_header = Path(engine) / 'tools/oot3d/native_game_runtime/oot3d_native_a32_memory.h'
+    edit(memory_header, '    size_t RegionCount() const;',
+         '    struct RegionInfo { uint32_t BaseAddress, Size, Permissions, State; };\n    RegionInfo QueryRegion(uint32_t address) const;\n    size_t RegionCount() const;')
+    query = Path(__file__).with_name('query_memory.cpp.inc').read_text()
+    edit(memory_header.with_suffix('.cpp'), 'size_t NativeA32Memory::RegionCount() const {',
+         query + '\nsize_t NativeA32Memory::RegionCount() const {')
+
+
+def apply(engine):
+    actual = subprocess.check_output(['git', '-C', str(engine), 'rev-parse', 'HEAD'], text=True).strip()
+    if actual != '17218b0cfdb944645bb5cde5249f313dca7e53ce':
+        raise ValueError('Unexpected native runtime revision')
+    root = Path(engine) / 'tools/oot3d/native_a32_runtime'
+    apply_translation_support(engine)
+
     profile = Path(engine) / 'tools/oot3d/ui_topscreen/oot3d_top_screen_mod_profile.h'
     edit(profile, '  Oot3d,\n  TopScreen,', '  Oot3d,\n  TopScreen,\n  Reframed,')
     source = profile.with_suffix('.cpp')
@@ -67,12 +80,6 @@ def apply(engine):
          'serviceName == "ndm:u" || serviceName == "y2r:u" || serviceName == "ir:rst")')
     edit(host, '        if (*sessionType == "client_session:hid:USER") {',
          '        if (*sessionType == "client_session:ir:rst") {\n            return HandleIrstRequest(state, memory, commandBuffer, std::move(event));\n        }\n        if (*sessionType == "client_session:hid:USER") {')
-    memory_header = header.parent / 'oot3d_native_a32_memory.h'
-    edit(memory_header, '    size_t RegionCount() const;',
-         '    struct RegionInfo { uint32_t BaseAddress, Size, Permissions, State; };\n    RegionInfo QueryRegion(uint32_t address) const;\n    size_t RegionCount() const;')
-    query = Path(__file__).with_name('query_memory.cpp.inc').read_text()
-    edit(memory_header.with_suffix('.cpp'), 'size_t NativeA32Memory::RegionCount() const {',
-         query + '\nsize_t NativeA32Memory::RegionCount() const {')
     query_svc = Path(__file__).with_name('query_memory_svc.cpp.inc').read_text()
     if 'case 0x02:' not in host.read_text():
         edit(host, '    case 0x08: {', query_svc + '    case 0x08: {')

@@ -32,6 +32,17 @@ repository or public build artifacts. A distributable preparation kit needs
 its own source/dependency notices, integrity checks, privacy audit, and complete
 first-run tests before publication.
 
+## Preparation source bundle
+
+`tools/native/stage_preparation_sources.py` reconstructs an explicit allowlist
+from pinned upstream Git objects and applies the same generic ARM/runtime fixes
+used by the host. It retains structural entry boundaries while removing unused
+annotation, instruction-summary and string columns. Its manifest records original
+and staged hashes, patch identities and the upstream source revision. Bundled
+trees pass integrity checks without shipping Git history. The explicit-input
+source generator does not read upstream developer operational-input settings.
+Compiler SDK notices and platform package audits remain separate release gates.
+
 ## Installation transaction
 
 Preparation runs in a temporary directory under the selected app data root.

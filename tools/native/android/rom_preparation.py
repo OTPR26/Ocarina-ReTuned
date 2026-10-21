@@ -14,7 +14,7 @@ import sys
 
 # The bundled project has the same layout as the desktop preparation kit.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from rom_setup import RomSetup, SetupError, digest, load_module
+from rom_setup import RomSetup, SetupError, digest, load_module, verify_preparation_source
 
 
 class AndroidRomSetup(RomSetup):
@@ -38,6 +38,7 @@ class AndroidRomSetup(RomSetup):
 
     def preflight(self):
         import capstone
+        verify_preparation_source(self.engine)
         for path in (self.ips, self.elf, self.compiler, self.linker, self.runtime_library):
             if not path.is_file():
                 raise SetupError('The Android preparation tools are incomplete.')
@@ -60,7 +61,7 @@ class AndroidRomSetup(RomSetup):
                     translator = load_module('_retuned_android_ir', script)
                     if translator.main(arguments):
                         raise SetupError('Local game translation failed.')
-                elif script.name == 'generate_whole_aot_cpp.py':
+                elif script.name in ('generate_title_sources.py', 'generate_whole_aot_cpp.py'):
                     # Avoid the upstream CLI's developer operational-input
                     # defaults. Every game path comes from this setup transaction.
                     from whole_aot_cpp import generate
