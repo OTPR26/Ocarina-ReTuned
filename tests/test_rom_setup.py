@@ -5,6 +5,7 @@ import tempfile
 import threading
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 MODULE = Path(__file__).resolve().parents[1] / 'tools/native/rom_setup.py'
 spec = importlib.util.spec_from_file_location('rom_setup', MODULE)
@@ -186,3 +187,37 @@ class PreparationKitHost(unittest.TestCase):
             kit.write_text(json.dumps(metadata))
             with self.assertRaises(setup.SetupError):
                 setup.load_kit(kit, host=root / 'app')
+
+class WindowsGuiBuildEnvironment(unittest.TestCase):
+    def test_gui_launch_discovers_buildtools_and_preserves_parent_environment(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            installer = root / 'Microsoft Visual Studio/Installer/vswhere.exe'
+            installation = root / 'Build Tools & SDK'
+            vcvars = installation / 'VC/Auxiliary/Build/vcvars64.bat'
+            cmake = installation / 'Common7/IDE/CommonExtensions/Microsoft/CMake'
+            for file in (installer, vcvars, cmake / 'CMake/bin/cmake.exe', cmake / 'Ninja/ninja.exe'):
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.touch()
+            original = {'ProgramFiles(x86)': str(root), 'PATH': 'existing', 'CUSTOM': 'preserved'}
+            outputs = [SimpleNamespace(stdout=str(installation) + '\n'),
+                SimpleNamespace(stdout='Path=compiler-tools\nINCLUDE=sdk-headers\nVSCMD_ARG_TGT_ARCH=x64\n=value\n')]
+            with patch.object(setup.subprocess, 'run', side_effect=outputs) as run:
+                result = setup.windows_build_environment(original)
+            self.assertEqual(original['PATH'], 'existing')
+            self.assertEqual(result['CUSTOM'], 'preserved')
+            self.assertEqual(result['INCLUDE'], 'sdk-headers')
+            self.assertTrue(result['PATH'].startswith('compiler-tools;'))
+            self.assertIn(str(cmake / 'Ninja'), result['PATH'])
+            call = run.call_args_list[1]
+            self.assertEqual(call.kwargs['env']['RETUNED_VCVARS'], str(vcvars))
+            self.assertTrue(call.args[0].endswith(' /c call "%RETUNED_VCVARS%" >nul && set'))
+            self.assertNotIn('\\"', call.args[0])
+            self.assertNotIn('RETUNED_VCVARS', result)
+
+    def test_missing_tools_make_no_machine_changes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            environment = {'PROGRAMFILES(X86)': temporary, 'PATH': 'existing'}
+            with patch.object(setup.subprocess, 'run') as run:
+                self.assertEqual(setup.windows_build_environment(environment), environment)
+            run.assert_not_called()

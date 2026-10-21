@@ -39,6 +39,39 @@ class SetupCancelled(SetupError):
     pass
 
 
+def windows_build_environment(environment):
+    """Discover installed C++ tools for normal GUI launches, without global changes."""
+    result = {name.upper(): value for name, value in environment.items()}
+    installer = Path(result.get('PROGRAMFILES(X86)', r'C:\Program Files (x86)')) / 'Microsoft Visual Studio/Installer/vswhere.exe'
+    if not installer.is_file():
+        return result
+    probe = subprocess.run([str(installer), '-latest', '-products', '*', '-requires',
+        'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-property', 'installationPath', '-utf8'],
+        capture_output=True, text=True, encoding='utf-8', check=True, env=result)
+    location = probe.stdout.strip()
+    if not location:
+        return result
+    installation = Path(location)
+    vcvars = installation / 'VC/Auxiliary/Build/vcvars64.bat'
+    if vcvars.is_file() and result.get('VSCMD_ARG_TGT_ARCH') != 'x64':
+        child = dict(result, RETUNED_VCVARS=str(vcvars))
+        # cmd uses its own quote rules; list2cmdline on the batch expression
+        # would introduce literal backslashes before its internal quotes.
+        command = subprocess.list2cmdline([result.get('COMSPEC', 'cmd.exe')])
+        command += ' /d /u /s /c call "%RETUNED_VCVARS%" >nul && set'
+        initialized = subprocess.run(command, capture_output=True, text=True,
+            encoding='utf-16-le', check=True, env=child)
+        for line in initialized.stdout.splitlines():
+            name, separator, value = line.partition('=')
+            if separator and name and not name.startswith('=') and name.upper() != 'RETUNED_VCVARS':
+                result[name.upper()] = value
+    cmake_root = installation / 'Common7/IDE/CommonExtensions/Microsoft/CMake'
+    for directory, executable in ((cmake_root / 'CMake/bin', 'cmake.exe'), (cmake_root / 'Ninja', 'ninja.exe')):
+        if (directory / executable).is_file():
+            result['PATH'] = result.get('PATH', '') + ';' + str(directory)
+    return result
+
+
 def digest(path):
     value = hashlib.sha256()
     with Path(path).open('rb') as stream:
@@ -163,6 +196,8 @@ class RomSetup:
         self.profile_root = Path(profile_root).resolve() if profile_root is not None else None
         self.environment = dict(os.environ)
         self.environment['PYTHONDONTWRITEBYTECODE'] = '1'
+        if sys.platform == 'win32':
+            self.environment = windows_build_environment(self.environment)
         if sys.platform == 'darwin':
             self.environment['RETUNED_MAC_BOOTSTRAPPED'] = '1'
 
@@ -207,7 +242,7 @@ class RomSetup:
         subprocess.run([str(self.host), '--product-info'], check=True, env=self.environment,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for tool in (self.cmake, 'ninja'):
-            if shutil.which(tool) is None:
+            if shutil.which(tool, path=self.environment.get('PATH')) is None:
                 raise SetupError('Required local build tool is missing: ' + Path(tool).name)
 
     def prepare(self, rom, data_root):

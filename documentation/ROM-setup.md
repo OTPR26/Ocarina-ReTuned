@@ -49,8 +49,10 @@ Compiler SDK notices and platform package audits remain separate release gates.
 The staged desktop toolkits include a platform-specific Python runtime,
 Capstone and neutral JSON headers. They still require CMake 3.30 or newer,
 Ninja and a C++20 compiler with the platform SDK. Those compiler prerequisites
-are not currently installed by the first-run screen. Windows preparation needs
-the Visual Studio C++ build environment available to its compiler. Complete
+are not currently installed by the first-run screen. Windows preparation discovers
+installed Visual Studio C++ Build Tools and their bundled CMake/Ninja, and initializes
+the x64 compiler environment for preparation only. It does not change the system
+PATH or require launching the app from a Developer Command Prompt. Complete
 Windows/Linux preparation and gameplay checks remain outstanding; a Windows
 Python/Capstone and host product-info check under Wine is only a compatibility
 smoke test. These staged toolkits are not yet public release assets.
