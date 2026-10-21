@@ -9,6 +9,7 @@ import plistlib
 import shutil
 import subprocess
 import tempfile
+from runtime_notices import copy_runtime_donor_notices
 
 
 def run(*args):
@@ -98,6 +99,7 @@ def package(engine, build, output, identity="-", entitlements=None, profile=None
             shutil.copy2(engine / name, notices / name)
         if (engine / 'LICENSES').is_dir():
             shutil.copytree(engine / 'LICENSES', notices / 'runtime-notices')
+        copy_runtime_donor_notices(engine, notices)
         for license_name in ('LICENSE', 'LICENSE.md', 'LICENSE.txt'):
             if (engine / license_name).is_file():
                 shutil.copy2(engine / license_name, notices / license_name)

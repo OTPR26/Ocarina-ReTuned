@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tempfile
 from urllib.parse import quote
+from runtime_notices import copy_runtime_donor_notices
 
 
 def run(*args):
@@ -174,6 +175,7 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
                 shutil.copy2(engine / name, notices / name)
         if (engine / 'LICENSES').is_dir():
             shutil.copytree(engine / 'LICENSES', notices / 'runtime-notices')
+        copy_runtime_donor_notices(engine, notices)
         shutil.copy2(Path(__file__).resolve().parents[2] / 'resources/fonts/LICENSE.txt', notices / 'interface-font-OFL.txt')
         if platform == 'linux':
             linux_dependency_notices(dependency_sources, notices)

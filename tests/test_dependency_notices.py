@@ -13,9 +13,34 @@ sys.path.insert(0, str(ROOT / 'tools/native'))
 spec = importlib.util.spec_from_file_location('desktop_staging', ROOT / 'tools/native/stage_desktop_host.py')
 stage = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(stage)
+from runtime_notices import DONOR_NOTICES, copy_runtime_donor_notices
 
 
 class DependencyNotices(unittest.TestCase):
+    def test_missing_source_donor_notice_prevents_partial_notice_staging(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            notices = root / 'notices'
+            notices.mkdir()
+            (notices / 'keep.txt').write_bytes(b'existing package notice')
+            originals = {}
+            for index, relative in enumerate(DONOR_NOTICES.values()):
+                source = root / 'engine' / relative
+                source.parent.mkdir(parents=True, exist_ok=True)
+                originals[source] = ('Original copyright and permissions\r\n' + str(index)).encode()
+                source.write_bytes(originals[source])
+            missing = next(reversed(originals))
+            missing.unlink()
+            with self.assertRaisesRegex(ValueError, 'Missing original runtime donor notice'):
+                copy_runtime_donor_notices(root / 'engine', notices)
+            self.assertEqual(list(notices.iterdir()), [notices / 'keep.txt'])
+            missing.write_bytes(originals[missing])
+            copy_runtime_donor_notices(root / 'engine', notices)
+            manifest = json.loads((notices / 'source-donor-notices.json').read_text())
+            for record in manifest['notices']:
+                self.assertEqual((notices / record['notice']).read_bytes(),
+                                 originals[root / 'engine' / record['engine_source']])
+
     def test_multiarch_owner_retains_source_version_and_referenced_license(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
