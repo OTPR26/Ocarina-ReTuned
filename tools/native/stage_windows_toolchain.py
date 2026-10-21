@@ -33,12 +33,17 @@ def selected(component, path):
     if component == 'ninja':
         return path.as_posix() == 'ninja.exe'
     if component == 'cmake':
-        return parts[0] in ('share', 'licenses') or path.as_posix() in ('bin/cmake.exe', 'bin/cmcldeps.exe')
+        original_notice = (parts[:2] == ('doc', 'cmake') and
+                           path.name.lower() in ('license.rst', 'license', 'copying', 'copyright.txt', 'notice'))
+        return original_notice or parts[0] in ('share', 'licenses') or path.as_posix() in ('bin/cmake.exe', 'bin/cmcldeps.exe')
     if parts[0] in ('LICENSE.TXT', 'include', 'lib', 'share', 'x86_64-w64-mingw32'):
         return True
     if parts[0] != 'bin':
         return False
     name = parts[-1]
+    # libffi belongs to the omitted LLDB/Python stack; no retained tool imports it.
+    if name == 'libffi-8.dll':
+        return False
     # Keep compiler/linker resource wrappers and DLL dependencies; omit other
     # target architectures, debugger, IDE services and their bundled Python.
     if name.startswith(('aarch64-', 'armv7-', 'arm64ec-', 'i686-', 'lldb', 'liblldb', 'libpython', 'clangd', 'clang-tidy')):
@@ -85,6 +90,14 @@ def stage(archives, ninja_license, output):
             records.append({'component': component, 'url': f'https://github.com/{repo}/releases/download/{tag}/{filename}',
                             'sha256': sha, 'source': f'https://github.com/{repo}/tree/{tag}'})
         (root / 'licenses').mkdir()
+        notice_root = Path(__file__).resolve().parents[2] / 'resources/licenses/windows-tools'
+        notice_metadata = json.loads((notice_root / 'sources.json').read_text())
+        for record in notice_metadata['licenses']:
+            name = record['file']
+            if PurePosixPath(name).name != name or digest(notice_root / name) != record['sha256']:
+                raise ValueError('Compiler component notice integrity mismatch')
+            shutil.copy2(notice_root / name, root / 'licenses' / name)
+        shutil.copy2(notice_root / 'sources.json', root / 'licenses/llvm-component-sources.json')
         shutil.copy2(ninja_license, root / 'licenses/ninja-COPYING')
         shutil.copy2(Path(__file__).with_name('windows-toolchain.cmake'), root / 'windows-toolchain.cmake')
         files = {p.relative_to(root).as_posix(): digest(p) for p in sorted(root.rglob('*')) if p.is_file()}

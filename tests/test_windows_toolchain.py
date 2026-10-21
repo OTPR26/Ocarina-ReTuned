@@ -32,5 +32,13 @@ class WindowsToolchainStaging(unittest.TestCase):
                      'lib/clang/23/include/stddef.h', 'x86_64-w64-mingw32/share/mingw32/COPYING'):
             self.assertTrue(tools.selected('llvm', PurePosixPath(path)), path)
         for path in ('aarch64-w64-mingw32/lib/libc++.a', 'bin/lldb.exe',
-                     'python/bin/python.exe', 'bin/i686-w64-mingw32-clang.exe', 'bin/clangd.exe'):
+                     'python/bin/python.exe', 'bin/i686-w64-mingw32-clang.exe', 'bin/clangd.exe',
+                     'bin/libffi-8.dll'):
             self.assertFalse(tools.selected('llvm', PurePosixPath(path)), path)
+
+    def test_cmake_original_dependency_notices_survive_documentation_trimming(self):
+        for path in ('doc/cmake/LICENSE.rst', 'doc/cmake/cmcurl/COPYING',
+                     'doc/cmake/cmlibuv/LICENSE', 'doc/cmake/cmsys/Copyright.txt',
+                     'doc/cmake/cmcppdap/NOTICE'):
+            self.assertTrue(tools.selected('cmake', PurePosixPath(path)), path)
+        self.assertFalse(tools.selected('cmake', PurePosixPath('doc/cmake/html/index.html')))
