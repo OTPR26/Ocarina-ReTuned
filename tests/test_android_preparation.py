@@ -24,12 +24,16 @@ class AndroidPreparationHeaders(unittest.TestCase):
             generated = root / 'generated'
             for directory in (runtime, other, generated):
                 directory.mkdir(parents=True)
-            # Two identical copies are distinct to #pragma once. The plugin's
-            # quoted include must resolve to the same copy as the generated unit.
+            # The plugin must resolve quoted includes to the same SDK copy
+            # as the generated unit. Give the alternate copy a harmless extra
+            # declaration: GCC may coalesce byte-identical files, while Clang
+            # exposes the Android failure even when their contents match.
             for directory in (runtime, other):
                 (directory / 'runtime.h').write_text('#pragma once\nstruct Frame { int value; };\n')
                 (directory / 'triaevum_title_whole_aot_plugin.cpp').write_text(
                     '#include "runtime.h"\n#include "generated.h"\nint plugin() { return sizeof(Frame); }\n')
+            with (other / 'runtime.h').open('a') as stream:
+                stream.write('struct AlternateHeaderIdentity {};\n')
             (generated / 'generated.h').write_text('#pragma once\n#include "runtime.h"\n')
             (generated / 'generated.cpp').write_text('#include "generated.h"\nint generated() { return sizeof(Frame); }\n')
             compiler = shutil.which('c++')
