@@ -9,5 +9,6 @@
       "exheader": {"bytes": 2048, "sha256": "dbe5fa0174d73bffb75d7cf0fbaa05d3e0ee080df0e257afc58b6c45ae5de3d0"},
       "romfs": {"bytes": 473526272, "sha256": "dd6def65af151d40fcbba7202c36bbdd8ed5b5b431373dc6a8c89bfd708af690"}
     }
-  ]
+  ],
+  "extractor_sha256": "48ad2fabb817aa8081d5a224f60b1d91dd7b33fc4546d96df0a5ae71cc8741a3"
 }

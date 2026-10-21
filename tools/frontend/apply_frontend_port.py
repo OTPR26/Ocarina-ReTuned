@@ -130,6 +130,9 @@ def apply(engine):
     sys.path.insert(0,str(source.parents[1]/"tools/native/apple"))
     from apply_save_sync import apply as apply_save_sync
     apply_save_sync(engine)
+    sys.path.insert(0,str(source.parents[1]/"tools/native/setup"))
+    from apply_setup import apply as apply_setup
+    apply_setup(engine)
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('engine',type=Path);apply(p.parse_args().engine)

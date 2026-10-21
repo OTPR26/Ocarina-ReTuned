@@ -92,29 +92,58 @@ def adjusted_return_sites(image, intervals, functions):
     return sorted(sites)
 
 
-def elf_symbols(readelf, elf):
-    listing = subprocess.check_output([str(readelf), '-sW', str(elf)], text=True)
+def read_elf_symbols(elf):
+    """Read ARM ELF32 symbols without an external executable (also Android)."""
+    data = Path(elf).read_bytes()
+    if len(data) < 52 or data[:7] != b'\x7fELF\x01\x01\x01' or struct.unpack_from('<H', data, 18)[0] != 40:
+        raise ValueError('Expected a little-endian ARM ELF32 mod')
+    offset = struct.unpack_from('<I', data, 32)[0]
+    size, count = struct.unpack_from('<HH', data, 46)
+    if size != 40 or not count or offset + size * count > len(data):
+        raise ValueError('Invalid ELF section table')
+    sections = [struct.unpack_from('<10I', data, offset + i * size) for i in range(count)]
+    def contents(section):
+        start, length = section[4:6]
+        if start + length > len(data):
+            raise ValueError('ELF section is outside file')
+        return data[start:start + length]
     symbols = []
+    kinds = {0: 'NOTYPE', 1: 'OBJECT', 2: 'FUNC'}
+    for section in sections:
+        if section[1] != 2:
+            continue
+        if section[6] >= count or section[9] != 16 or section[5] % 16:
+            raise ValueError('Invalid ELF symbol table')
+        names = contents(sections[section[6]])
+        table = contents(section)
+        for index in range(0, section[5], 16):
+            name, address, length, info, other, section_index = struct.unpack_from('<IIIBBH', table, index)
+            if not 0 < section_index < count or (info & 15) not in kinds:
+                continue
+            if name >= len(names) or names.find(b'\0', name) < 0:
+                raise ValueError('Invalid ELF symbol name')
+            label = names[name:names.index(b'\0', name)].decode('utf-8')
+            symbols.append((address, length, kinds[info & 15], label, str(section_index)))
+    if not symbols:
+        raise ValueError('Mod ELF has no usable symbols')
+    return symbols
+
+
+def elf_symbols(readelf, elf):
+    symbols = read_elf_symbols(elf)
     mappings = {}
-    for line in listing.splitlines():
-        fields = line.split()
-        if len(fields) != 8 or not fields[0].endswith(':') or not fields[0][:-1].isdigit():
-            continue
-        _, value, size, kind, binding, visibility, section, name = fields
-        if not section.isdigit():
-            continue
-        address = int(value, 16)
+    for address, _, _, name, section in symbols:
         if name.startswith(('$a', '$t', '$d')):
             mappings.setdefault(section, []).append((address, name[1]))
-        elif kind == 'FUNC' or (kind == 'NOTYPE' and (not name.startswith('__') or name == '__text_end')):
-            symbols.append((address, int(size), kind, name, section))
     for values in mappings.values():
         values.sort()
     def is_arm(symbol):
         address, _, kind, _, section = symbol
         active = [mode for start, mode in mappings.get(section, []) if start <= address]
         return bool(active) and active[-1] == 'a'
-    return [symbol for symbol in symbols if is_arm(symbol) or symbol[3] == '__text_end']
+    eligible = [symbol for symbol in symbols if symbol[2] == 'FUNC' or
+        (symbol[2] == 'NOTYPE' and not symbol[3].startswith(('$', '__')) or symbol[3] == '__text_end')]
+    return [symbol for symbol in eligible if is_arm(symbol) or symbol[3] == '__text_end']
 
 
 def touch_action_owner(image, entry):
@@ -167,10 +196,9 @@ def _prepare(args):
                 raise ValueError('Frontend adapter exceeds function: ' + name)
             image[address-BASE:address-BASE+len(words)*4] = struct.pack('<'+'I'*len(words), *words)
         object_symbols = {}
-        for line in subprocess.check_output([str(args.readelf), '-sW', str(args.elf)], text=True).splitlines():
-            parts = line.split()
-            if len(parts)==8 and parts[-1] in ('gSaveContext','gGlobalContext','gNativeHudPositions','gNativeHudUVs','sNativeHudPauseLayout','sNativeHudOcarinaLayout','sNativeActionSource'):
-                object_symbols[parts[-1]]=int(parts[1],16)
+        for address, _, _, name, _ in read_elf_symbols(args.elf):
+            if name in ('gSaveContext','gGlobalContext','gNativeHudPositions','gNativeHudUVs','sNativeHudPauseLayout','sNativeHudOcarinaLayout','sNativeActionSource'):
+                object_symbols[name] = address
         functions = ('NativeHud_GetScalePercent','NativeHud_SetScalePercent',
             'Camera_GetDistanceOption','Camera_SetDistanceOption','Camera_GetControlMode',
             'Camera_SetControlMode','MovementOptions_Get','MovementOptions_Set',

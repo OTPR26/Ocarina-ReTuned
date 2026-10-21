@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Prepare verified private native inputs from a user-owned cartridge dump."""
 import argparse
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -17,12 +18,16 @@ from retuned.native_inputs import verify_identity
 def prepare(engine, rom, output):
     engine, rom, output = Path(engine).resolve(), Path(rom).resolve(), Path(output).absolute()
     pins = json.loads((PROJECT / 'resources/native-inputs.json').read_text())
-    revision = subprocess.check_output(['git', '-C', str(engine), 'rev-parse', 'HEAD'], text=True).strip()
-    if revision != pins['source_revision']:
-        raise ValueError('Native extraction source revision does not match the pinned reference.')
     source = 'tools/triaevum_release/ctr_rom.py'
-    subprocess.run(['git', '-C', str(engine), 'diff', '--exit-code', 'HEAD', '--', source],
-                   check=True, stdout=subprocess.DEVNULL)
+    if (engine / '.git').exists():
+        revision = subprocess.check_output(['git', '-C', str(engine), 'rev-parse', 'HEAD'], text=True).strip()
+        if revision != pins['source_revision']:
+            raise ValueError('Native extraction source revision does not match the pinned reference.')
+        subprocess.run(['git', '-C', str(engine), 'diff', '--exit-code', 'HEAD', '--', source],
+                       check=True, stdout=subprocess.DEVNULL)
+    # Android carries a verified tools bundle, not a Git client or checkout.
+    if hashlib.sha256((engine / source).read_bytes()).hexdigest() != pins['extractor_sha256']:
+        raise ValueError('ROM extractor does not match the pinned reference.')
     if output.exists() or output.is_symlink():
         raise ValueError('Native input output already exists; preserving it.')
     output.parent.mkdir(parents=True, exist_ok=True)

@@ -53,9 +53,31 @@ class ReframedImageTests(unittest.TestCase):
   6: 005c7010 0 FUNC GLOBAL DEFAULT 67 svc_wrapper
   7: 005c701c 0 NOTYPE GLOBAL DEFAULT 67 __text_end
 '''
-        with patch.object(image.subprocess, 'check_output', return_value=listing):
-            symbols = image.elf_symbols(Path('readelf'), Path('mod.elf'))
+        rows = [line.split() for line in listing.splitlines() if line.strip()]
+        names = b'\0'
+        symbols = bytearray()
+        for row in rows:
+            address, length, kind, label = int(row[1], 16), int(row[2]), row[3], row[-1]
+            name = len(names)
+            names += label.encode() + b'\0'
+            symbols.extend(struct.pack('<IIIBBH', name, address, length, 2 if kind == 'FUNC' else 0, 0, 1))
+        elf = bytearray(52 + 4 * 40)
+        elf[:7] = b'\x7fELF\x01\x01\x01'
+        struct.pack_into('<H', elf, 18, 40)
+        struct.pack_into('<I', elf, 32, 52)
+        struct.pack_into('<HH', elf, 46, 40, 4)
+        struct.pack_into('<10I', elf, 52 + 2 * 40, 0, 3, 0, 0, len(elf), len(names), 0, 0, 1, 0)
+        struct.pack_into('<10I', elf, 52 + 3 * 40, 0, 2, 0, 0, len(elf) + len(names), len(symbols), 2, 0, 4, 16)
+        elf.extend(names)
+        elf.extend(symbols)
+        with patch.object(Path, 'read_bytes', return_value=bytes(elf)):
+            symbols = image.elf_symbols(None, Path('mod.elf'))
         self.assertEqual([s[3] for s in symbols], ['__atomic_helper', 'svc_wrapper', '__text_end'])
+
+    def test_elf_rejects_truncated_or_wrong_machine(self):
+        for payload in (b'', b'\x7fELF' + bytes(48), b'\x7fELF\x01\x01\x01' + bytes(45)):
+            with patch.object(Path, 'read_bytes', return_value=payload), self.assertRaises(ValueError):
+                image.read_elf_symbols(Path('bad.elf'))
 
 
 if __name__ == '__main__':
