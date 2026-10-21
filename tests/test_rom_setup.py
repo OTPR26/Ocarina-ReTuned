@@ -61,6 +61,22 @@ class RomSetupTransactions(unittest.TestCase):
             self.assertEqual(args[args.index('--presentation-rate') + 1], '90')
         self.unchanged()
 
+    def test_activation_flush_supports_windows_writable_descriptor_requirement(self):
+        original_sync = setup.os.fsync
+        def windows_sync(descriptor):
+            # A zero-byte write validates descriptor access without changing data.
+            # This raises EBADF for read-only descriptors on Unix too.
+            setup.os.write(descriptor, b'')
+            original_sync(descriptor)
+        with setup.installation_transaction(self.root) as (root, work):
+            stage = work / 'stage'
+            stage.mkdir()
+            (stage / 'module').write_bytes(b'verified')
+            with patch.object(setup.os, 'fsync', side_effect=windows_sync):
+                target = setup.activate(root, stage, 'flushcheck', lambda p: setup.launch_profile(root, p))
+            self.assertTrue((target / 'module').is_file())
+        self.unchanged()
+
     def test_failed_profile_switch_rolls_back_installation(self):
         with setup.installation_transaction(self.root) as (root, work):
             stage = work / 'stage'

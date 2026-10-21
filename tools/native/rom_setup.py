@@ -188,7 +188,9 @@ def activate(root, stage, installation_id, make_profile, profile_root=None):
     temporary_profile = profile_root / ('.launch-' + uuid.uuid4().hex + '.json')
     try:
         write_json(temporary_profile, make_profile(target))
-        with temporary_profile.open('rb') as stream:
+        # Windows _commit requires a writable descriptor. Read-only fsync works
+        # on Unix but fails with EBADF after otherwise successful preparation.
+        with temporary_profile.open('r+b') as stream:
             os.fsync(stream.fileno())
         stage.rename(target)
         try:
