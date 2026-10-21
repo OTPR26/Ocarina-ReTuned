@@ -144,6 +144,13 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           ./fmt-logger-test.exe
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Verify portable filesystem timestamps
+        shell: pwsh
+        run: |
+          & 'C:/Program Files/LLVM/bin/clang-cl.exe' /nologo /std:c++20 /EHsc /MT tools/native/numeric_probe.cpp /Fenumeric-probe.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ./numeric-probe.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Build and test neutral runtime
         shell: pwsh
         run: |

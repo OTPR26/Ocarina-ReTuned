@@ -18,7 +18,7 @@ def apply(root):
          'std::to_string(error ? 0LL : std::chrono::duration_cast<std::chrono::nanoseconds>(time.time_since_epoch()).count())'),
         ('tools/oot3d/native_game_runtime/oot3d_savestate_panel.cpp',
          'std::chrono::clock_cast<std::chrono::system_clock>(time)',
-         'std::chrono::time_point_cast<std::chrono::system_clock::duration>(std::chrono::file_clock::to_sys(time))'),
+         'std::chrono::time_point_cast<std::chrono::system_clock::duration>(std::chrono::system_clock::now() + (time - std::filesystem::file_time_type::clock::now()))'),
     ]
     for relative, before, after in patches:
         path = Path(root) / relative

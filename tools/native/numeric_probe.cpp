@@ -20,8 +20,12 @@ static float literal(float value) {
 int main() {
     const auto file_time = std::filesystem::file_time_type::clock::now();
     const auto system_time = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-        std::chrono::file_clock::to_sys(file_time));
+        std::chrono::system_clock::now() + (file_time - std::filesystem::file_time_type::clock::now()));
     assert(std::chrono::abs(system_time - std::chrono::system_clock::now()) < std::chrono::seconds(5));
+    const auto older = file_time - std::chrono::hours(24);
+    const auto older_system = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+        std::chrono::system_clock::now() + (older - std::filesystem::file_time_type::clock::now()));
+    assert(std::chrono::abs((system_time - older_system) - std::chrono::hours(24)) < std::chrono::seconds(1));
     const auto stamp = std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(file_time.time_since_epoch()).count());
     assert(!stamp.empty());
     assert(literal(0.0f) == 0.0f);
