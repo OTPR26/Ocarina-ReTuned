@@ -121,6 +121,9 @@ def apply(engine):
     edit(controls,'SetKeyboardBinding(config, NativeControlAction::Select,\n                     NativeKeyboardKey::Tab, NativeKeyboardKey::Backspace);\n  SetKeyboardBinding(config, NativeControlAction::Start,\n                     NativeKeyboardKey::Enter);','SetKeyboardBinding(config, NativeControlAction::Select,\n                     NativeKeyboardKey::Enter);\n  SetKeyboardBinding(config, NativeControlAction::Start,\n                     NativeKeyboardKey::Tab, NativeKeyboardKey::Backspace);')
     edit(controls,'SetGamepadBinding(config, NativeControlAction::Select,\n                    NativeGamepadButton::Back);\n  SetGamepadBinding(config, NativeControlAction::Start,\n                    NativeGamepadButton::Start);','SetGamepadBinding(config, NativeControlAction::Select,\n                    NativeGamepadButton::Start);\n  SetGamepadBinding(config, NativeControlAction::Start,\n                    NativeGamepadButton::Back);')
 
+    from apply_product_identity import apply as apply_identity
+    apply_identity(engine)
+
     from apply_mobile_frontend import apply as apply_mobile
     apply_mobile(engine)
     bootstrap=engine/'tools/oot3d/native_game_runtime/oot3d_native_game_bootstrap.cpp'

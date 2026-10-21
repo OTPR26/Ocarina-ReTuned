@@ -86,7 +86,7 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
    ImGui::SetNextWindowSize({std::min(w*.8f,f*28),0},ImGuiCond_Always);
    if(ImGui::BeginPopupModal("About Ocarina ReTuned",&AboutVisible,ImGuiWindowFlags_AlwaysAutoResize)){
     ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.1.0 Preview");ImGui::Spacing();
-    ImGui::TextWrapped("Ocarina of Time 3D with the Reframed single-screen HUD. Built on TriAevum.");
+    ImGui::TextWrapped("Ocarina of Time 3D with the Reframed single-screen HUD.");
     ImGui::Spacing();if(ImGui::Button("Close")||ImGui::IsKeyPressed(ImGuiKey_Escape,false)||ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight,false)){AboutVisible=false;ImGui::CloseCurrentPopup();}
     ImGui::EndPopup();
    }else ImGui::OpenPopup("About Ocarina ReTuned");

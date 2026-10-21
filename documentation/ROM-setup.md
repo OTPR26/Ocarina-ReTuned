@@ -57,8 +57,10 @@ screen; no developer-tool installation or Developer Command Prompt is intended.
 The portable Windows candidate is being validated and is not a release asset.
 Older Windows test kits still discover installed Visual Studio Build Tools.
 Linux currently requires CMake 3.30+, Ninja and a C++20 compiler with system
-headers. Real Windows preparation/gameplay and Linux gameplay, complete toolchain
-notices/provenance, and final package audits remain release gates. Wine compiler
+headers. Real Windows bundled-tool preparation and gameplay have passed, including
+controller input and persistent HUD/dialogue with the matching private UI pack.
+Linux gameplay, complete toolchain notices/provenance, and final package audits
+remain release gates. Wine compiler
 checks alone do not establish real Windows gameplay compatibility.
 
 ## Installation transaction
@@ -80,3 +82,54 @@ the existing external app directory retains saves, preferences and launch settin
 The original launcher component is preserved for existing home-screen shortcuts.
 Android's sealed toolkit and opening-scene handoff have passed. Final public
 package provenance/notices and desktop platform checks remain release gates.
+
+## Bundled UI resources
+
+The preparation package includes `native-ui.zip`; setup does not download UI
+resources. `stage_ui_resources.py` builds it locally from the explicitly supplied,
+pinned Reframed release archive, selecting six matching UI files and preserving
+five original notices. `native_ui_resources.json` records the source and exact
+resource hashes. Runtime preparation verifies the complete pack before applying
+it to a new copy of the normalized ROM. It preserves the user's original ROM.
+
+Kits may explicitly specify `ui_resources` and an optional `hd_font_coverage`
+path. The latter must match the bundled native font and is copied beside the
+installation manifest, where the renderer discovers it. The tested Single Screen Experience private
+64-pixel coverage pack remains local pending redistribution authorization;
+including a resource in a local test does not establish public distribution
+rights. Source repositories contain integrity metadata and packaging code, not
+these resource bytes. Final public-resource rights and package audits remain
+release gates.
+
+## ReTuned Dialogue fonts
+
+The app bundles Regular and Bold versions of ReTuned Dialogue under the SIL Open
+Font License. They derive from the unchanged Liberation Sans source faces, with
+an original diamond marker and adjusted bitmap spacing. The modified fonts use
+the ReTuned Dialogue name; their copyright and OFL notice remain in
+`resources/fonts/LICENSE.txt`. `ReTunedDialogue-Styles.json` pins both native and
+128-pixel HD assets by SHA-256.
+
+Settings → HUD → Dialogue font saves the choice locally on that device. Bold is
+the default. Restart the app after changing it so the cached native text and its
+HD coverage use the same face. Save states may retain previously drawn text until
+it is redrawn; subsequent native lookups select the configured face before its
+metrics are read. Fonts are not part of iCloud save sync. Arbitrary user font
+installation is not exposed.
+
+`tools/native/prepare_open_font.py` rasterizes the approved faces at build time.
+The fonts retain their natural shapes, share a baseline, and include extra
+trailing clearance after lowercase t. Layout measurements are independent of
+atlas density. The runtime uses smooth sampling only for validated HD font
+coverage; unrelated texture samplers remain native.
+
+Local ROM preparation uses only the Python standard library to create a choice
+pack with both faces and the exact source-font identity. Before native character
+lookup, the host replaces only a byte-matching recognized font in guest memory,
+and only after checking matching character/cell geometry and allocation bounds.
+It does not rewrite the user's ROM. The resulting `font_coverage.zip` includes
+native game data for that identity check and stays private to the installation.
+The public font assets contain only OFL-derived glyphs and the original diamond,
+without native game artwork or the separately authored Single Screen Experience
+HD font. Pillow is needed only by the package builder; users do not download a
+font or install a rasterizer.

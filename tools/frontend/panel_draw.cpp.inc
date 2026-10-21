@@ -93,14 +93,30 @@ void GraphicsSettingsPanel::Draw() {
         ImGui::TextWrapped("Controls all game sound. Your device volume remains separate.");
         break;
       }
-      case SettingsPage::Hud:drawTabs("HUD");break;
+      case SettingsPage::Hud: {
+        ImGui::SeparatorText("Dialogue");
+        auto config=Ship::Context::GetRawInstance()->GetConfig();
+        int weight=config->GetString("Interface.DialogueFontWeight","bold")=="regular" ? 0 : 1;
+        ImGui::BeginDisabled(!RetunedFrontend::DialogueFontChoicesAvailable);
+        if(ImGui::Combo("Dialogue font",&weight,"Regular\0Bold\0")) {
+            config->SetString("Interface.DialogueFontWeight",weight==0 ? "regular" : "bold");
+            config->Save();
+        }
+        ImGui::EndDisabled();
+        if(!RetunedFrontend::DialogueFontChoicesAvailable)
+            ImGui::TextWrapped("Update game setup to enable both dialogue fonts.");
+        else if(RetunedFrontend::ActiveDialogueFontWeight!=(weight==0 ? "regular" : "bold"))
+            ImGui::TextWrapped("Restart the app to apply your dialogue font. Save your game first.");
+        else ImGui::TextWrapped("Regular and Bold use the same sharp dialogue rendering.");
+        ImGui::Separator();drawTabs("HUD");break;
+      }
       case SettingsPage::QualityOfLife:
         ImGui::SeparatorText("Link movement");drawTabs("Quality of life");break;
       case SettingsPage::About:
         ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.1.0 Preview");
         ImGui::Spacing();ImGui::TextWrapped("Ocarina of Time 3D with the Reframed single-screen HUD.");
         ImGui::SeparatorText("Contributors");
-        ImGui::TextWrapped("Built on TriAevum by coccofresco. Uses libultraship, SDL, Dear ImGui and MoltenVK on Apple devices. Interface fonts: Liberation Sans (SIL Open Font License).");
+        ImGui::TextWrapped("Upstream engine credits: TriAevum by coccofresco. Uses libultraship, SDL, Dear ImGui and MoltenVK on Apple devices. Interface fonts: Liberation Sans (SIL Open Font License).");
         break;
       case SettingsPage::SaveStates:drawTabs("Save states");break;
       case SettingsPage::Advanced:DrawGrassSettings();ImGui::Separator();DrawMaterialsTab();break;

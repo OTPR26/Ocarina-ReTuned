@@ -1,0 +1,37 @@
+        // The choice is applied before glyph lookup, never by rewriting RomFS.
+        const auto regular=Font(16,0x33), bold=Font(16,0xaa), sourceFont=Font(16,0x44);
+        const auto regularHd=Font(64,0x66), boldHd=Font(64,0xbb);
+        auto* choices=zip_open(path.string().c_str(),ZIP_CREATE|ZIP_TRUNCATE,nullptr);
+        Check(choices!=nullptr,"create choices fixture");
+        const std::string choicesManifest=R"({"format":"oot3d_qbf_coverage_v1","native_sources":["source.qbf"],"fonts":[{"style":"regular","native_file":"regular.qbf","coverage_file":"regular-hd.qbf"},{"style":"bold","native_file":"bold.qbf","coverage_file":"bold-hd.qbf"}]})";
+        const auto addChoice=[&](const char* name,const void* bytes,std::size_t length) {
+            auto* data=zip_source_buffer(choices,bytes,length,0);
+            Check(data && zip_file_add(choices,name,data,0)>=0,"choice entry");
+        };
+        addChoice("manifest.json",choicesManifest.data(),choicesManifest.size());
+        addChoice("source.qbf",sourceFont.data(),sourceFont.size());
+        addChoice("regular.qbf",regular.data(),regular.size());
+        addChoice("bold.qbf",bold.data(),bold.size());
+        addChoice("regular-hd.qbf",regularHd.data(),regularHd.size());
+        addChoice("bold-hd.qbf",boldHd.data(),boldHd.size());
+        Check(zip_close(choices)==0,"close choices fixture");
+        NativeHdFontRuntime choiceRuntime;
+        Check(choiceRuntime.Load(path,&error,"bold") && choiceRuntime.HasStyleChoices(),"load bundled choices");
+        Check(memory.WriteBytes(0x2000,sourceFont),"source font identity");
+        state.r[0]=0x1100;
+        choiceRuntime.ObserveLookup(state,memory);
+        Check(std::equal(bold.begin(),bold.end(),memory.GetReadPointer(0x2000,bold.size())),"bold selected before lookup");
+        Check(choiceRuntime.StyleSelections==1,"one style replacement");
+        choiceRuntime.ObserveLookup(state,memory);
+        Check(choiceRuntime.StyleSelections==1,"selected face is not rewritten on each lookup");
+        Check(choiceRuntime.Load(path,&error,"regular"),"load regular preference");
+        choiceRuntime.ObserveLookup(state,memory);
+        Check(std::equal(regular.begin(),regular.end(),memory.GetReadPointer(0x2000,regular.size())),"regular selected from previous bold face");
+        const auto unrelated=Font(16,0x77);
+        Check(memory.WriteBytes(0x2000,unrelated),"unrelated valid font");
+        choiceRuntime.ObserveLookup(state,memory);
+        Check(std::equal(unrelated.begin(),unrelated.end(),memory.GetReadPointer(0x2000,unrelated.size())),"unrecognized font remains unchanged");
+        choiceRuntime.Reset();
+        Check(memory.WriteBytes(0x2000,sourceFont),"restored cached source");
+        choiceRuntime.ObserveLookup(state,memory);
+        Check(std::equal(regular.begin(),regular.end(),memory.GetReadPointer(0x2000,regular.size())),"lookup after state restore honors preference");

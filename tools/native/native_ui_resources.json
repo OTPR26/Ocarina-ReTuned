@@ -1,0 +1,55 @@
+{
+  "format": "retuned_native_ui_resources_v1",
+  "source_url": "https://github.com/OTPR26/OOT3DHud/releases/download/v2.0/Ocarina-Reframed-2.0-Single-Screen-Mods.zip",
+  "source_sha256": "31c298c754fd1944e46a750e722b610b95bc740c7bced6b2d25957fd11ee426f",
+  "source_bytes": 2086835,
+  "source_prefix": "Europe/load/mods/0004000000033600/romfs/",
+  "resources": {
+    "menu/02_EU_ENGLISH/cam_interface00.ctxb": {
+      "sha256": "ee834acef75bc7f304ef5e9b760f0f60a2cbc49423afdb41324fdeb81dd73703",
+      "bytes": 1048648
+    },
+    "menu/02_EU_ENGLISH/hud_all00.ctxb": {
+      "sha256": "18b86e7df87198a4accc94eabb1f176739169254ce735caa95df797c007d4c12",
+      "bytes": 2097224
+    },
+    "menu/02_EU_ENGLISH/menu_item_parts00.ctxb": {
+      "sha256": "90d3096fbd7eb42d4e31ebf31e4f1e1975bfa0ec393cb4a9a4f57ed683350181",
+      "bytes": 65608
+    },
+    "message/eu/eu.qm": {
+      "sha256": "2b1f02c7b43c90a47476fae48d92e5edb38b2d88d5770a07a0a5f93c9c9d491d",
+      "bytes": 1717464
+    },
+    "message/eu/ltn16.qbf": {
+      "sha256": "0bfbd3c02a42f8591fb6fbfbba63bbcd4a3e20aa02739e3230db2c3384d6c0de",
+      "bytes": 108104
+    },
+    "misc/eu/english/gameover.qsp": {
+      "sha256": "b57e007be50aa8569c678b461a916be4a3b77b8754f5df03d629e86e4f825797",
+      "bytes": 10240
+    }
+  },
+  "notices": {
+    "licenses/GPL-3.0.txt": {
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "licenses/LICENSE-SCOPE.txt": {
+      "bytes": 2083,
+      "sha256": "de0cd9737895190a24dfa9f52a781542de35fd61231cebe924b5392257869807"
+    },
+    "licenses/NOTICE.txt": {
+      "bytes": 1794,
+      "sha256": "00a8be9a6f2d3c789608ee67e4356a175d4509fd6c93b87685274855fc3d1436"
+    },
+    "licenses/NotoSansCJK-OFL-1.1.txt": {
+      "bytes": 4301,
+      "sha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2"
+    },
+    "licenses/OOT3D-RANDOMIZER.txt": {
+      "bytes": 1436,
+      "sha256": "fbcd152de0560a2db92fa24370f57785d449c281d54d8a921a5be313d426242f"
+    }
+  }
+}

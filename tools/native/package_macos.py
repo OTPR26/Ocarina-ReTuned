@@ -40,7 +40,7 @@ def package(engine, build, output, identity="-", entitlements=None, profile=None
     forbidden = ('oot3d_whole_aot_shard_', '/oot3d_whole_aot_cpp/', '/oot3d_a32_generated/')
     if any(token in commands for token in forbidden):
         raise ValueError('A neutral build must not compile translated game files.')
-    source = build / 'TriAevum'
+    source = build / 'OcarinaReTuned'
     verify_neutral_shaders(engine, source)
     if run('lipo', '-archs', str(source)) != 'arm64':
         raise ValueError('Expected an Apple Silicon runtime.')

@@ -3,7 +3,8 @@
 
 The preparation kit contains translation tools and our HUD mod; it must match
 this application's tested revision. No prepared title is downloaded. Desktop
-C++ build tools are required until a bundled toolchain is available.
+Windows packages include their compiler and build tools. Other desktop kits
+may require the platform tools described in their setup instructions.
 """
 from __future__ import annotations
 
@@ -24,6 +25,7 @@ import tempfile
 import threading
 import time
 import uuid
+import zipfile
 
 PROJECT = Path(__file__).resolve().parents[2]
 RUNTIME_REVISION = '17218b0cfdb944645bb5cde5249f313dca7e53ce'
@@ -206,9 +208,13 @@ def activate(root, stage, installation_id, make_profile, profile_root=None):
 class RomSetup:
     def __init__(self, *, engine, ips, elf, host, readelf='arm-none-eabi-readelf',
                  cmake='cmake', cmake_args=(), jobs=2, progress=None, cancel=None, profile_root=None,
-                 windows_tools=None):
+                 windows_tools=None, ui_resources=None, hd_font_coverage=None, dialogue_font=None):
         self.engine = Path(engine).resolve()
         self.ips, self.elf, self.host = map(lambda p: Path(p).resolve(), (ips, elf, host))
+        self.ui_resources = Path(ui_resources).resolve() if ui_resources is not None else self.ips.with_name('native-ui.zip')
+        self.hd_font_coverage = Path(hd_font_coverage).resolve() if hd_font_coverage is not None else None
+        self.dialogue_font = Path(dialogue_font).resolve() if dialogue_font is not None else PROJECT / 'resources/fonts/ReTunedDialogue.qbf'
+        self.bundled_dialogue_styles = dialogue_font is None
         self.readelf, self.cmake = str(readelf), str(cmake)
         self.cmake_args, self.jobs = list(cmake_args), max(1, min(int(jobs), 8))
         self.progress = progress or (lambda event: None)
@@ -254,6 +260,8 @@ class RomSetup:
                 raise SetupError('A local preparation step failed. See setup.log for details; your existing game data and saves were preserved.')
 
     def preflight(self):
+        if not (PROJECT / 'tools/native/prepare_ui_assets.py').is_file():
+            raise SetupError('The preparation toolkit lacks native UI asset support. Install the matching toolkit update.')
         for path in (self.ips, self.elf, self.host):
             if not path.is_file():
                 raise SetupError('The local preparation kit is incomplete.')
@@ -267,6 +275,20 @@ class RomSetup:
                     raise ValueError('Compiler ABI mismatch')
             except (OSError, ValueError, KeyError) as error:
                 raise SetupError('The bundled preparation tools do not match this Windows app.') from error
+        try:
+            assets = load_module('_retuned_ui_preflight', PROJECT / 'tools/native/prepare_ui_assets.py')
+            assets.read_pack(self.ui_resources)
+            if self.hd_font_coverage is not None:
+                assets.verify_font_coverage(self.hd_font_coverage)
+            else:
+                open_font = load_module('_retuned_open_font_preflight', PROJECT / 'tools/native/prepare_open_font.py')
+                if self.bundled_dialogue_styles:
+                    open_font.read_styles(PROJECT / 'resources/fonts')
+                else:
+                    open_font.parse(self.dialogue_font.read_bytes())
+                (PROJECT / 'resources/fonts/LICENSE.txt').read_bytes()
+        except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile) as error:
+            raise SetupError('The bundled HUD/font resources are missing or damaged. Install the complete matching app package.') from error
         try:
             import capstone
         except ImportError as error:
@@ -307,6 +329,11 @@ class RomSetup:
         region.normalize_romfs(inputs / 'romfs.bin', work / 'romfs.bin')
         if digest(work / 'canonical-code.bin') != CANONICAL_CODE or digest(work / 'romfs.bin') != CANONICAL_ROMFS:
             raise SetupError('The ROM could not be normalized to the supported version.')
+        self.checkpoint('assets', 'Installing the bundled HUD and menu resources…')
+        ui_assets = load_module('_retuned_ui_assets', PROJECT / 'tools/native/prepare_ui_assets.py')
+        asset_receipt = ui_assets.prepare(work / 'romfs.bin', work / 'native-romfs.bin',
+            resources=self.ui_resources, notices_directory=work / 'ui-notices')
+        (work / 'native-romfs.bin').replace(work / 'romfs.bin')
         process_tool = load_module('_retuned_process_manifest', a32 / 'build_process_manifest.py')
         write_json(work / 'base-manifest.json', process_tool.build_manifest(
             inputs / 'exheader.bin', work / 'canonical-code.bin', work / 'romfs.bin'))
@@ -362,10 +389,28 @@ class RomSetup:
         manifest['source'].update(code_bin_path=str(final / 'code.bin'),
             exheader_path=str(final / 'exheader.bin'), romfs_image_path=str(final / 'romfs.bin'))
         write_json(stage / 'process-manifest.json', manifest)
+        shutil.move(work / 'ui-notices', stage / 'ui-notices')
+        if self.hd_font_coverage is not None:
+            asset_receipt['hd_font_coverage'] = ui_assets.verify_font_coverage(self.hd_font_coverage)
+            shutil.copyfile(self.hd_font_coverage, stage / 'font_coverage.zip')
+        else:
+            open_font = load_module('_retuned_open_font', PROJECT / 'tools/native/prepare_open_font.py')
+            native_font = ui_assets.RomFs(stage / 'romfs.bin').read('message/eu/ltn16.qbf')
+            if self.bundled_dialogue_styles:
+                font_manifest = open_font.pair_styles(native_font, PROJECT / 'resources/fonts', stage / 'font_coverage.zip')
+            else:
+                font_manifest = open_font.pair(native_font, self.dialogue_font.read_bytes(),
+                    stage / 'font_coverage.zip', PROJECT / 'resources/fonts/LICENSE.txt')
+            asset_receipt['dialogue_font'] = {'name': font_manifest['name'], 'license': 'OFL-1.1',
+                'source_sha256': digest(PROJECT / 'resources/fonts/ReTunedDialogue-Styles.json'
+                    if self.bundled_dialogue_styles else self.dialogue_font),
+                'styles': ['regular','bold'] if self.bundled_dialogue_styles else ['custom'],
+                'pack_sha256': digest(stage / 'font_coverage.zip')}
+        write_json(stage / 'ui-assets-receipt.json', asset_receipt)
         write_json(stage / 'setup-receipt.json', {'format': 'retuned_local_setup_v1',
             'runtime_revision': RUNTIME_REVISION, 'platform': platform.system(), 'architecture': platform.machine(),
             'private_local_artifact': True, 'redistributable': False,
-            'files': {p.name: digest(p) for p in stage.iterdir()}})
+            'files': {p.relative_to(stage).as_posix(): digest(p) for p in stage.rglob('*') if p.is_file()}})
         self.checkpoint('activating', 'Finishing setup…')
         target = activate(root, stage, installation_id,
             lambda target: launch_profile(self.profile_root or root, target), profile_root=self.profile_root)
@@ -444,7 +489,8 @@ def load_kit(path, host=None):
         root = asset('windows_tools')
         tools = {'windows_tools': root, 'cmake': root / 'cmake/bin/cmake.exe'}
         cmake_args.append('-DCMAKE_TOOLCHAIN_FILE=' + str(root / 'windows-toolchain.cmake'))
-    return {**tools, 'engine': asset('engine'), 'ips': asset('ips'), 'elf': asset('elf'),
+    optional = {name: asset(name) for name in ('ui_resources', 'hd_font_coverage', 'dialogue_font') if name in kit}
+    return {**tools, **optional, 'engine': asset('engine'), 'ips': asset('ips'), 'elf': asset('elf'),
         'host': Path(host).resolve() if host is not None else asset('host'),
         'readelf': asset('readelf') if 'readelf' in kit else 'unused',
         'cmake_args': cmake_args}

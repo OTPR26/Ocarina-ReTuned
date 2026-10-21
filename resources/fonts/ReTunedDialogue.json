@@ -1,0 +1,18 @@
+{
+  "name": "ReTuned Dialogue",
+  "license": "OFL-1.1",
+  "license_file": "LICENSE.txt",
+  "source_file": "InterfaceSans-Regular.ttf",
+  "source_family": "Liberation Sans",
+  "source_sha256": "f8ace1f892b2bd9dc1792ba7f097fa7588f84fed48321480e04de5390828221f",
+  "coverage_sha256": "05d1fcb104e8454a5a5e5d596b8223e22caa6195a6541da5eb3aec09720039d9",
+  "generator": "tools/native/prepare_open_font.py",
+  "glyphs": 199,
+  "cell": [
+    64,
+    64
+  ],
+  "private_game_assets_in_public_qbf": false,
+  "naming": "Modified bitmap coverage is named ReTuned Dialogue; reserved upstream names appear only in attribution.",
+  "additional_glyphs": "Original geometric diamond U+25C6, under OFL-1.1"
+}

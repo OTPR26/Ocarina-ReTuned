@@ -2,10 +2,14 @@
 """Apply standard-library compatibility fixes shared by native targets."""
 from pathlib import Path
 from apply_neutral_shaders import apply as apply_neutral_shaders
+from apply_hd_font_sampling import apply as apply_hd_font_sampling
+from apply_font_choices import apply as apply_font_choices
 
 
 def apply(root):
     apply_neutral_shaders(root)
+    apply_hd_font_sampling(root)
+    apply_font_choices(root)
     patches = [
         ('runtime/three_ds_recomp/src/ship/utils/StringHelper.cpp',
          '#include "ship/utils/StringHelper.h"',

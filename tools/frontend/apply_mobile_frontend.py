@@ -59,7 +59,7 @@ def apply(engine):
     setup=runtime/'oot3d_native_a32_window_setup.cpp'
     edit(setup,'#include "retuned_reframed_settings.h"','#include "retuned_reframed_settings.h"\n#include "fast/oot3d/retuned_touch_overlay.h"')
     edit(setup,'RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);',
-         'RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);\n  if(launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed) {\n    RetunedFrontend::NativeFrontendEnabled=true;\n    RetunedFrontend::StartupVisible=true;\n    RetunedFrontend::InitializeTouch();\n  }')
+         'RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);\n  if(launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed) {\n    RetunedFrontend::NativeFrontendEnabled=true;\n    RetunedFrontend::StartupVisible=launch.LoadStatePath.empty();\n    RetunedFrontend::InitializeTouch();\n  }')
     edit(setup,'    RetunedFrontend::NativeFrontendEnabled=true;',
          '    RetunedFrontend::GameFilesReady=true;\n    RetunedFrontend::NativeFrontendEnabled=true;')
     frame=runtime/'oot3d_native_a32_window_frame.cpp'

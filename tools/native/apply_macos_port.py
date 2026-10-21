@@ -15,6 +15,21 @@ def apply(root):
         raise ValueError('Runtime revision differs from the tested port baseline.')
     apply_common(root)
     patches = [
+        ('tools/oot3d/native_game_runtime/oot3d_native_a32_window_frame.cpp',
+         '''  const uint32_t width = std::max<uint32_t>(1, window.GetWidth());
+  const uint32_t height = std::max<uint32_t>(1, window.GetHeight());''',
+         '''  uint32_t width = std::max<uint32_t>(1, window.GetWidth());
+  uint32_t height = std::max<uint32_t>(1, window.GetHeight());
+#if defined(__APPLE__) && !defined(RETUNED_APPLE_MOBILE)
+  // SDL window dimensions are points on macOS. Render into drawable pixels;
+  // pointer/touch mapping continues to use the unchanged logical window size.
+  const auto framebufferScale = ImGui::GetIO().DisplayFramebufferScale;
+  if (framebufferScale.x >= 1.0f && framebufferScale.x <= 4.0f &&
+      framebufferScale.y >= 1.0f && framebufferScale.y <= 4.0f) {
+    width = static_cast<uint32_t>(std::lround(width * framebufferScale.x));
+    height = static_cast<uint32_t>(std::lround(height * framebufferScale.y));
+  }
+#endif'''),
         ('runtime/three_ds_recomp/src/fast/backends/gfx_metal_shader.cpp',
          '== SHADER_ID_PICA_TEXTURE_ENV', '== Fast::SHADER_ID_PICA_TEXTURE_ENV'),
     ]

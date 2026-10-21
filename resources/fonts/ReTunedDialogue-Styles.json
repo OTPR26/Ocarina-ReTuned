@@ -1,0 +1,47 @@
+{
+  "name": "ReTuned Dialogue",
+  "license": "OFL-1.1",
+  "default": "bold",
+  "styles": {
+    "regular": {
+      "native": {
+        "file": "ReTunedDialogue-Regular-Native.qbf",
+        "sha256": "23af6371ccffefbf6ab518bd8a17968845fe4f3cf169f114b3706ef6c71ecf07"
+      },
+      "coverage": {
+        "file": "ReTunedDialogue-Regular-HD.qbf",
+        "sha256": "c33f8a6d65e9293e49fd0b8d4e20695ca90463dec9eb3876b53403b7febbf4b8"
+      },
+      "source_typeface": "InterfaceSans-Regular.ttf",
+      "source_sha256": "f8ace1f892b2bd9dc1792ba7f097fa7588f84fed48321480e04de5390828221f",
+      "coverage_cell": [
+        128,
+        128
+      ],
+      "native_cell": [
+        32,
+        32
+      ]
+    },
+    "bold": {
+      "native": {
+        "file": "ReTunedDialogue-Bold-Native.qbf",
+        "sha256": "df6d651465c69c2657848149c8c3116d9bd907923256f69a6cb8e4173102bfdc"
+      },
+      "coverage": {
+        "file": "ReTunedDialogue-Bold-HD.qbf",
+        "sha256": "82934509659ce15bc4b51faac5db78fddd444a09f23f80b8f8cd371aa74bd4d9"
+      },
+      "source_typeface": "InterfaceSans-Bold.ttf",
+      "source_sha256": "361c61b82d575c5c35fd9157fda8b0194bcfcd0d88ea8521a4fb5dd53d33dddc",
+      "coverage_cell": [
+        128,
+        128
+      ],
+      "native_cell": [
+        32,
+        32
+      ]
+    }
+  }
+}

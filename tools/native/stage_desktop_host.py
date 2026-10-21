@@ -193,6 +193,8 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
             launcher = root / 'Ocarina-ReTuned.sh'
             launcher.write_text('#!/bin/sh\nset -eu\nroot=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexport LD_LIBRARY_PATH="$root${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"\nexec "$root/OcarinaReTuned" "$@"\n')
             launcher.chmod(0o755)
+            (root / 'OcarinaReTuned.desktop').write_text('[Desktop Entry]\nType=Application\nName=Ocarina ReTuned\nComment=Ocarina ReTuned Preview\nExec=Ocarina-ReTuned.sh\nIcon=OcarinaReTuned\nCategories=Game;\nTerminal=false\nStartupWMClass=io.github.otpr26.ocarinaretuned\n')
+            shutil.copy2(Path(__file__).resolve().parents[2] / 'resources/icons/android/mipmap-xxxhdpi/ic_launcher.png', root / 'OcarinaReTuned.png')
             env = dict(os.environ, LD_LIBRARY_PATH=str(root))
         else:
             env = dict(os.environ)
