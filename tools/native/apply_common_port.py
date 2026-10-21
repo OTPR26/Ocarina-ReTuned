@@ -7,6 +7,8 @@ from apply_neutral_shaders import apply as apply_neutral_shaders
 def apply(root):
     apply_neutral_shaders(root)
     patches = [
+        ('runtime/three_ds_recomp/src/fast/resource/type/DisplayList.cpp',
+         '#include <memory>', '#include <memory>\n#include <cstdlib>'),
         ('runtime/three_ds_recomp/cmake/spirv_pack.cmake',
          '-P "${TRIAEVUM_SPIRV_PACK_TO_INC}" COMMAND_ERROR_IS_FATAL ANY)',
          '-P "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/spirv_pack_to_inc.cmake" COMMAND_ERROR_IS_FATAL ANY)'),
