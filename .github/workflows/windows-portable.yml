@@ -80,6 +80,8 @@ jobs:
       - name: Configure neutral runtime
         shell: pwsh
         run: |
+          $env:CFLAGS = "-ffile-prefix-map=$env:GITHUB_WORKSPACE=."
+          $env:CXXFLAGS = $env:CFLAGS
           cmake -S engine -B build/runtime -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE/dependencies/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE/portable-tools/windows-toolchain.cmake" -DVCPKG_HOST_TRIPLET=x64-mingw-static -DVCPKG_ROOT="$env:GITHUB_WORKSPACE/dependencies/vcpkg" -DVCPKG_TARGET_TRIPLET=x64-mingw-static -DVCPKG_TRIPLET=x64-mingw-static -DAUTOMATE_VCPKG_UPDATE=OFF -DOOT3D_WHOLE_AOT_PRODUCT_MODE=ON -DOOT3D_DIRECT_AOT_PLUGIN=ON -DOOT3D_ENABLE_VULKAN_RENDERER=ON -DTHREE_DS_RECOMP_ENABLE_NRI=ON -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF -DTHREE_DS_RECOMP_ENABLE_NRI_UPSCALER_SDKS=OFF -DTHREE_DS_RECOMP_ENABLE_DLSS_MODULE=OFF -DTHREE_DS_RECOMP_ENABLE_SSSR=OFF -DTHREE_DS_RECOMP_ENABLE_CACAO=OFF -DTHREE_DS_RECOMP_OFFER_EXPERIMENTAL_GI=OFF -DENABLE_SCRIPTING=OFF -DINCLUDE_MPQ_SUPPORT=OFF
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Verify portable compiler formatting compatibility

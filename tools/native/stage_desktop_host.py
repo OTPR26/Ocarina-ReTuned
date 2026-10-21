@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 from urllib.parse import quote
 from runtime_notices import copy_runtime_donor_notices
+from runtime_paths import verify_runtime_paths
 
 
 def run(*args):
@@ -166,6 +167,8 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
                 dependency_sources.append(path)
                 pending.append(path)
         resources = root / 'resources'
+        verify_runtime_paths([p for p in root.iterdir() if p.is_file()],
+                             [engine, build, Path(__file__).resolve().parents[2], Path.home()])
         resources.mkdir()
         shutil.copy2(engine / 'runtime/triaevum_resources/gamecontrollerdb.txt', resources)
         notices = root / 'licenses'

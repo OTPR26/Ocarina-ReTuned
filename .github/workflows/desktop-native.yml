@@ -133,6 +133,8 @@ jobs:
       - name: Configure neutral runtime
         shell: pwsh
         run: |
+          $env:CFLAGS = "/clang:-ffile-prefix-map=$env:GITHUB_WORKSPACE=."
+          $env:CXXFLAGS = $env:CFLAGS
           cmake -S engine -B build/runtime -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="C:/Program Files/LLVM/bin/clang-cl.exe" -DCMAKE_CXX_COMPILER="C:/Program Files/LLVM/bin/clang-cl.exe" -DVCPKG_ROOT="$env:GITHUB_WORKSPACE/dependencies/vcpkg" -DVCPKG_TARGET_TRIPLET=x64-windows-static -DVCPKG_TRIPLET=x64-windows-static -DAUTOMATE_VCPKG_UPDATE=OFF -DOOT3D_WHOLE_AOT_PRODUCT_MODE=ON -DOOT3D_DIRECT_AOT_PLUGIN=ON -DOOT3D_ENABLE_VULKAN_RENDERER=ON -DTHREE_DS_RECOMP_ENABLE_NRI=ON -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF -DTHREE_DS_RECOMP_ENABLE_NRI_UPSCALER_SDKS=OFF -DTHREE_DS_RECOMP_ENABLE_DLSS_MODULE=OFF -DTHREE_DS_RECOMP_ENABLE_SSSR=OFF -DTHREE_DS_RECOMP_ENABLE_CACAO=OFF -DTHREE_DS_RECOMP_OFFER_EXPERIMENTAL_GI=OFF -DENABLE_SCRIPTING=OFF -DINCLUDE_MPQ_SUPPORT=OFF
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Verify formatting dependency compatibility
