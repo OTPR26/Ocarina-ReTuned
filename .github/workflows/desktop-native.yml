@@ -151,6 +151,11 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           ./numeric-probe.exe
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Verify native title adapter declarations
+        shell: pwsh
+        run: |
+          python tests/title_plugin_adapter/check.py --engine engine --headers dependencies/vcpkg/installed/x64-windows-static/include
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Build and test neutral runtime
         shell: pwsh
         run: |

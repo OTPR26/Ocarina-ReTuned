@@ -14,8 +14,25 @@ def edit(path, before, after):
     path.write_text(source.replace(before, after))
 
 
+def apply_plugin_exports(engine):
+    """Keep Windows ABI declarations consistent with the exported adapter definitions."""
+    host = Path(engine) / 'tools/oot3d/native_game_runtime'
+    plugin = host / 'triaevum_title_whole_aot_plugin.cpp'
+    export = '#if defined(_WIN32)\n#define TRIAEVUM_TITLE_AOT_EXPORT __declspec(dllexport)\n#else\n#define TRIAEVUM_TITLE_AOT_EXPORT __attribute__((visibility("default")))\n#endif\n'
+    source = plugin.read_text()
+    if not source.startswith(export):
+        if source.count(export) != 1:
+            raise ValueError('Title adapter export context changed')
+        plugin.write_text(export + '\n' + source.replace(export, '', 1))
+    for name, program in (('triaevum_title_aot_abi.h', 'Oot3dDirectAotProgramV1'),
+                          ('triaevum_title_whole_aot_abi.h', 'Oot3dWholeAotProgramV2')):
+        edit(host / name, 'extern "C" const ' + program + ' *',
+             'extern "C"\n#ifdef TRIAEVUM_TITLE_AOT_EXPORT\nTRIAEVUM_TITLE_AOT_EXPORT\n#endif\nconst ' + program + ' *')
+
+
 def apply_translation_support(engine):
     """Generic ARM lowering and memory support, also used by preparation kits."""
+    apply_plugin_exports(engine)
     root = Path(engine) / 'tools/oot3d/native_a32_runtime'
     edit(root / 'whole_aot_cpp.py',
          '    if unary in {0x0EB10B40, 0x0EB10BC0, 0x0EB40B40, 0x0EB40BC0}:',
