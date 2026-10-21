@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from urllib.parse import quote
 
 
 def run(*args):
@@ -19,6 +20,47 @@ def run(*args):
 def check_neutral_commands(commands):
     if any(token in commands for token in ('oot3d_whole_aot_shard_', '/oot3d_whole_aot_cpp/', '/oot3d_a32_generated/', '\\oot3d_a32_generated\\')):
         raise ValueError('Refusing translated title compilation')
+
+
+def linux_dependency_notices(libraries, notices, doc_root=Path('/usr/share/doc'), common_root=Path('/usr/share/common-licenses')):
+    """Keep the distro's complete notices and exact source version for each DSO."""
+    records = []
+    for library in sorted(libraries, key=lambda p: p.name):
+        owners = set()
+        # dpkg may record the pre-usrmerge spelling even when ldd uses /usr/lib.
+        candidates = {str(library), str(library.resolve())}
+        candidates.update(p.removeprefix('/usr') for p in tuple(candidates) if p.startswith('/usr/lib/'))
+        for candidate in sorted(candidates):
+            result = subprocess.run(['dpkg-query', '-S', candidate], text=True, capture_output=True)
+            if result.returncode == 0:
+                owners.update(line.rsplit(': ', 1)[0] for line in result.stdout.splitlines() if ': ' in line)
+        if len(owners) != 1:
+            raise ValueError('Cannot identify dependency package: ' + library.name)
+        package = owners.pop()
+        fields = run('dpkg-query', '-W', '-f=${binary:Package}\t${Version}\t${source:Package}\t${source:Version}', package).strip().split('\t')
+        if len(fields) != 4 or not all(fields):
+            raise ValueError('Incomplete dependency source metadata: ' + package)
+        binary_package, version, source_package, source_version = fields
+        name = binary_package.split(':')[0]
+        copyright_file = doc_root / name / 'copyright'
+        if not copyright_file.is_file():
+            raise ValueError('Missing dependency copyright notice: ' + package)
+        destination = notices / 'dependencies' / name / 'copyright'
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(copyright_file, destination)
+        for common in set(re.findall(r'/usr/share/common-licenses/([A-Za-z0-9.+-]+)', copyright_file.read_text())):
+            common = common.rstrip('.')
+            common_source = common_root / common
+            if not common_source.is_file():
+                raise ValueError('Missing common license text: ' + common)
+            common_destination = notices / 'common-licenses' / common
+            common_destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(common_source, common_destination)
+        records.append({'library': library.name, 'binary_package': binary_package, 'version': version,
+            'source_package': source_package, 'source_version': source_version,
+            'source_record': 'https://launchpad.net/ubuntu/+source/' + quote(source_package, safe='') + '/' + quote(source_version, safe=''),
+            'copyright': destination.relative_to(notices).as_posix()})
+    (notices / 'linux-dependency-sources.json').write_text(json.dumps({'schema': 1, 'dependencies': records}, indent=2) + '\n')
 
 
 def stage(platform, engine, build, output):
@@ -43,6 +85,7 @@ def stage(platform, engine, build, output):
         shutil.copy2(stub, root / stub.name)
         pending = [runtime, stub]
         copied = {runtime.name.lower(), stub.name.lower()}
+        dependency_sources = []
         while pending:
             source = pending.pop()
             if platform == 'linux':
@@ -80,6 +123,7 @@ def stage(platform, engine, build, output):
                     continue
                 copied.add(path.name.lower())
                 shutil.copy2(path, root / path.name)
+                dependency_sources.append(path)
                 pending.append(path)
         resources = root / 'resources'
         resources.mkdir()
@@ -90,6 +134,8 @@ def stage(platform, engine, build, output):
             if (engine / name).is_file():
                 shutil.copy2(engine / name, notices / name)
         shutil.copy2(Path(__file__).resolve().parents[2] / 'resources/fonts/LICENSE.txt', notices / 'interface-font-OFL.txt')
+        if platform == 'linux':
+            linux_dependency_notices(dependency_sources, notices)
         (root / 'README.txt').write_text('Ocarina ReTuned desktop host preview\n\nThis neutral host contains no ROM, title library or game assets.\nA locally prepared, platform-matching title is required for gameplay.\nUse --launch-profile with your local launch profile for testing.\n')
         if platform == 'linux':
             launcher = root / 'Ocarina-ReTuned.sh'
