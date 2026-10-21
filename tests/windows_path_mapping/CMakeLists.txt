@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.30)
+project(WindowsPathMapping C CXX)
+configure_file(generated.c.in generated.c COPYONLY)
+add_library(path_source STATIC library.c "${CMAKE_CURRENT_BINARY_DIR}/generated.c")
+add_executable(path_check main.cpp)
+target_link_libraries(path_check PRIVATE path_source)

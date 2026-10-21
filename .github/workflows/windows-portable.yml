@@ -51,6 +51,15 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           "$env:GITHUB_WORKSPACE/portable-tools/llvm/bin" >> $env:GITHUB_PATH
           "$env:GITHUB_WORKSPACE/portable-tools/ninja" >> $env:GITHUB_PATH
+      - name: Verify static library source path mapping
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE/portable-tools/cmake/bin/cmake.exe" -S tests/windows_path_mapping -B "build/path mapping" -G Ninja -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE/portable-tools/windows-toolchain.cmake"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & "$env:GITHUB_WORKSPACE/portable-tools/cmake/bin/cmake.exe" --build "build/path mapping" --parallel 2
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & './build/path mapping/path_check.exe'
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Install Vulkan build SDK
         shell: pwsh
         run: |
@@ -76,6 +85,8 @@ jobs:
           cmake -S tests/spirv_pack_scope -B build/spirv-scope -DRUNTIME_SOURCE="$env:GITHUB_WORKSPACE/engine"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           cmake -DGAME_CMAKE="$env:GITHUB_WORKSPACE/engine/CMake/oot3d/game.cmake" -P tests/windows_link_options/check.cmake
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tests/neutral_startup/check.py --engine engine --compiler "$env:GITHUB_WORKSPACE/portable-tools/llvm/bin/x86_64-w64-mingw32-clang++.exe"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Configure neutral runtime
         shell: pwsh

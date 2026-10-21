@@ -8,8 +8,26 @@ from pathlib import Path
 import re
 
 
+def apply_startup_preparation(root):
+    source = Path(root) / 'tools/oot3d/native_game_runtime/oot3d_native_a32_window_setup.cpp'
+    before = '''  if (programPreparation != nullptr &&
+      (launch.PicaParametricTev || alwaysAvailablePrograms)) {'''
+    after = '''  if (programPreparation != nullptr &&
+      !Oot3dNativeGame::NativePicaVertexProgramFamily().empty() &&
+      (launch.PicaParametricTev || alwaysAvailablePrograms)) {'''
+    text = source.read_text()
+    if after in text:
+        return
+    if text.count(before) != 1:
+        raise ValueError('Native shader startup preparation context changed')
+    # A neutral host has no precompiled title vertex family. Draw-time shader
+    # generation remains available; only the optional family prewarm is skipped.
+    source.write_text(text.replace(before, after))
+
+
 def apply(root):
     root = Path(root)
+    apply_startup_preparation(root)
     frontend = root / 'tools/oot3d/native_pica_frontend'
     source = frontend / 'oot3d_native_pica_shader_gen.cpp'
     text = source.read_text()
