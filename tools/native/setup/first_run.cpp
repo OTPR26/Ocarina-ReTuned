@@ -142,6 +142,10 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
     }
     std::string status="Choose your decrypted Ocarina of Time 3D USA ROM (.3ds or .cci).";
     const bool hasKit=std::filesystem::is_regular_file(kit);
+    bool bundledWindowsTools=false;
+#if defined(_WIN32)
+    if(hasKit){try{bundledWindowsTools=Read(kit).contains("windows_tools");}catch(...){}}
+#endif
     if(!hasKit)status="The ROM preparation tools are missing from this preview. Install the preparation kit before continuing.";
     if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_GAMECONTROLLER)!=0)throw std::runtime_error(SDL_GetError());
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
@@ -201,7 +205,7 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
                 worker=std::thread([&,arguments]{result=Run(arguments);finished=true;});
             }catch(const std::exception& e){status=e.what();}
         }ImGui::EndDisabled();ImGui::EndDisabled();
-        ImGui::SetCursorPos({margin,io.DisplaySize.y-115});ImGui::PushTextWrapPos(io.DisplaySize.x-margin);ImGui::TextDisabled("Preparation stays on your computer. Saves and controller settings are preserved.\nThe first build can take several minutes and requires local C++ build tools.");ImGui::PopTextWrapPos();
+        ImGui::SetCursorPos({margin,io.DisplaySize.y-115});ImGui::PushTextWrapPos(io.DisplaySize.x-margin);ImGui::TextDisabled("Preparation stays on your computer. Saves and controller settings are preserved.");ImGui::TextDisabled("%s",bundledWindowsTools?"The included tools prepare your game. This can take several minutes.":"The first build can take several minutes and requires local C++ build tools.");ImGui::PopTextWrapPos();
         ImGui::SetCursorPosX(margin);
         if(running){if(ImGui::Button("Cancel setup")){std::ofstream request(cancel);request<<"cancel";status="Cancelling after the current preparation step...";}}
         else if(ImGui::Button("Close"))close=true;
