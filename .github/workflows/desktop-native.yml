@@ -100,7 +100,8 @@ jobs:
           path: dependencies/vcpkg
           persist-credentials: false
       - uses: ilammy/msvc-dev-cmd@v1
-      - uses: actions/cache@v5
+      - uses: actions/cache/restore@v5
+        id: vcpkg_cache
         with:
           path: vcpkg-cache
           key: retuned-windows-x64-v1-${{ github.sha }}
@@ -134,6 +135,15 @@ jobs:
         run: |
           cmake -S engine -B build/runtime -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="C:/Program Files/LLVM/bin/clang-cl.exe" -DCMAKE_CXX_COMPILER="C:/Program Files/LLVM/bin/clang-cl.exe" -DVCPKG_ROOT="$env:GITHUB_WORKSPACE/dependencies/vcpkg" -DVCPKG_TARGET_TRIPLET=x64-windows-static -DVCPKG_TRIPLET=x64-windows-static -DAUTOMATE_VCPKG_UPDATE=OFF -DOOT3D_WHOLE_AOT_PRODUCT_MODE=ON -DOOT3D_DIRECT_AOT_PLUGIN=ON -DOOT3D_ENABLE_VULKAN_RENDERER=ON -DTHREE_DS_RECOMP_ENABLE_NRI=ON -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF -DTHREE_DS_RECOMP_ENABLE_NRI_UPSCALER_SDKS=OFF -DTHREE_DS_RECOMP_ENABLE_DLSS_MODULE=OFF -DTHREE_DS_RECOMP_ENABLE_SSSR=OFF -DTHREE_DS_RECOMP_ENABLE_CACAO=OFF -DTHREE_DS_RECOMP_OFFER_EXPERIMENTAL_GI=OFF -DENABLE_SCRIPTING=OFF -DINCLUDE_MPQ_SUPPORT=OFF
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Verify formatting dependency compatibility
+        shell: pwsh
+        run: |
+          python tools/native/fix_windows_fmt.py dependencies/vcpkg/installed/x64-windows-static/include
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & 'C:/Program Files/LLVM/bin/clang-cl.exe' /nologo /std:c++20 /EHsc /MT /Idependencies/vcpkg/installed/x64-windows-static/include tests/fmt_logger_string.cpp /Fefmt-logger-test.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ./fmt-logger-test.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Build and test neutral runtime
         shell: pwsh
         run: |
@@ -151,3 +161,8 @@ jobs:
           name: Ocarina-ReTuned-Native-Windows-x64-${{ github.sha }}
           path: artifacts/*
           if-no-files-found: error
+      - uses: actions/cache/save@v5
+        if: always() && steps.vcpkg_cache.outputs.cache-hit != 'true'
+        with:
+          path: vcpkg-cache
+          key: retuned-windows-x64-v1-${{ github.sha }}
