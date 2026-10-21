@@ -32,6 +32,28 @@ def apply(root, portable_windows=False):
         raise ValueError('Unexpected runtime revision')
     common(root)
     apply_windows_link_options(root)
+    # Windows needs extension entry points loaded through GLEW with either driver.
+    gl_header = root / 'runtime/three_ds_recomp/include/fast/backends/gfx_opengl.h'
+    source = gl_header.read_text()
+    before = '#ifdef _MSC_VER\n#include <SDL2/SDL.h>'
+    after = '#if defined(_WIN32)\n#include <SDL2/SDL.h>'
+    if after not in source:
+        if source.count(before) != 1:
+            raise ValueError('Windows OpenGL loader context changed')
+        gl_header.write_text(source.replace(before, after))
+    entry = root / 'tools/oot3d/native_game_runtime/oot3d_native_game.cpp'
+    source = entry.read_text()
+    before = '#if defined(__SWITCH__) || defined(__ANDROID__)\n#include <SDL.h>'
+    after = '#if defined(__SWITCH__) || defined(__ANDROID__) || defined(_WIN32)\n#include <SDL.h>'
+    if after not in source:
+        if source.count(before) != 1:
+            raise ValueError('Windows SDL entry context changed')
+        entry.write_text(source.replace(before, after))
+    dependencies = root / 'runtime/three_ds_recomp/cmake/dependencies/windows.cmake'
+    source = dependencies.read_text()
+    addition = '\nif(MINGW)\n    target_link_libraries(ImGui PUBLIC ksuser)\nendif()\n'
+    if addition not in source:
+        dependencies.write_text(source + addition)
     if portable_windows:
         cmake = root / 'CMakeLists.txt'
         source = cmake.read_text()
