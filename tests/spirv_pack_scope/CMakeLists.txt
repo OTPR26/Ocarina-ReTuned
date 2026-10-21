@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.26)
 project(ShaderPackScopeRegression LANGUAGES CXX)
+file(TO_CMAKE_PATH "${RUNTIME_SOURCE}" RUNTIME_SOURCE)
 if(NOT EXISTS "${RUNTIME_SOURCE}/runtime/three_ds_recomp/cmake/spirv_pack.cmake")
     message(FATAL_ERROR "Pass the patched neutral runtime source")
 endif()
