@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Archive only neutral Android host libraries, excluding translated title code."""
 import argparse
+from audit_neutral_shaders import verify as verify_neutral_shaders
 import hashlib
 import json
 from pathlib import Path
@@ -29,6 +30,7 @@ def stage(engine, build, ndk, output):
     commands = subprocess.check_output(['ninja', '-C', str(build), '-t', 'commands', 'oot3d_native_game'], text=True)
     if any(token in commands for token in ('oot3d_whole_aot_shard_', '/oot3d_whole_aot_cpp/', '/oot3d_a32_generated/')):
         raise ValueError('The public host must not compile game-derived title sources.')
+    verify_neutral_shaders(engine, sources['libTriAevum.so'])
     allowed = SYSTEM_LIBRARIES | set(sources)
     with tempfile.TemporaryDirectory(prefix='retuned-host-') as temporary:
         root = Path(temporary) / 'Ocarina-ReTuned-Native-Android'

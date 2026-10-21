@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Bundle a neutral ARM64 runtime; title code and game data stay on the user's Mac."""
 import argparse
+from audit_neutral_shaders import verify as verify_neutral_shaders
 import json
 from pathlib import Path
 import plistlib
@@ -25,6 +26,7 @@ def package(engine, build, output, identity="-", entitlements=None, profile=None
     if any(token in commands for token in forbidden):
         raise ValueError('A neutral build must not compile translated game files.')
     source = build / 'TriAevum'
+    verify_neutral_shaders(engine, source)
     if run('lipo', '-archs', str(source)) != 'arm64':
         raise ValueError('Expected an Apple Silicon runtime.')
     with tempfile.TemporaryDirectory(prefix='retuned-package-') as temporary:

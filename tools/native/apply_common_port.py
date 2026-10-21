@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Apply standard-library compatibility fixes shared by ARM64 targets."""
+"""Apply standard-library compatibility fixes shared by native targets."""
 from pathlib import Path
+from apply_neutral_shaders import apply as apply_neutral_shaders
 
 
 def apply(root):
+    apply_neutral_shaders(root)
     patches = [
+        ('runtime/three_ds_recomp/cmake/spirv_pack.cmake',
+         '-P "${TRIAEVUM_SPIRV_PACK_TO_INC}" COMMAND_ERROR_IS_FATAL ANY)',
+         '-P "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/spirv_pack_to_inc.cmake" COMMAND_ERROR_IS_FATAL ANY)'),
         ('runtime/three_ds_recomp/src/fast/oot3d/pica_shader_instrumentation.cpp',
          '    std::from_chars(text.data(), text.data() + text.size(), parsed);',
          '    std::istringstream parser(text);\n    parser.imbue(std::locale::classic());\n    parser >> parsed;'),

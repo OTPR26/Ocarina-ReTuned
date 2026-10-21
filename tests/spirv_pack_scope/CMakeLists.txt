@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.26)
+project(ShaderPackScopeRegression LANGUAGES CXX)
+if(NOT EXISTS "${RUNTIME_SOURCE}/runtime/three_ds_recomp/cmake/spirv_pack.cmake")
+    message(FATAL_ERROR "Pass the patched neutral runtime source")
+endif()
+set(TRIAEVUM_CXX_HAS_EMBED FALSE)
+# Import the shared function from a child directory, then call it in its parent.
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/producer")
+file(WRITE "${CMAKE_BINARY_DIR}/producer/CMakeLists.txt"
+    "include(\"${RUNTIME_SOURCE}/runtime/three_ds_recomp/cmake/spirv_pack.cmake\")\n")
+add_subdirectory("${CMAKE_BINARY_DIR}/producer" "${CMAKE_BINARY_DIR}/producer-build")
+file(WRITE "${CMAKE_BINARY_DIR}/scope.cpp" "int shader_scope_fixture;\n")
+file(WRITE "${CMAKE_BINARY_DIR}/fixture.spvpack" "neutral test fixture")
+add_library(scope STATIC EXCLUDE_FROM_ALL "${CMAKE_BINARY_DIR}/scope.cpp")
+triaevum_add_spirv_pack(scope "${CMAKE_BINARY_DIR}/scope.cpp" "${CMAKE_BINARY_DIR}/fixture.spvpack")
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/spirv_pack_inc/fixture.spvpack.inc")
+    message(FATAL_ERROR "Shader byte-list generation lost its definition directory")
+endif()

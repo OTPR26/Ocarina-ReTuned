@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Stage only the neutral desktop host and its runtime dependency closure."""
 import argparse
+from audit_neutral_shaders import verify as verify_neutral_shaders
 import hashlib
 import json
 import os
@@ -25,6 +26,7 @@ def stage(platform, engine, build, output):
     check_neutral_commands(run('ninja', '-C', str(build), '-t', 'commands', 'triaevum_public_runtime'))
     targets = json.loads((build / 'triaevum-runtime-targets-Release.json').read_text())
     runtime, stub = (Path(targets[key]).resolve() for key in ('runtime', 'stub'))
+    verify_neutral_shaders(engine, runtime)
     for path in (runtime, stub):
         if not path.is_relative_to(build) or not path.is_file():
             raise ValueError('Runtime target escaped build tree or is missing')
@@ -69,6 +71,8 @@ def stage(platform, engine, build, output):
                     if match is None:
                         raise ValueError('Unresolved Windows runtime library: ' + name)
                     if str(match).lower().startswith(str(Path(os.environ['SystemRoot'])).lower()):
+                        if name.lower().startswith(('msvcp', 'vcruntime', 'concrt')):
+                            raise ValueError('Visual C++ runtime must be bundled from its redistributable: ' + name)
                         continue
                     libraries.append(match)
             for path in libraries:

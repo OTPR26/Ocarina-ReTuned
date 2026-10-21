@@ -1,0 +1,24 @@
+# Windows and Linux native previews
+
+The Desktop native previews workflow builds Windows x64 and Linux x86_64
+hosts from the pinned runtime with ReTuned's shared menus, controls and audio
+changes. It stages only the host, bootstrap library, dependency closure,
+controller mappings and notices. No private title, ROM, extracted game data,
+textures or saves are supplied to CI.
+
+The upstream translated vertex shader tables and precompiled title shader pack
+are removed before compilation. The generic PICA decompiler instead consumes
+the shaders in the user's locally prepared game data. Package staging rejects
+the original upstream payloads in the actual native binary. This concerns GPU
+shader preparation; game CPU code still uses a locally prepared native title.
+
+These are development hosts, not complete first-run installers. They require a
+matching private Windows/Linux title and launch profile prepared locally. The
+Mac and Android title libraries cannot be reused across operating systems or
+architectures. The private title CMake project supports desktop compilers; its
+inputs and outputs must never be uploaded.
+
+Release gates include a dependency/package audit, a real launch and gameplay
+check, and a supported ROM-preparation path documented for new users. The
+current Setup dialog is not a full ROM importer. Do not label these hosts as
+ready-to-play release packages before those gates pass.
