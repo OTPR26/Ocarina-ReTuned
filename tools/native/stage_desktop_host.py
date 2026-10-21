@@ -179,6 +179,10 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
             linux_dependency_notices(dependency_sources, notices)
         else:
             windows_dependency_notices(engine.parent / 'dependencies/vcpkg', notices, windows_triplet)
+            if windows_triplet == 'x64-mingw-static':
+                (root / 'preparation-abi.json').write_text(json.dumps({
+                    'abi': 'x86_64-llvm-mingw-ucrt-20261006',
+                    'host_sha256': hashlib.sha256(executable.read_bytes()).hexdigest()}, indent=2) + '\n')
         (root / 'README.txt').write_text('Ocarina ReTuned desktop host preview\n\nThis neutral host contains no ROM, title library or game assets.\nA locally prepared, platform-matching title is required for gameplay.\nUse --launch-profile with your local launch profile for testing.\n')
         if platform == 'linux':
             launcher = root / 'Ocarina-ReTuned.sh'

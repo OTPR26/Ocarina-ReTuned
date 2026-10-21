@@ -213,6 +213,7 @@ class RomSetup:
         self.cancel = cancel or threading.Event()
         self.log = None
         self.profile_root = Path(profile_root).resolve() if profile_root is not None else None
+        self.windows_tools = Path(windows_tools).resolve() if windows_tools is not None else None
         self.environment = dict(os.environ)
         self.environment['PYTHONDONTWRITEBYTECODE'] = '1'
         if sys.platform == 'win32':
@@ -255,6 +256,15 @@ class RomSetup:
             if not path.is_file():
                 raise SetupError('The local preparation kit is incomplete.')
         verify_preparation_source(self.engine)
+        if self.windows_tools is not None:
+            try:
+                compiler = json.loads((self.windows_tools / 'toolchain-manifest.json').read_text())
+                host = json.loads(self.host.with_name('preparation-abi.json').read_text())
+                if (compiler['abi'] != 'x86_64-llvm-mingw-ucrt-20261006' or
+                        host['abi'] != compiler['abi'] or host['host_sha256'] != digest(self.host)):
+                    raise ValueError('Compiler ABI mismatch')
+            except (OSError, ValueError, KeyError) as error:
+                raise SetupError('The bundled preparation tools do not match this Windows app.') from error
         try:
             import capstone
         except ImportError as error:

@@ -189,6 +189,24 @@ class PreparationKitHost(unittest.TestCase):
                 setup.load_kit(kit, host=root / 'app')
 
 class WindowsGuiBuildEnvironment(unittest.TestCase):
+    def test_portable_kit_rejects_an_unmatched_host_before_loading_a_game(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in ('host.exe', 'hud.ips', 'hud.elf'):
+                (root / name).write_bytes(b'fixture')
+            (root / 'tools').mkdir()
+            (root / 'tools/toolchain-manifest.json').write_text(json.dumps({
+                'abi': 'x86_64-llvm-mingw-ucrt-20261006'}))
+            instance = setup.RomSetup(engine=root, ips=root / 'hud.ips', elf=root / 'hud.elf',
+                host=root / 'host.exe', windows_tools=root / 'tools')
+            with patch.object(setup, 'verify_preparation_source'):
+                with self.assertRaisesRegex(setup.SetupError, 'do not match'):
+                    instance.preflight()
+                (root / 'preparation-abi.json').write_text(json.dumps({
+                    'abi': 'x86_64-llvm-mingw-ucrt-20261006', 'host_sha256': 'incorrect'}))
+                with self.assertRaisesRegex(setup.SetupError, 'do not match'):
+                    instance.preflight()
+
     def test_portable_tools_ignore_installed_sdk_and_do_not_change_parent(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
