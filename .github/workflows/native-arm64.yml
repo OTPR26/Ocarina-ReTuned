@@ -90,7 +90,7 @@ jobs:
           cmake -S engine -B build/runtime -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.4 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
             -DCMAKE_C_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=." \
             -DCMAKE_CXX_FLAGS="-ffile-prefix-map=$GITHUB_WORKSPACE=. -fexperimental-library" \
             -DOOT3D_WHOLE_AOT_PRODUCT_MODE=ON -DOOT3D_DIRECT_AOT_PLUGIN=ON \
@@ -120,7 +120,7 @@ jobs:
           c++ -std=c++20 -Itools/frontend tests/ocarina_lifecycle.cpp -o build/ocarina-lifecycle-test
           build/ocarina-lifecycle-test
       - name: Bundle neutral prototype
-        run: python3 tools/native/package_macos.py --engine engine --build build/runtime --output artifacts/Ocarina-ReTuned-Native-macOS-arm64.zip
+        run: python3 tools/native/package_macos.py --engine engine --build build/runtime --minimum-macos 15.0 --output artifacts/Ocarina-ReTuned-Native-macOS-arm64.zip
       - uses: actions/upload-artifact@v7
         with:
           name: Ocarina-ReTuned-Native-macOS-arm64-${{ github.sha }}

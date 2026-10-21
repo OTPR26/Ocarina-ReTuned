@@ -34,3 +34,7 @@ executable targets 13.4. Rebuild that dependency for the supported target;
 `--minimum-macos` can explicitly choose a higher minimum for a separate test
 package. The package records the checked versions in `macos-deployment.json`.
 An SDK version alone is not a minimum-OS or gameplay compatibility check.
+The Mac CI preview explicitly targets macOS 15.0 for both compilation and
+packaging, matching the recorded minimum of its audited dependency set on the
+macOS 15 runner. This does not establish gameplay verification on every OS
+version. A newer dependency requirement must still pass the package check.
