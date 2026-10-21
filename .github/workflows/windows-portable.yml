@@ -75,6 +75,8 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           cmake -S tests/spirv_pack_scope -B build/spirv-scope -DRUNTIME_SOURCE="$env:GITHUB_WORKSPACE/engine"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake -DGAME_CMAKE="$env:GITHUB_WORKSPACE/engine/CMake/oot3d/game.cmake" -P tests/windows_link_options/check.cmake
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Configure neutral runtime
         shell: pwsh
         run: |

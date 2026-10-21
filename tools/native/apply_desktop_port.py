@@ -7,12 +7,31 @@ from apply_common_port import apply as common
 
 REVISION = '17218b0cfdb944645bb5cde5249f313dca7e53ce'
 
+def apply_windows_link_options(root):
+    """Use MSVC linker switches only with the MSVC-compatible driver."""
+    path = Path(root) / 'CMake/oot3d/game.cmake'
+    source = path.read_text()
+    for before, after in (
+        ('if (CMAKE_SYSTEM_NAME STREQUAL "Windows" AND NOT OOT3D_FAST_DEV_LINK)',
+         'if (MSVC AND CMAKE_SYSTEM_NAME STREQUAL "Windows" AND NOT OOT3D_FAST_DEV_LINK)'),
+        ('elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")',
+         'elseif(MSVC AND CMAKE_SYSTEM_NAME STREQUAL "Windows")'),
+    ):
+        if after in source:
+            continue
+        if source.count(before) != 1:
+            raise ValueError('Windows linker option context changed')
+        source = source.replace(before, after)
+    path.write_text(source)
+
+
 def apply(root, portable_windows=False):
     root = Path(root)
     actual = subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip()
     if actual != REVISION:
         raise ValueError('Unexpected runtime revision')
     common(root)
+    apply_windows_link_options(root)
     if portable_windows:
         cmake = root / 'CMakeLists.txt'
         source = cmake.read_text()
