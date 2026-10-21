@@ -72,6 +72,22 @@ class RomSetupTransactions(unittest.TestCase):
             self.assertEqual((root / 'native-launch.json').read_bytes(), self.old_profile)
         self.unchanged()
 
+    def test_internal_module_and_separate_userdata_profile(self):
+        internal = self.root / 'internal'
+        with setup.installation_transaction(internal) as (root, work):
+            stage = work / 'stage'
+            stage.mkdir()
+            (stage / 'module.so').write_bytes(b'local native module')
+            target = setup.activate(root, stage, 'separate',
+                lambda p: setup.launch_profile(self.root, p), profile_root=self.root)
+        profile = json.loads((self.root / 'native-launch.json').read_text())
+        self.assertTrue(target.is_relative_to(internal))
+        self.assertFalse((internal / 'native-launch.json').exists())
+        arguments = profile['arguments']
+        self.assertEqual(arguments[arguments.index('--save-data') + 1], str(self.root / 'saves'))
+        self.assertIn(str(target / 'process-manifest.json'), arguments)
+        self.unchanged()
+
     def test_refuses_profile_symlink(self):
         (self.root / 'native-launch.json').unlink()
         outside = self.root / 'unrelated.json'

@@ -82,7 +82,10 @@ class AndroidRomSetup(RomSetup):
         includes = [self.asset(name) for name in specification['include_directories']]
         includes.append(generated)
         sources = sorted(generated.glob('*.cpp'))
-        sources.append(self.engine / 'tools/oot3d/native_game_runtime/triaevum_title_whole_aot_plugin.cpp')
+        # Keep the plugin and generated units on the same verified header tree.
+        # Compiling the other copy in self.engine defeats #pragma once when
+        # its quoted includes meet generated units using the SDK copy.
+        sources.append(self.asset('engine/tools/oot3d/native_game_runtime/triaevum_title_whole_aot_plugin.cpp'))
         objects = []
         for number, source in enumerate(sources):
             self.checkpoint('compiling', f'Building native game module: {number + 1} of {len(sources)}...')

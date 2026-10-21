@@ -52,7 +52,7 @@ def stage(platform, engine, build, output):
                 libraries = [Path(p) for p in re.findall(r'=> (/\S+)', listing)]
                 # Keep glibc, display/driver libraries and the Vulkan loader supplied by the OS.
                 system = ('libc.so', 'libm.so', 'libdl.so', 'libpthread.so', 'librt.so', 'libresolv.so',
-                          'libvulkan.so', 'libGL', 'libEGL', 'libX', 'libxcb', 'libwayland', 'libdrm',
+                          'libvulkan.so', 'libGL.so', 'libGLX.so', 'libGLdispatch.so', 'libEGL', 'libX', 'libxcb', 'libwayland', 'libdrm',
                           'libgbm', 'libudev', 'libasound', 'libpulse', 'libdecor')
                 libraries = [p for p in libraries if not p.name.startswith(system)]
             else:

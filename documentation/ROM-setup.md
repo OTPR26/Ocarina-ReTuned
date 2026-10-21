@@ -4,7 +4,9 @@ First-run setup is under development. It is not a release-ready ROM importer yet
 The desktop pipeline has prepared a clean ROM, compiled its native module, and
 rendered the opening scene in an isolated data directory. Android's bundled
 compiler has compiled, linked and executed a local test library on the Odin;
-the complete Android preparation flow is being integrated and tested.
+the complete Android preparation flow is being tested on-device. The first-run
+ROM picker, isolated foreground service and invalid-ROM retry have passed on
+the Odin. Full native module linking and gameplay verification remain.
 
 The Preview requires Android users to be able to choose and prepare their ROM
 on the device. A desktop companion is not a substitute for that requirement.
@@ -42,5 +44,9 @@ are outside the installation directory and are not replaced.
 
 The desktop bootstrap runs before loading a game module. It supports a file
 chooser, typed paths, drag-and-drop, progress and cancellation. Diagnostic CLI
-commands bypass the setup window. Android still needs the production ROM-picker,
-progress, interruption recovery and launch handoff integrated with its backend.
+commands bypass the setup window. Android uses a native first-run ROM picker
+and an isolated foreground preparation service, with progress, cancellation and
+interruption recovery. Generated native modules remain in internal app storage;
+the existing external app directory retains saves, preferences and launch settings.
+The original launcher component is preserved for existing home-screen shortcuts.
+The production toolkit and complete gameplay handoff still require verification.

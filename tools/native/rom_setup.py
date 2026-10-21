@@ -83,7 +83,7 @@ def installation_transaction(data_root):
         lock.unlink(missing_ok=True)
 
 
-def activate(root, stage, installation_id, make_profile):
+def activate(root, stage, installation_id, make_profile, profile_root=None):
     """Publish immutable prepared data, then atomically switch the launch profile.
 
     Preferences, controls and saves are outside this tree and are never written.
@@ -98,10 +98,12 @@ def activate(root, stage, installation_id, make_profile):
     target = installations / installation_id
     if target.exists() or target.is_symlink():
         raise SetupError('This installation already exists')
-    profile = root / 'native-launch.json'
+    profile_root = Path(profile_root) if profile_root is not None else root
+    profile_root.mkdir(parents=True, exist_ok=True)
+    profile = profile_root / 'native-launch.json'
     if profile.is_symlink():
         raise SetupError('Launch profile must not be a symbolic link')
-    temporary_profile = root / ('.launch-' + uuid.uuid4().hex + '.json')
+    temporary_profile = profile_root / ('.launch-' + uuid.uuid4().hex + '.json')
     try:
         write_json(temporary_profile, make_profile(target))
         with temporary_profile.open('rb') as stream:
@@ -119,7 +121,7 @@ def activate(root, stage, installation_id, make_profile):
 
 class RomSetup:
     def __init__(self, *, engine, ips, elf, host, readelf='arm-none-eabi-readelf',
-                 cmake='cmake', cmake_args=(), jobs=2, progress=None, cancel=None):
+                 cmake='cmake', cmake_args=(), jobs=2, progress=None, cancel=None, profile_root=None):
         self.engine = Path(engine).resolve()
         self.ips, self.elf, self.host = map(lambda p: Path(p).resolve(), (ips, elf, host))
         self.readelf, self.cmake = str(readelf), str(cmake)
@@ -127,6 +129,7 @@ class RomSetup:
         self.progress = progress or (lambda event: None)
         self.cancel = cancel or threading.Event()
         self.log = None
+        self.profile_root = Path(profile_root).resolve() if profile_root is not None else None
         self.environment = dict(os.environ)
         if sys.platform == 'darwin':
             self.environment['RETUNED_MAC_BOOTSTRAPPED'] = '1'
@@ -246,13 +249,13 @@ class RomSetup:
         write_json(generated / 'TITLE_SOURCE_MANIFEST.json', {
             'format': 'triaevum_translated_title_source_v1', 'private_local_artifact': True,
             'redistributable': False, 'files': sources})
-        self.checkpoint('compiling', 'Building the native game module for this computer…')
+        self.checkpoint('compiling', 'Building the native game module…')
         library = self.compile_title(work, generated)
         self.checkpoint('verifying', 'Verifying the native module before activating setup…')
         self.verify_title(library)
         stage = work / 'installation'
         stage.mkdir()
-        for source, name in ((image / 'code.bin', 'code.bin'), (inputs / 'exheader.bin', 'exheader.bin'),
+        for source, name in ((work / 'canonical-code.bin', 'canonical-code.bin'), (image / 'code.bin', 'code.bin'), (inputs / 'exheader.bin', 'exheader.bin'),
                              (work / 'romfs.bin', 'romfs.bin'), (library, library.name)):
             shutil.move(source, stage / name)
         installation_id = uuid.uuid4().hex
@@ -266,7 +269,8 @@ class RomSetup:
             'private_local_artifact': True, 'redistributable': False,
             'files': {p.name: digest(p) for p in stage.iterdir()}})
         self.checkpoint('activating', 'Finishing setup…')
-        target = activate(root, stage, installation_id, lambda target: launch_profile(root, target))
+        target = activate(root, stage, installation_id,
+            lambda target: launch_profile(self.profile_root or root, target), profile_root=self.profile_root)
         self.progress({'stage': 'complete', 'message': 'Setup complete. Your game is ready.', 'installation': str(target)})
         return target
 
