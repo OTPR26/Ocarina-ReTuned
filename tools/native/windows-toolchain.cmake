@@ -1,0 +1,13 @@
+# Shared by the neutral Windows host and its locally compiled title modules.
+set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_SYSTEM_PROCESSOR AMD64)
+set(_retuned_tools "${CMAKE_CURRENT_LIST_DIR}")
+set(CMAKE_C_COMPILER "${_retuned_tools}/llvm/bin/x86_64-w64-mingw32-clang.exe")
+set(CMAKE_CXX_COMPILER "${_retuned_tools}/llvm/bin/x86_64-w64-mingw32-clang++.exe")
+set(CMAKE_RC_COMPILER "${_retuned_tools}/llvm/bin/llvm-windres.exe")
+set(CMAKE_AR "${_retuned_tools}/llvm/bin/llvm-ar.exe")
+set(CMAKE_RANLIB "${_retuned_tools}/llvm/bin/llvm-ranlib.exe")
+set(CMAKE_MAKE_PROGRAM "${_retuned_tools}/ninja/ninja.exe" CACHE FILEPATH "Bundled Ninja")
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+set(CMAKE_EXE_LINKER_FLAGS_INIT "-static")
+set(CMAKE_SHARED_LINKER_FLAGS_INIT "-static")

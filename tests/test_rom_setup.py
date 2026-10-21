@@ -189,6 +189,45 @@ class PreparationKitHost(unittest.TestCase):
                 setup.load_kit(kit, host=root / 'app')
 
 class WindowsGuiBuildEnvironment(unittest.TestCase):
+    def test_portable_tools_ignore_installed_sdk_and_do_not_change_parent(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in ('llvm/bin/x86_64-w64-mingw32-clang++.exe', 'cmake/bin/cmake.exe', 'ninja/ninja.exe'):
+                file = root / name
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_bytes(b'tool fixture')
+            original = {'PATH': 'untrusted-sdk-path', 'INCLUDE': 'installed-vs', 'LIB': 'installed-vs',
+                        'CXX': 'cl.exe', 'SYSTEMROOT': r'C:\Windows', 'TEMP': 'keep-me'}
+            saved = dict(original)
+            result = setup.portable_windows_environment(original, root)
+            self.assertEqual(original, saved)
+            self.assertNotIn('untrusted-sdk-path', result['PATH'])
+            self.assertNotIn('INCLUDE', result)
+            self.assertNotIn('LIB', result)
+            self.assertNotIn('CXX', result)
+            self.assertEqual(result['TEMP'], 'keep-me')
+            self.assertIn(str(root / 'llvm/bin'), result['PATH'])
+            (root / 'ninja/ninja.exe').unlink()
+            with self.assertRaises(setup.SetupError):
+                setup.portable_windows_environment(original, root)
+
+    def test_portable_kit_resolves_compiler_tools_within_kit_only(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            kit = root / 'kit.json'
+            metadata = {'format': 'retuned_rom_preparation_kit_v1', 'engine': 'engine',
+                        'ips': 'hud.ips', 'elf': 'hud.elf', 'windows_tools': 'tools'}
+            kit.write_text(json.dumps(metadata))
+            with patch.object(setup.sys, 'platform', 'win32'):
+                options = setup.load_kit(kit, host=root / 'app.exe')
+                self.assertEqual(options['cmake'], root / 'tools/cmake/bin/cmake.exe')
+                self.assertEqual(options['windows_tools'], root / 'tools')
+                self.assertIn('-DCMAKE_TOOLCHAIN_FILE=' + str(root / 'tools/windows-toolchain.cmake'), options['cmake_args'])
+                metadata['windows_tools'] = '../outside'
+                kit.write_text(json.dumps(metadata))
+                with self.assertRaises(setup.SetupError):
+                    setup.load_kit(kit, host=root / 'app.exe')
+
     def test_gui_launch_discovers_buildtools_and_preserves_parent_environment(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

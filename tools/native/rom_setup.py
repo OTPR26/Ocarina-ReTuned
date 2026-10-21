@@ -72,6 +72,24 @@ def windows_build_environment(environment):
     return result
 
 
+def portable_windows_environment(environment, tools):
+    """Use only the app's compiler/build tools and Windows system executables."""
+    root = Path(tools).resolve()
+    result = {name.upper(): value for name, value in environment.items()}
+    for name in ('INCLUDE', 'LIB', 'LIBPATH', 'CC', 'CXX', 'CFLAGS', 'CXXFLAGS',
+                 'LDFLAGS', 'CMAKE_TOOLCHAIN_FILE', 'VCTOOLSINSTALLDIR', 'VCINSTALLDIR',
+                 'VSINSTALLDIR', 'WINDOWSSDKDIR', 'VSCMD_ARG_TGT_ARCH'):
+        result.pop(name, None)
+    directories = [root / 'llvm/bin', root / 'cmake/bin', root / 'ninja']
+    for executable in (directories[0] / 'x86_64-w64-mingw32-clang++.exe',
+                       directories[1] / 'cmake.exe', directories[2] / 'ninja.exe'):
+        if not executable.is_file():
+            raise SetupError('The bundled Windows preparation tools are incomplete.')
+    system = Path(result.get('SYSTEMROOT', r'C:\Windows')) / 'System32'
+    result['PATH'] = ';'.join(map(str, [*directories, system]))
+    return result
+
+
 def digest(path):
     value = hashlib.sha256()
     with Path(path).open('rb') as stream:
@@ -185,7 +203,8 @@ def activate(root, stage, installation_id, make_profile, profile_root=None):
 
 class RomSetup:
     def __init__(self, *, engine, ips, elf, host, readelf='arm-none-eabi-readelf',
-                 cmake='cmake', cmake_args=(), jobs=2, progress=None, cancel=None, profile_root=None):
+                 cmake='cmake', cmake_args=(), jobs=2, progress=None, cancel=None, profile_root=None,
+                 windows_tools=None):
         self.engine = Path(engine).resolve()
         self.ips, self.elf, self.host = map(lambda p: Path(p).resolve(), (ips, elf, host))
         self.readelf, self.cmake = str(readelf), str(cmake)
@@ -197,7 +216,8 @@ class RomSetup:
         self.environment = dict(os.environ)
         self.environment['PYTHONDONTWRITEBYTECODE'] = '1'
         if sys.platform == 'win32':
-            self.environment = windows_build_environment(self.environment)
+            self.environment = (portable_windows_environment(self.environment, windows_tools)
+                if windows_tools is not None else windows_build_environment(self.environment))
         if sys.platform == 'darwin':
             self.environment['RETUNED_MAC_BOOTSTRAPPED'] = '1'
 
@@ -405,7 +425,14 @@ def load_kit(path, host=None):
     cmake_args = list(kit.get('cmake_args', []))
     if 'json_include' in kit:
         cmake_args.append('-DRETUNED_JSON_INCLUDE_DIR=' + str(asset('json_include')))
-    return {'engine': asset('engine'), 'ips': asset('ips'), 'elf': asset('elf'),
+    tools = {}
+    if 'windows_tools' in kit:
+        if sys.platform != 'win32':
+            raise SetupError('This preparation kit requires Windows.')
+        root = asset('windows_tools')
+        tools = {'windows_tools': root, 'cmake': root / 'cmake/bin/cmake.exe'}
+        cmake_args.append('-DCMAKE_TOOLCHAIN_FILE=' + str(root / 'windows-toolchain.cmake'))
+    return {**tools, 'engine': asset('engine'), 'ips': asset('ips'), 'elf': asset('elf'),
         'host': Path(host).resolve() if host is not None else asset('host'),
         'readelf': asset('readelf') if 'readelf' in kit else 'unused',
         'cmake_args': cmake_args}

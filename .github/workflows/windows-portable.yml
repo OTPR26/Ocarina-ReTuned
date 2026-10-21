@@ -1,0 +1,111 @@
+name: Portable Windows preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-portable-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows:
+    name: Windows x64 portable
+    runs-on: windows-2022
+    timeout-minutes: 180
+    env:
+      VULKAN_SDK: C:\VulkanSDK\1.4.328.1
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\vcpkg-cache,readwrite
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: coccofresco/TriAevum
+          ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
+          path: engine
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: microsoft/vcpkg
+          ref: ef7dbf94b9198bc58f45951adcf1f041fcbc5ea0
+          path: dependencies/vcpkg
+          persist-credentials: false
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/cache/restore@v5
+        id: vcpkg_cache
+        with:
+          path: vcpkg-cache
+          key: retuned-windows-portable-x64-v1-${{ github.sha }}
+          restore-keys: retuned-windows-portable-x64-v1-
+      - name: Stage pinned portable Windows compiler
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory downloads
+          curl.exe -fL https://github.com/mstorsjo/llvm-mingw/releases/download/20261006/llvm-mingw-20261006-ucrt-x86_64.zip -o downloads/llvm.zip
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          curl.exe -fL https://github.com/Kitware/CMake/releases/download/v4.4.4/cmake-4.4.4-windows-x86_64.zip -o downloads/cmake.zip
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          curl.exe -fL https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-win.zip -o downloads/ninja.zip
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          curl.exe -fL https://raw.githubusercontent.com/ninja-build/ninja/v1.13.2/COPYING -o downloads/ninja-COPYING
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tools/native/stage_windows_toolchain.py --llvm downloads/llvm.zip --cmake downloads/cmake.zip --ninja downloads/ninja.zip --ninja-license downloads/ninja-COPYING --output portable-tools
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          "$env:GITHUB_WORKSPACE/portable-tools/llvm/bin" >> $env:GITHUB_PATH
+          "$env:GITHUB_WORKSPACE/portable-tools/ninja" >> $env:GITHUB_PATH
+      - name: Install Vulkan build SDK
+        shell: pwsh
+        run: |
+          $url = 'https://sdk.lunarg.com/sdk/download/1.4.328.1/windows/vulkansdk-windows-X64-1.4.328.1.exe'
+          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\vulkan-sdk.exe"
+          $signature = Get-AuthenticodeSignature "$env:RUNNER_TEMP\vulkan-sdk.exe"
+          if ($signature.Status -ne 'Valid') { throw 'Invalid Vulkan SDK signature' }
+          $process = Start-Process "$env:RUNNER_TEMP\vulkan-sdk.exe" -ArgumentList '--root', $env:VULKAN_SDK, '--accept-licenses', '--default-answer', '--confirm-command', 'install' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Vulkan SDK installation failed' }
+      - name: Apply shared port
+        shell: pwsh
+        run: |
+          python tools/native/apply_desktop_port.py engine --portable-windows
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tools/reframed/apply_native_port.py engine
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tools/reframed/apply_renderer_port.py engine
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tools/native/apply_audio_port.py engine
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tools/frontend/apply_frontend_port.py engine
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake -S tests/spirv_pack_scope -B build/spirv-scope -DRUNTIME_SOURCE="$env:GITHUB_WORKSPACE/engine"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Configure neutral runtime
+        shell: pwsh
+        run: |
+          cmake -S engine -B build/runtime -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE/dependencies/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE/portable-tools/windows-toolchain.cmake" -DVCPKG_HOST_TRIPLET=x64-mingw-static -DVCPKG_ROOT="$env:GITHUB_WORKSPACE/dependencies/vcpkg" -DVCPKG_TARGET_TRIPLET=x64-mingw-static -DVCPKG_TRIPLET=x64-mingw-static -DAUTOMATE_VCPKG_UPDATE=OFF -DOOT3D_WHOLE_AOT_PRODUCT_MODE=ON -DOOT3D_DIRECT_AOT_PLUGIN=ON -DOOT3D_ENABLE_VULKAN_RENDERER=ON -DTHREE_DS_RECOMP_ENABLE_NRI=ON -DTHREE_DS_RECOMP_ENABLE_IMMERSE=OFF -DTHREE_DS_RECOMP_ENABLE_NRI_UPSCALER_SDKS=OFF -DTHREE_DS_RECOMP_ENABLE_DLSS_MODULE=OFF -DTHREE_DS_RECOMP_ENABLE_SSSR=OFF -DTHREE_DS_RECOMP_ENABLE_CACAO=OFF -DTHREE_DS_RECOMP_OFFER_EXPERIMENTAL_GI=OFF -DENABLE_SCRIPTING=OFF -DINCLUDE_MPQ_SUPPORT=OFF
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Verify portable compiler timestamp support
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE/portable-tools/llvm/bin/x86_64-w64-mingw32-clang++.exe" -std=c++20 -static tools/native/numeric_probe.cpp -o numeric-probe.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ./numeric-probe.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Build and test neutral runtime
+        shell: pwsh
+        run: |
+          cmake --build build/runtime --parallel 3 --target triaevum_public_runtime oot3d_native_pica_frontend_tests oot3d_native_a32_ctr_host_tests oot3d_native_hd_font_runtime_tests oot3d_native_font_coverage_tests
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          foreach ($test in @('oot3d_native_pica_frontend_tests', 'oot3d_native_a32_ctr_host_tests', 'oot3d_native_hd_font_runtime_tests', 'oot3d_native_font_coverage_tests')) {
+            & "build/runtime/$test.exe"
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+      - name: Stage neutral preview
+        shell: pwsh
+        run: python tools/native/stage_desktop_host.py --platform windows --engine engine --build build/runtime --output artifacts --windows-triplet x64-mingw-static
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Ocarina-ReTuned-Portable-Windows-x64-${{ github.sha }}
+          path: artifacts/*
+          if-no-files-found: error
+      - uses: actions/cache/save@v5
+        if: always() && steps.vcpkg_cache.outputs.cache-hit != 'true'
+        with:
+          path: vcpkg-cache
+          key: retuned-windows-portable-x64-v1-${{ github.sha }}

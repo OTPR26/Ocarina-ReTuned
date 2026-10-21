@@ -63,7 +63,7 @@ def linux_dependency_notices(libraries, notices, doc_root=Path('/usr/share/doc')
     (notices / 'linux-dependency-sources.json').write_text(json.dumps({'schema': 1, 'dependencies': records}, indent=2) + '\n')
 
 
-def windows_dependency_notices(vcpkg, notices):
+def windows_dependency_notices(vcpkg, notices, triplet='x64-windows-static'):
     """Static libraries still require notices and their versioned port recipes."""
     revision = run('git', '-C', str(vcpkg), 'rev-parse', 'HEAD').strip()
     if not re.fullmatch(r'[0-9a-f]{40}', revision):
@@ -73,13 +73,13 @@ def windows_dependency_notices(vcpkg, notices):
     records = []
     for paragraph in paragraphs:
         fields = dict(line.split(': ', 1) for line in paragraph.splitlines() if ': ' in line and not line.startswith(' '))
-        if fields.get('Architecture') != 'x64-windows-static' or 'Feature' in fields:
+        if fields.get('Architecture') != triplet or 'Feature' in fields:
             continue
         name, version = fields.get('Package', ''), fields.get('Version', '')
         if not re.fullmatch(r'[a-z0-9-]+', name) or not version:
             raise ValueError('Incomplete vcpkg dependency identity')
         source = vcpkg / 'ports' / name
-        copyright_file = installed / 'x64-windows-static/share' / name / 'copyright'
+        copyright_file = installed / triplet / 'share' / name / 'copyright'
         if not source.is_dir() or not copyright_file.is_file():
             raise ValueError('Missing vcpkg dependency notice or recipe: ' + name)
         if any(path.is_symlink() for path in source.rglob('*')):
@@ -102,7 +102,7 @@ def windows_dependency_notices(vcpkg, notices):
         'project_modifications': ['tools/native/fix_windows_fmt.py (format-checker compatibility patch; project source)']}, indent=2) + '\n')
 
 
-def stage(platform, engine, build, output):
+def stage(platform, engine, build, output, windows_triplet='x64-windows-static'):
     engine, build, output = map(lambda p: Path(p).resolve(), (engine, build, output))
     check_neutral_commands(run('ninja', '-C', str(build), '-t', 'commands', 'triaevum_public_runtime'))
     targets = json.loads((build / 'triaevum-runtime-targets-Release.json').read_text())
@@ -178,7 +178,7 @@ def stage(platform, engine, build, output):
         if platform == 'linux':
             linux_dependency_notices(dependency_sources, notices)
         else:
-            windows_dependency_notices(engine.parent / 'dependencies/vcpkg', notices)
+            windows_dependency_notices(engine.parent / 'dependencies/vcpkg', notices, windows_triplet)
         (root / 'README.txt').write_text('Ocarina ReTuned desktop host preview\n\nThis neutral host contains no ROM, title library or game assets.\nA locally prepared, platform-matching title is required for gameplay.\nUse --launch-profile with your local launch profile for testing.\n')
         if platform == 'linux':
             launcher = root / 'Ocarina-ReTuned.sh'
@@ -198,7 +198,8 @@ def stage(platform, engine, build, output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--platform', choices=('windows', 'linux'), required=True)
+    parser.add_argument('--windows-triplet', choices=('x64-windows-static', 'x64-mingw-static'), default='x64-windows-static')
     for name in ('engine', 'build', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
     args = parser.parse_args()
-    stage(args.platform, args.engine, args.build, args.output)
+    stage(args.platform, args.engine, args.build, args.output, args.windows_triplet)

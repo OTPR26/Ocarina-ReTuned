@@ -47,15 +47,19 @@ Compiler SDK notices and platform package audits remain separate release gates.
 ## Desktop build tools
 
 The staged desktop toolkits include a platform-specific Python runtime,
-Capstone and neutral JSON headers. They still require CMake 3.30 or newer,
-Ninja and a C++20 compiler with the platform SDK. Those compiler prerequisites
-are not currently installed by the first-run screen. Windows preparation discovers
-installed Visual Studio C++ Build Tools and their bundled CMake/Ninja, and initializes
-the x64 compiler environment for preparation only. It does not change the system
-PATH or require launching the app from a Developer Command Prompt. Complete
-Windows/Linux preparation and gameplay checks remain outstanding; a Windows
-Python/Capstone and host product-info check under Wine is only a compatibility
-smoke test. These staged toolkits are not yet public release assets.
+Capstone and neutral JSON headers. The portable Windows candidate additionally
+bundles pinned LLVM-MinGW, CMake and Ninja. Its compiler is used for both the
+host and the game module because their C++ memory interfaces must match.
+Preparation uses only the bundled tools and Windows system executables, ignoring
+installed Visual Studio environments. Users select a ROM and wait in the setup
+screen; no developer-tool installation or Developer Command Prompt is intended.
+
+The portable Windows candidate is being validated and is not a release asset.
+Older Windows test kits still discover installed Visual Studio Build Tools.
+Linux currently requires CMake 3.30+, Ninja and a C++20 compiler with system
+headers. Real Windows preparation/gameplay and Linux gameplay, complete toolchain
+notices/provenance, and final package audits remain release gates. Wine compiler
+checks alone do not establish real Windows gameplay compatibility.
 
 ## Installation transaction
 
