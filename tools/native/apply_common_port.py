@@ -7,6 +7,9 @@ from apply_neutral_shaders import apply as apply_neutral_shaders
 def apply(root):
     apply_neutral_shaders(root)
     patches = [
+        ('runtime/three_ds_recomp/src/ship/utils/StringHelper.cpp',
+         '#include "ship/utils/StringHelper.h"',
+         '#include "ship/utils/StringHelper.h"\n#include <cstdlib>\n#include <cstdio>'),
         ('runtime/three_ds_recomp/src/fast/resource/type/DisplayList.cpp',
          '#include <memory>', '#include <memory>\n#include <cstdlib>'),
         ('runtime/three_ds_recomp/cmake/spirv_pack.cmake',
