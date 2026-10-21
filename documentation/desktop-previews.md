@@ -26,3 +26,11 @@ Python, Capstone and JSON headers; CMake, Ninja and the platform C++ compiler/SD
 remain prerequisites. Windows and Linux host builds and archive audits pass,
 but full preparation and gameplay on those systems remain unverified. Do not
 label these hosts as ready-to-play release packages before those gates pass.
+
+Mac packaging checks every bundled ARM64 Mach-O binary's recorded minimum OS,
+including libraries and any preparation toolkit. The default package target is
+macOS 13.4. A dependency built for a newer OS rejects packaging, even if the main
+executable targets 13.4. Rebuild that dependency for the supported target;
+`--minimum-macos` can explicitly choose a higher minimum for a separate test
+package. The package records the checked versions in `macos-deployment.json`.
+An SDK version alone is not a minimum-OS or gameplay compatibility check.

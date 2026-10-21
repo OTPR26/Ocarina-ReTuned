@@ -10,14 +10,16 @@ import shutil
 import subprocess
 import tempfile
 from runtime_notices import copy_runtime_donor_notices
+from macos_deployment import check_bundle, version_tuple
 
 
 def run(*args):
     return subprocess.check_output(args, text=True).strip()
 
 
-def package(engine, build, output, identity="-", entitlements=None, profile=None, private_kit=None):
+def package(engine, build, output, identity="-", entitlements=None, profile=None, private_kit=None, minimum_macos='13.4'):
     engine, build, output = Path(engine).resolve(), Path(build).resolve(), Path(output).resolve()
+    version_tuple(minimum_macos)
     if output.exists():
         raise ValueError('Refusing to overwrite an existing package.')
     if entitlements and (identity == "-" or not profile):
@@ -90,7 +92,7 @@ def package(engine, build, output, identity="-", entitlements=None, profile=None
             'CFBundleExecutable': 'retuned-native', 'CFBundleIdentifier': 'io.github.otpr26.ocarinaretuned',
             'CFBundlePackageType': 'APPL', 'CFBundleVersion': '1',
             'CFBundleShortVersionString': '0.1.0', 'NSHighResolutionCapable': True,
-            'LSMinimumSystemVersion': '13.4'}
+            'LSMinimumSystemVersion': minimum_macos}
         (contents / 'Info.plist').write_bytes(plistlib.dumps(metadata))
         notices = resources / 'licenses'
         notices.mkdir()
@@ -122,6 +124,8 @@ def package(engine, build, output, identity="-", entitlements=None, profile=None
             print('Private preparation toolkit staged; this test package must remain local.')
         if profile:
             shutil.copy2(profile, contents/'embedded.provisionprofile')
+        deployment = check_bundle(contents, minimum_macos)
+        (resources / 'macos-deployment.json').write_text(json.dumps(deployment, indent=2) + '\n')
         for path in (binary, *frameworks.iterdir()):
             if path.is_file():
                 subprocess.run(['codesign', '--force', '--sign', identity, *(signing+['--identifier','io.github.otpr26.ocarinaretuned'] if path==binary else []), str(path)], check=True)
@@ -140,5 +144,6 @@ if __name__ == '__main__':
     parser.add_argument('--entitlements',type=Path)
     parser.add_argument('--profile',type=Path)
     parser.add_argument('--private-preparation-kit',type=Path)
+    parser.add_argument('--minimum-macos',default='13.4')
     args = parser.parse_args()
-    package(args.engine, args.build, args.output,args.identity,args.entitlements,args.profile,args.private_preparation_kit)
+    package(args.engine, args.build, args.output,args.identity,args.entitlements,args.profile,args.private_preparation_kit,args.minimum_macos)
