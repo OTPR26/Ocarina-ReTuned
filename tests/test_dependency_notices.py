@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import socket
 import unittest
 from unittest.mock import patch
 
@@ -17,6 +18,50 @@ from runtime_notices import DONOR_NOTICES, copy_runtime_donor_notices
 
 
 class DependencyNotices(unittest.TestCase):
+    def test_pipewire_dlopen_modules_and_configuration_are_required_and_staged(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            lib, config, output = root / 'lib', root / 'config', root / 'package'
+            inputs = ['libpipewire-0.3.so.0',
+                      'pipewire-0.3/libpipewire-module-protocol-native.so',
+                      'spa-0.2/support/libspa-support.so',
+                      'spa-0.2/audioconvert/libspa-audioconvert.so']
+            for relative in inputs:
+                path = lib / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(relative.encode())
+            config.mkdir()
+            with self.assertRaisesRegex(ValueError, 'client.conf'):
+                stage.linux_audio_runtime(output, lib, config)
+            self.assertFalse(output.exists())
+            (config / 'client.conf').write_text('client configuration fixture')
+            sources = stage.linux_audio_runtime(output, lib, config)
+            self.assertEqual(len(sources), 5)
+            for relative in inputs:
+                self.assertEqual((output / relative).read_bytes(), relative.encode())
+            self.assertEqual((output / 'share/pipewire/client.conf').read_text(),
+                             'client configuration fixture')
+
+    def test_launcher_prefers_available_pipewire_and_preserves_user_driver(self):
+        with tempfile.TemporaryDirectory(prefix='retuned-audio-') as temporary:
+            root = Path(temporary)
+            launcher = root / 'Ocarina-ReTuned.sh'
+            launcher.write_text(stage.linux_launcher())
+            executable = root / 'OcarinaReTuned'
+            executable.write_text('#!/bin/sh\nprintf "%s\\n" "${SDL_AUDIODRIVER:-default}" "$PIPEWIRE_CONFIG_DIR" "$@"\n')
+            executable.chmod(0o755)
+            env = {'PATH': '/usr/bin:/bin', 'XDG_RUNTIME_DIR': str(root)}
+            with socket.socket(socket.AF_UNIX) as server:
+                server.bind(str(root / 'pipewire-0'))
+                result = subprocess.check_output(['sh', str(launcher), '--launch-profile', 'isolated profile.json'], env=env, text=True)
+                self.assertEqual(result.splitlines(), ['pipewire', str(root / 'share/pipewire'), '--launch-profile', 'isolated profile.json'])
+                env['SDL_AUDIODRIVER'] = 'pulseaudio'
+                result = subprocess.check_output(['sh', str(launcher)], env=env, text=True)
+                self.assertEqual(result.splitlines()[0], 'pulseaudio')
+            (root / 'pipewire-0').unlink()
+            env.pop('SDL_AUDIODRIVER')
+            self.assertEqual(subprocess.check_output(['sh', str(launcher)], env=env, text=True).splitlines()[0], 'default')
+
     def test_missing_source_donor_notice_prevents_partial_notice_staging(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -83,3 +128,24 @@ class DependencyNotices(unittest.TestCase):
             result = json.loads((root / 'notices/windows-dependency-sources.json').read_text())
             self.assertEqual(result['dependencies'][0]['version'], '1.2')
             self.assertEqual((root / 'notices/vcpkg/example/copyright').read_text(), 'complete original notice')
+
+    def test_windows_system_opengl_does_not_hide_missing_library_notices(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'installed/vcpkg').mkdir(parents=True)
+            status = root / 'installed/vcpkg/status'
+            status.write_text('Package: opengl\nVersion: 2022-12-04\nArchitecture: x64-mingw-static\n')
+            port = root / 'ports/opengl'
+            port.mkdir(parents=True)
+            recipe = {'name': 'opengl', 'version-date': '2022-12-04', 'license': None}
+            (port / 'vcpkg.json').write_text(json.dumps(recipe))
+            (port / 'portfile.cmake').write_text('set(VCPKG_POLICY_EMPTY_PACKAGE enabled)\n')
+            with patch.object(stage, 'run', return_value='a' * 40):
+                stage.windows_dependency_notices(root, root / 'notices', 'x64-mingw-static')
+                result = json.loads((root / 'notices/windows-dependency-sources.json').read_text())
+                self.assertIsNone(result['dependencies'][0]['copyright'])
+                self.assertIn('operating system', result['dependencies'][0]['system_component'])
+                recipe['license'] = 'MIT'
+                (port / 'vcpkg.json').write_text(json.dumps(recipe))
+                with self.assertRaisesRegex(ValueError, 'Missing vcpkg dependency notice'):
+                    stage.windows_dependency_notices(root, root / 'notices', 'x64-mingw-static')

@@ -1,4 +1,5 @@
 #include "first_run.h"
+#include "rom_picker.h"
 #include <SDL.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
@@ -103,13 +104,71 @@ std::string ChooseRom() {
 #if defined(__APPLE__)
     const char* command="osascript -e 'POSIX path of (choose file with prompt \"Choose your decrypted Ocarina of Time 3D ROM\")' 2>/dev/null";
 #else
-    const char* command="zenity --file-selection --title='Choose your decrypted Ocarina of Time 3D ROM' 2>/dev/null";
+    return {}; // Linux uses the in-app browser below, with no shell helper.
 #endif
+#if defined(__APPLE__)
     FILE* pipe=popen(command,"r");if(!pipe)return {};std::string result;char part[4096];
     while(fgets(part,sizeof(part),pipe))result+=part;
     int status=pclose(pipe);if(status)return {};while(!result.empty()&&(result.back()=='\n'||result.back()=='\r'))result.pop_back();return result;
 #endif
+#endif
 }
+
+#if !defined(_WIN32) && !defined(__APPLE__)
+struct RomBrowser {
+    Path directory, selected;
+    RetunedRomPicker::Listing listing;
+    char location[8192]{};
+    void Open(const Path& path) {
+        directory=path;selected.clear();listing=RetunedRomPicker::List(directory);
+        std::snprintf(location,sizeof(location),"%s",Text(directory).c_str());
+    }
+    void Begin() {
+        const char* home=std::getenv("HOME");Open(home?Path(home):Path("/"));
+        ImGui::OpenPopup("Choose ROM");
+    }
+    std::string Draw() {
+        std::string chosen;
+        ImGui::SetNextWindowSize({720,500},ImGuiCond_Appearing);
+        if(ImGui::BeginPopupModal("Choose ROM",nullptr,ImGuiWindowFlags_NoSavedSettings)) {
+            ImGui::TextUnformatted("Choose a decrypted USA cartridge dump (.3ds or .cci).");
+            ImGui::SetNextItemWidth(-70);
+            bool go=ImGui::InputText("##location",location,sizeof(location),ImGuiInputTextFlags_EnterReturnsTrue);
+            ImGui::SameLine();go=ImGui::Button("Go")||go;
+            if(go) {
+                auto path=FromText(location);
+                if(RetunedRomPicker::IsRom(path)){selected=path;chosen=Text(path);}
+                else Open(path);
+            }
+            if(ImGui::Button("Home")){const char* home=std::getenv("HOME");Open(home?Path(home):Path("/"));}
+            ImGui::SameLine();if(ImGui::Button("Computer"))Open("/");
+            ImGui::SameLine();if(ImGui::Button("Drives"))Open("/run/media");
+            ImGui::SameLine();if(ImGui::Button("Parent folder"))Open(directory.parent_path());
+            if(!listing.error.empty())ImGui::TextWrapped("%s",listing.error.c_str());
+            if(listing.truncated)ImGui::TextWrapped("Large folder: enter an exact path or choose a subfolder.");
+            ImGui::BeginChild("ROM files",{0,-55},true);
+            Path enter;
+            for(const auto& item:listing.entries) {
+                auto label=(item.directory?"[Folder] ":"")+Text(item.path.filename());
+                ImGui::PushID(Text(item.path).c_str());
+                if(ImGui::Selectable(label.c_str(),selected==item.path,ImGuiSelectableFlags_AllowDoubleClick)) {
+                    if(item.directory)enter=item.path;
+                    else {selected=item.path;if(ImGui::IsMouseDoubleClicked(0))chosen=Text(selected);}
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndChild();if(!enter.empty())Open(enter);
+            ImGui::BeginDisabled(!RetunedRomPicker::IsRom(selected));
+            if(ImGui::Button("Open"))chosen=Text(selected);
+            ImGui::EndDisabled();ImGui::SameLine();
+            if(ImGui::Button("Cancel"))ImGui::CloseCurrentPopup();
+            if(!chosen.empty())ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+        return chosen;
+    }
+};
+#endif
 }
 
 bool RetunedFirstRun(int argc,char** argv,Path& profile) {
@@ -178,6 +237,9 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
     }
     std::atomic<bool> running=false,finished=false;std::atomic<int> result=1;std::thread worker;
     bool close=false,success=false;std::string selected;char pathText[8192]{};Path progress=root/"setup-progress.json", cancel=root/"setup-cancel";
+#if !defined(_WIN32) && !defined(__APPLE__)
+    RomBrowser romBrowser;
+#endif
     SDL_GameController* controller=nullptr;
     for(int i=0;i<SDL_NumJoysticks();++i)if(SDL_IsGameController(i)){controller=SDL_GameControllerOpen(i);if(controller)break;}
     while(!close) {
@@ -195,7 +257,13 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
         ImGui::SetCursorPosX(margin);ImGui::PushTextWrapPos(io.DisplaySize.x-margin);ImGui::TextUnformatted(status.c_str());ImGui::PopTextWrapPos();
         ImGui::SetCursorPos({margin,240});ImGui::BeginDisabled(running||!hasKit);ImGui::SetNextItemWidth(io.DisplaySize.x-margin*2);ImGui::InputTextWithHint("##rom","ROM file - choose or drag it here",pathText,sizeof(pathText));
         ImGui::SetCursorPosX(margin);
-        if(ImGui::Button("Choose ROM...")){auto chosen=ChooseRom();if(!chosen.empty())std::snprintf(pathText,sizeof(pathText),"%s",chosen.c_str());}
+        if(ImGui::Button("Choose ROM...")){
+#if !defined(_WIN32) && !defined(__APPLE__)
+            romBrowser.Begin();
+#else
+            auto chosen=ChooseRom();if(!chosen.empty())std::snprintf(pathText,sizeof(pathText),"%s",chosen.c_str());
+#endif
+        }
         ImGui::SameLine();ImGui::BeginDisabled(!pathText[0]);if(ImGui::Button("Prepare game")){
             try {
                 const auto metadata=Read(kit);const auto base=std::filesystem::absolute(kit).parent_path();
@@ -205,6 +273,9 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
                 worker=std::thread([&,arguments]{result=Run(arguments);finished=true;});
             }catch(const std::exception& e){status=e.what();}
         }ImGui::EndDisabled();ImGui::EndDisabled();
+#if !defined(_WIN32) && !defined(__APPLE__)
+        auto chosen=romBrowser.Draw();if(!chosen.empty())std::snprintf(pathText,sizeof(pathText),"%s",chosen.c_str());
+#endif
         ImGui::SetCursorPos({margin,io.DisplaySize.y-115});ImGui::PushTextWrapPos(io.DisplaySize.x-margin);ImGui::TextDisabled("Preparation stays on your computer. Saves and controller settings are preserved.");ImGui::TextDisabled("%s",bundledWindowsTools?"The included tools prepare your game. This can take several minutes.":"The first build can take several minutes and requires local C++ build tools.");ImGui::PopTextWrapPos();
         ImGui::SetCursorPosX(margin);
         if(running){if(ImGui::Button("Cancel setup")){std::ofstream request(cancel);request<<"cancel";status="Cancelling after the current preparation step...";}}

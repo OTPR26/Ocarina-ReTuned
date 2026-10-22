@@ -8,7 +8,7 @@ def apply(engine):
     source = Path(__file__).parent
     destination = engine / 'ports/retuned-setup'
     destination.mkdir(parents=True, exist_ok=True)
-    for name in ('first_run.cpp', 'first_run.h', 'setup.cmake'):
+    for name in ('first_run.cpp', 'first_run.h', 'rom_picker.h', 'setup.cmake'):
         (destination / name).write_text((source / name).read_text())
     entry = engine / 'tools/oot3d/native_game_runtime/oot3d_native_game.cpp'
     text = entry.read_text()

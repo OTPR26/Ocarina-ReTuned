@@ -47,6 +47,18 @@ else()
     target_compile_options(triaevum_title_whole_aot_support PRIVATE -O1 -g0 -ffp-contract=off)
 endif()
 target_link_libraries(retuned_private_title PRIVATE triaevum_title_whole_aot_support)
+option(RETUNED_REPRODUCIBLE_PATHS "Remove local preparation paths from title modules" OFF)
+if(RETUNED_REPRODUCIBLE_PATHS AND NOT MSVC)
+    foreach(target retuned_private_title triaevum_title_whole_aot_support)
+        # Target arguments retain spaces correctly; CMAKE_CXX_FLAGS is reparsed
+        # by nested compiler checks and must not carry quoted private paths.
+        target_compile_options(${target} PRIVATE
+            "-ffile-prefix-map=${RETUNED_RUNTIME_SOURCE}=/runtime"
+            "-ffile-prefix-map=${TRIAEVUM_TRANSLATED_TITLE_DIR}=/game"
+            "-ffile-prefix-map=${PROJECT_SOURCE_DIR}=/retuned/title"
+            "-ffile-prefix-map=${PROJECT_BINARY_DIR}=/build")
+    endforeach()
+endif()
 set_target_properties(retuned_private_title PROPERTIES PREFIX "" OUTPUT_NAME "triaevum_title_aot"
     CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 if(ANDROID)

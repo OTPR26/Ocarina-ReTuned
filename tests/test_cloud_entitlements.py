@@ -9,12 +9,12 @@ spec=importlib.util.spec_from_file_location('cloud_entitlements',Path(__file__).
 module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 class Entitlements(unittest.TestCase):
     def profile(self):
-        return {'Entitlements':{'application-identifier':'TESTTEAM.io.github.otpr26.ocarinaretuned','com.apple.developer.icloud-container-identifiers':['iCloud.example.OcarinaReTuned'],'com.apple.developer.icloud-services':'*','com.apple.developer.icloud-container-environment':['Development','Production']}}
+        return {'Entitlements':{'application-identifier':'TESTTEAM.io.github.otpr26.ocarinaretuned','com.apple.developer.icloud-container-identifiers':['iCloud.org.example.retuned'],'com.apple.developer.icloud-services':'*','com.apple.developer.icloud-container-environment':['Development','Production']}}
     def prepare(self,profile,environment='Development'):
         with tempfile.TemporaryDirectory() as directory:
             target=Path(directory)/'entitlements.plist'
             with patch.object(module.subprocess,'check_output',return_value=plistlib.dumps(profile)):
-                module.prepare(Path('profile'),'iCloud.example.OcarinaReTuned',target,environment)
+                module.prepare(Path('profile'),'iCloud.org.example.retuned',target,environment)
             return plistlib.loads(target.read_bytes())
     def test_explicit_profile_narrows_capabilities(self):
         result=self.prepare(self.profile())

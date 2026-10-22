@@ -16,15 +16,26 @@ int main(int argc, char** argv) {
     if(_NSGetExecutablePath(executable.data(),&size)!=0)return 1;
     const auto contents=std::filesystem::weakly_canonical(executable.data()).parent_path().parent_path();
     const char* home=std::getenv("HOME");if(!home)return 1;
-    const auto data=std::filesystem::path(home)/"Library/Application Support/Ocarina ReTuned";
-    std::error_code error;std::filesystem::create_directories(data,error);
+    std::error_code error;
+    auto data=argc==1 ? std::filesystem::path(home)/"Library/Application Support/Ocarina ReTuned" : std::filesystem::current_path(error);
+    std::filesystem::path explicitProfile;
+    int profileIndex=0;
+    for(int i=1;i<argc;++i) {
+        if(std::string(argv[i])!="--launch-profile")continue;
+        if(i+1>=argc){std::fprintf(stderr,"Missing launch profile path.\n");return 2;}
+        explicitProfile=std::filesystem::absolute(argv[i+1],error);
+        if(error)return 1;
+        data=explicitProfile.parent_path();profileIndex=++i;
+    }
+    if(error)return 1;
+    std::filesystem::create_directories(data,error);
     if(error || chdir(data.c_str())!=0)return 1;
     setenv("VK_ICD_FILENAMES",(contents/"Resources/vulkan/icd.d/MoltenVK_icd.json").c_str(),1);
     setenv("DYLD_LIBRARY_PATH",(contents/"Frameworks").c_str(),1);
     setenv("RETUNED_MAC_BOOTSTRAPPED","1",1);
     std::vector<std::string> args={(contents/"MacOS/retuned-native").string()};
     if(argc==1){args.emplace_back("--launch-profile");args.push_back((data/"native-launch.json").string());}
-    for(int i=1;i<argc;++i)args.emplace_back(argv[i]);
+    for(int i=1;i<argc;++i)args.emplace_back(i==profileIndex?explicitProfile.string():std::string(argv[i]));
     std::vector<char*> pointers;for(auto& arg:args)pointers.push_back(arg.data());pointers.push_back(nullptr);
     execv(pointers[0],pointers.data());std::perror("Could not start Ocarina ReTuned");return 1;
 }

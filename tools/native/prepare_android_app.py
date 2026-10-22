@@ -28,7 +28,13 @@ def prepare(engine, private_kit=None):
     gradle = root / 'app/build.gradle.kts'
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
-    replace(gradle, 'versionName = "0.1-intro-dev"', 'versionName = "0.1.0-native-prototype"')
+    text = gradle.read_text()
+    for previous in ('0.1-intro-dev', '0.1.0-native-prototype'):
+        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.1.0-preview"')
+    if 'versionName = "0.1.0-preview"' not in text:
+        raise ValueError('Android Preview version context changed')
+    gradle.write_text(text)
+    replace(gradle, 'versionCode = 1', 'versionCode = 2')
     # Public Preview packages must not expose the private test app's debug mode.
     legacy_debug = '    buildTypes { getByName("release") { isDebuggable = true } }\n'
     gradle.write_text(gradle.read_text().replace(legacy_debug, ''))

@@ -1,6 +1,8 @@
 # Local ROM preparation
 
-First-run setup is under development. It is not a release-ready ROM importer yet.
+First-run setup is available in the Preview. Windows, Mac, Linux and Android
+preparation have passed local platform tests; final package audits accompany
+the release candidates.
 The desktop pipeline has prepared a clean ROM, compiled its native module, and
 rendered the opening scene in an isolated data directory. Android's complete
 first-run flow has passed on an ARM64 device: the document picker, sealed tools,
@@ -59,8 +61,9 @@ Older Windows test kits still discover installed Visual Studio Build Tools.
 Linux currently requires CMake 3.30+, Ninja and a C++20 compiler with system
 headers. Real Windows bundled-tool preparation and gameplay have passed, including
 controller input and persistent HUD/dialogue with the matching private UI pack.
-Linux gameplay, complete toolchain notices/provenance, and final package audits
-remain release gates. Wine compiler
+Real Bazzite/Linux ROM preparation, gameplay, controller input, HUD, HD dialogue
+and audio have also passed. Complete toolchain notices/provenance and final
+package audits remain release gates. Wine compiler
 checks alone do not establish real Windows gameplay compatibility.
 
 ## Installation transaction
@@ -133,3 +136,37 @@ The public font assets contain only OFL-derived glyphs and the original diamond,
 without native game artwork or the separately authored Single Screen Experience
 HD font. Pillow is needed only by the package builder; users do not download a
 font or install a rasterizer.
+
+## Preparing a private Apple installation
+
+On macOS with Xcode, `tools/native/prepare_apple_app.py` prepares an iOS or
+tvOS installation from the user's supported ROM and a neutral host template.
+It requires explicit kit, ROM, isolated data-root, template app, provisioning
+profile, installed signing identity, controller database and new output paths.
+Run `python3 tools/native/prepare_apple_app.py --help` for the arguments.
+
+The tool executes ABI verification using a native Mac module, cross-compiles
+the same generated source for the selected Apple device platform, checks the
+module architecture and exported entry points, and signs the app using the
+capabilities permitted by the supplied provisioning profile. It never installs
+or uploads the result. Complete local iOS and tvOS preparation/signing checks
+have passed; these checks do not replace device testing of each final package.
+
+The resulting IPA contains the user's game data and generated module and must
+stay private. Public distributions must provide neutral templates and tools,
+not these prepared IPAs. iCloud sync additionally requires the user's signing
+profile to permit the supported container; the tool does not invent or enable
+that capability. Development profiles and tester device lists require a
+separate privacy/distribution review before sharing templates.
+
+## Account-free Apple downloads
+
+Public iOS/tvOS templates are unsigned and contain no provisioning profile or
+personal CloudKit container. The Mac Preview uses an anonymous ad-hoc signature
+without account entitlements and is not notarized. Existing private signed
+tester apps are separate from these downloads.
+
+Cloud save sync is offline in the account-free downloads. Self-signing alone
+does not enable it: a separately configured build using
+`RETUNED_ICLOUD_CONTAINER` and a compatible signing profile is required.
+Local preparation/signing uses the recipient's identity, never the publisher's.

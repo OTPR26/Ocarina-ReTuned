@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sysconfig
 import tempfile
 from urllib.parse import quote
 from runtime_notices import copy_runtime_donor_notices
@@ -22,6 +23,45 @@ def run(*args):
 def check_neutral_commands(commands):
     if any(token in commands for token in ('oot3d_whole_aot_shard_', '/oot3d_whole_aot_cpp/', '/oot3d_a32_generated/', '\\oot3d_a32_generated\\')):
         raise ValueError('Refusing translated title compilation')
+
+
+def linux_audio_runtime(root, lib_root, config_root=Path('/usr/share/pipewire')):
+    """SDL loads PipeWire and its plugins at runtime, outside ldd's closure."""
+    lib_root = Path(lib_root)
+    required = [lib_root / 'libpipewire-0.3.so.0', config_root / 'client.conf',
+                lib_root / 'pipewire-0.3/libpipewire-module-protocol-native.so',
+                lib_root / 'spa-0.2/support/libspa-support.so',
+                lib_root / 'spa-0.2/audioconvert/libspa-audioconvert.so']
+    for path in required:
+        if not path.is_file():
+            raise ValueError('Missing PipeWire client runtime: ' + str(path))
+    files = [(required[0], root / required[0].name)]
+    for directory in ('pipewire-0.3', 'spa-0.2'):
+        for path in sorted((lib_root / directory).rglob('*.so')):
+            files.append((path, root / directory / path.relative_to(lib_root / directory)))
+    for path in sorted(config_root.rglob('*.conf')):
+        files.append((path, root / 'share/pipewire' / path.relative_to(config_root)))
+    for source, destination in files:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    return [source for source, _ in files]
+
+
+def linux_launcher():
+    return '''#!/bin/sh
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+export LD_LIBRARY_PATH="$root${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export PIPEWIRE_CONFIG_DIR="${PIPEWIRE_CONFIG_DIR:-$root/share/pipewire}"
+export PIPEWIRE_MODULE_DIR="${PIPEWIRE_MODULE_DIR:-$root/pipewire-0.3}"
+export SPA_PLUGIN_DIR="${SPA_PLUGIN_DIR:-$root/spa-0.2}"
+# Prefer the native client when a user-session PipeWire server is available.
+# Keep explicit user driver choices, including remote-session configurations.
+if [ -z "${SDL_AUDIODRIVER:-}" ] && [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -S "$XDG_RUNTIME_DIR/pipewire-0" ]; then
+    export SDL_AUDIODRIVER=pipewire
+fi
+exec "$root/OcarinaReTuned" "$@"
+'''
 
 
 def linux_dependency_notices(libraries, notices, doc_root=Path('/usr/share/doc'), common_root=Path('/usr/share/common-licenses')):
@@ -82,21 +122,27 @@ def windows_dependency_notices(vcpkg, notices, triplet='x64-windows-static'):
             raise ValueError('Incomplete vcpkg dependency identity')
         source = vcpkg / 'ports' / name
         copyright_file = installed / triplet / 'share' / name / 'copyright'
-        if not source.is_dir() or not copyright_file.is_file():
+        if not source.is_dir():
             raise ValueError('Missing vcpkg dependency notice or recipe: ' + name)
         if any(path.is_symlink() for path in source.rglob('*')):
             raise ValueError('Unexpected link in dependency recipe: ' + name)
         recipe = json.loads((source / 'vcpkg.json').read_text())
+        system_opengl = (name == 'opengl' and recipe.get('license', 'unspecified') is None
+            and 'VCPKG_POLICY_EMPTY_PACKAGE' in (source / 'portfile.cmake').read_text())
+        if not copyright_file.is_file() and not system_opengl:
+            raise ValueError('Missing vcpkg dependency notice: ' + name)
         recipe_version = next((recipe[key] for key in ('version', 'version-string', 'version-semver', 'version-date') if key in recipe), None)
         if recipe_version != version or str(recipe.get('port-version', 0)) != fields.get('Port-Version', '0'):
             raise ValueError('Installed dependency needs a different versioned port recipe: ' + name)
         destination = notices / 'vcpkg' / name
         destination.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(copyright_file, destination / 'copyright')
+        if copyright_file.is_file():
+            shutil.copy2(copyright_file, destination / 'copyright')
         shutil.copytree(source, destination / 'port', symlinks=False)
         records.append({'package': name, 'version': version, 'port_version': fields.get('Port-Version', '0'),
             'port_source': 'https://github.com/microsoft/vcpkg/tree/' + revision + '/ports/' + name,
-            'copyright': (destination / 'copyright').relative_to(notices).as_posix()})
+            'copyright': (destination / 'copyright').relative_to(notices).as_posix() if copyright_file.is_file() else None,
+            'system_component': 'Windows OpenGL runtime supplied by the operating system; registry notices are recorded separately' if system_opengl else None})
     if not records:
         raise ValueError('No Windows static dependency notices were collected')
     (notices / 'windows-dependency-sources.json').write_text(json.dumps({'schema': 1,
@@ -127,6 +173,14 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
         pending = [runtime, stub]
         copied = {runtime.name.lower(), stub.name.lower()}
         dependency_sources = []
+        if platform == 'linux':
+            multiarch = sysconfig.get_config_var('MULTIARCH')
+            if not multiarch or not re.fullmatch(r'[A-Za-z0-9_-]+', multiarch):
+                raise ValueError('Cannot identify Linux library architecture')
+            audio_sources = linux_audio_runtime(root, Path('/usr/lib') / multiarch)
+            dependency_sources.extend(audio_sources)
+            pending.extend(p for p in audio_sources if '.so' in p.name)
+            copied.update(p.name.lower() for p in audio_sources if '.so' in p.name)
         while pending:
             source = pending.pop()
             if platform == 'linux':
@@ -191,7 +245,7 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
         (root / 'README.txt').write_text('Ocarina ReTuned desktop host preview\n\nThis neutral host contains no ROM, title library or game assets.\nA locally prepared, platform-matching title is required for gameplay.\nUse --launch-profile with your local launch profile for testing.\n')
         if platform == 'linux':
             launcher = root / 'Ocarina-ReTuned.sh'
-            launcher.write_text('#!/bin/sh\nset -eu\nroot=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexport LD_LIBRARY_PATH="$root${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"\nexec "$root/OcarinaReTuned" "$@"\n')
+            launcher.write_text(linux_launcher())
             launcher.chmod(0o755)
             (root / 'OcarinaReTuned.desktop').write_text('[Desktop Entry]\nType=Application\nName=Ocarina ReTuned\nComment=Ocarina ReTuned Preview\nExec=Ocarina-ReTuned.sh\nIcon=OcarinaReTuned\nCategories=Game;\nTerminal=false\nStartupWMClass=io.github.otpr26.ocarinaretuned\n')
             shutil.copy2(Path(__file__).resolve().parents[2] / 'resources/icons/android/mipmap-xxxhdpi/ic_launcher.png', root / 'OcarinaReTuned.png')
