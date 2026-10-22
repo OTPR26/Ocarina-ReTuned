@@ -1,6 +1,6 @@
 # Ocarina ReTuned
 
-A native, single-screen Ocarina of Time 3D experience for Windows, Mac, Linux, Android, iOS and Apple TV. Built on TriAevum, with Ocarina ReFramed gameplay and a shared Ocarina ReTuned interface.
+A native, single-screen Recomp of Ocarina of Time 3D for Windows, Mac, Linux, Android, iOS and Apple TV. A fork of TriAevum, with Ocarina ReFramed gameplay and a shared Ocarina ReTuned interface.
 
 **The first Preview is available.** Expect rough edges and share feedback about your device, controller and graphics settings.
 
