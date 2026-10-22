@@ -1,43 +1,83 @@
 # Ocarina ReTuned
 
-A native Ocarina of Time 3D application prototype targeting Apple Silicon macOS
-and ARM64 Android. The gameplay UI will use Ocarina Reframed's single-screen mod;
-Majora ReMasked provides the reference for startup, settings and importing.
+A native, single-screen Ocarina of Time 3D experience for Windows, Mac, Linux, Android, iOS and Apple TV. Built on TriAevum, with Ocarina ReFramed gameplay and a shared Ocarina ReTuned interface.
 
-The native experiment uses TriAevum's runtime and ahead-of-time translation
-infrastructure. A shared ARM64 architecture does not make macOS and Android
-modules interchangeable: each requires its own ABI, renderer integration,
-input, storage and lifecycle validation. The base Mac prototype reaches gameplay;
-the Reframed integration is being tested separately.
+**The first Preview is available.** Expect rough edges and share feedback about your device, controller and graphics settings.
 
-## Current work
+[Download the Preview](https://github.com/OTPR26/Ocarina-ReTuned/releases/tag/v0.1.0-preview) · [Report an issue](https://github.com/OTPR26/Ocarina-ReTuned/issues)
 
-- Verify the Mac native module loader and input/audio/filesystem services.
-- Cross-build the Android native services and Vulkan/NRI foundation.
-- Build the neutral Mac runtime without game code or restricted graphics modules.
-- Prepare and translate user-owned ROM content locally, outside published source
-  and build artifacts, then connect the native title to the runtime.
-- Validate native 30 Hz boot before adding the Reframed HUD and interpolation.
+## Features
 
-The `Native ARM64 prototype` workflow builds neutral runtime components on
-GitHub. It receives no ROMs, extracted assets, generated title code, saves or
-personal texture packs. Only neutral runtime bundles may be uploaded; generated title libraries stay local.
+- Single-screen gameplay with the Ocarina ReFramed HUD, menus and camera controls.
+- A shared startup screen and settings menus, with controller navigation and Apple TV remote support.
+- Adjustable internal resolution and frame-rate interpolation, including 60 FPS.
+- Bundled HD dialogue fonts with Regular and Bold styles.
+- Custom texture-pack support, with memory budgets suited to each device.
+- Touch controls on iOS and Android, plus configurable controller bindings.
+- iCloud save-sync support in separately configured Apple builds. Sync is off in the downloadable Preview packages.
 
-## Reframed integration
+## What you need
 
-The native experiment applies the verified Reframed patch before title
-translation. Its HUD, pause menus and camera run as translated mod functions,
-with the original game save format. The host maps the injected code segment
-instead of invoking the console loader's process-permission call. Native IRRST
-shared memory supplies C-stick and shoulder input to the mod.
+Supply your own legally obtained, supported **decrypted USA Ocarina of Time 3D ROM** in `.3ds` or `.cci` format. Other regions and revisions are not currently supported.
 
-Game images, mod resources and translated title libraries are prepared locally
-and are excluded from GitHub artifacts. Texture packs are referenced in place.
-The active playtest is not switched until the new host and title checks pass.
+The downloads do not include a ROM, a prepared game module or saves. First-run preparation uses your ROM locally and can take a while. Optional texture packs are supplied separately.
 
-## Development services
+## Downloads and installation
 
-Python 3.11 or newer:
+Choose the download for your platform from the [Preview release](https://github.com/OTPR26/Ocarina-ReTuned/releases/tag/v0.1.0-preview). Installation instructions and SHA-256 checksums are included on the release page.
+
+| Platform | Download | Requirements and setup |
+| --- | --- | --- |
+| Windows x64 | `Ocarina-ReTuned-Preview-Windows-x64.zip` | Extract and run `OcarinaReTuned.exe`. Compiler and preparation tools are included: select your ROM and wait for preparation to finish. |
+| Mac | `Ocarina-ReTuned-Preview-Mac.zip` | Apple silicon, macOS 15 or later. Extract `Ocarina ReTuned.app`. ROM preparation requires Apple C++ command-line tools, CMake and Ninja. The app is ad-hoc signed and is not notarized. |
+| Linux x86_64 | `Ocarina-ReTuned-Preview-Linux-x86_64.tar.gz` | Extract and run `Ocarina-ReTuned.sh`. Requires glibc 2.38 or later, system graphics drivers, CMake 3.30 or later, Ninja and a C++20 compiler with system headers. Audio uses your desktop audio session. |
+| Android ARM64 | `Ocarina-ReTuned-Preview-Android-arm64.apk` | Install the APK and select your ROM. Preparation runs entirely on the device; no desktop companion is needed. |
+| iOS | `Ocarina-ReTuned-Preview-iOS-Unsigned.ipa` | Unsigned; requires ROM preparation and signing on a Mac before installation. See below. |
+| tvOS | `Ocarina-ReTuned-Preview-tvOS-Unsigned.ipa` | Unsigned; requires ROM preparation and signing on a Mac before installation. See below. |
+
+### iOS and Apple TV
+
+The unsigned Apple downloads require **a Mac with Xcode, your supported ROM, and your own compatible signing identity and provisioning profile**. Signing the downloaded IPA alone is not enough; the game must be prepared first.
+
+The Mac app includes the preparation toolkit. Unpack the unsigned IPA and use `prepare_apple_app.py` from:
+
+```text
+Ocarina ReTuned.app/Contents/Resources/setup/project/tools/native/
+```
+
+Run the script with `--help` for its required inputs. The Mac app supplies the preparation kit, host and controller database. Prepare, sign and install the resulting app locally. The prepared IPA contains your game data and must not be redistributed.
+
+**iCloud sync is off in these downloads.** Enabling it requires a source build configured for a compatible iCloud container and provisioning profile; signing alone does not enable sync.
+
+## Fonts, textures and controls
+
+Choose **Settings > HUD > Dialogue font** to switch between Regular and Bold. Restart the app to apply the change.
+
+HD dialogue fonts are included. They do not replace world textures or every image-based title and label in the game. Higher-resolution world textures require a separate texture pack.
+
+Startup and settings support controller navigation. On Apple TV, Back on the remote or B on a controller returns from a settings page to the category list. On desktop, the mouse remains free by default; explicit keyboard-and-mouse capture is available.
+
+## Preview limitations
+
+- High resolutions, interpolated frame rates and large texture packs depend on your hardware. Texture-memory limits can leave some textures at their original resolution, especially on Apple TV.
+- First preparation can take a long time, particularly on slower devices.
+- Font-style changes require an app restart.
+- Mac and Linux preparation require the external build tools listed above.
+- Apple installation currently requires the Mac preparation and signing steps above.
+
+Keep a separate backup of saves before installing a Preview or changing signing channels. For Android updates, stay with the same APK signing channel.
+
+## What's next
+
+Full PAK loader support, similar to ReMasked.
+
+## Feedback
+
+When [reporting an issue](https://github.com/OTPR26/Ocarina-ReTuned/issues), include your platform, device, Preview version, controller, graphics settings and steps to reproduce it. Mention whether a texture pack is enabled. Do not attach ROMs, prepared game modules, signing credentials or personal account information.
+
+## Development
+
+Python 3.11 or later is required for the Python tools and tests:
 
 ```sh
 PYTHONPATH=src python3 -m unittest discover -s tests -v
@@ -45,28 +85,12 @@ PYTHONPATH=src python3 -m retuned inspect-rom /path/to/game.3ds
 PYTHONPATH=src python3 -m retuned inspect-textures /path/to/textures
 ```
 
-The initial whole-ROM validator recognizes the published Reframed clean inputs.
-Container-independent validation against the native runtime's executable,
-ExHeader and RomFS identities is being integrated for equivalent dumps.
-Recursive texture discovery skips symlinks and leaves the pack in place.
+[Source pins](resources/source-pins.json) and [native targets](resources/native-targets.json) record the project references and platform targets. ROMs, extracted game data, generated game modules, saves and signing material stay local and are excluded from distribution.
 
-## Data and distribution
+## Credits and licensing
 
-Ocarina data stays separate from Majora ReMasked. The macOS data directory is
-`~/Library/Application Support/Ocarina ReTuned`. Preserve startup-to-game
-controller mappings through one authoritative input configuration.
+- [TriAevum](https://github.com/coccofresco/TriAevum) — native runtime and translation foundation.
+- [Ocarina ReFramed](https://github.com/OTPR26/OOT3DHud) — single-screen gameplay integration and HUD resources, including Project Restoration-derived work.
+- [Majora ReMasked / DekUI](https://github.com/OTPR26/DekUI-Fork) — startup and settings reference.
 
-Users supply ROMs and optional texture packs. Game-derived code, generated
-models, extracted assets, personal paths, diagnostics and saves must never be
-uploaded. iMMERSE and DLSS modules are disabled. Donor source keeps its own
-licenses and notices; a source-code license does not relicense game content.
-
-`resources/source-pins.json` and `resources/native-targets.json` identify the
-references and targets. Ignored `work/` contains local reference checkouts and
-private test inputs, never package inputs. No release is approved or published.
-
-The Reframed frontend uses a blue unified settings menu. Gameplay dialogue
-retains the mod’s 80% layout. HD Latin coverage loads automatically from the
-locally prepared font pack beside the process manifest, independently of donor
-UI textures; no font-size or HD-font toggle is exposed. Fonts remain local user
-data and are not bundled into the app.
+Bundled components retain their original license and attribution notices. The Preview includes the approved ReFramed UI and Game Over resources alongside the ReTuned Dialogue fonts. Source-code licenses do not grant rights to game content.
