@@ -81,8 +81,18 @@ def signing_entitlements(profile, identifier, platform):
     groups = entitlements.get('keychain-access-groups')
     if groups is not None:
         entitlements['keychain-access-groups'] = [group.replace(prefix + '.*', prefix + '.' + identifier) for group in groups]
-    # Keep exactly the profile's iCloud capability set. Do not invent containers
-    # or silently copy entitlements from somebody else's development signature.
+    # Profiles may authorize several environments, but the app signature must
+    # select one. Prefer development for a development profile so local Apple
+    # builds continue to use the same save database as the Mac app.
+    cloud_key = 'com.apple.developer.icloud-container-environment'
+    environments = entitlements.get(cloud_key)
+    if environments is not None:
+        choices = environments if isinstance(environments, list) else [environments]
+        if not choices or any(value not in ('Development', 'Production') for value in choices):
+            raise ValueError('Provisioning profile has an invalid iCloud environment')
+        preferred = 'Development' if entitlements.get('get-task-allow') else 'Production'
+        entitlements[cloud_key] = preferred if preferred in choices else choices[0]
+    # Keep the profile's authorized containers and services.
     return entitlements
 
 

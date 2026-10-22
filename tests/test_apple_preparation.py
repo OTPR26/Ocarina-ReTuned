@@ -14,6 +14,21 @@ spec.loader.exec_module(apple)
 
 
 class ApplePreparationTests(unittest.TestCase):
+    def test_cloud_environment_is_one_authorized_value_not_profile_array(self):
+        key = 'com.apple.developer.icloud-container-environment'
+        profile = {'Platform': ['tvOS'], 'Entitlements': {
+            'application-identifier': 'TEAM.io.example.game',
+            'get-task-allow': True, key: ['Production', 'Development']}}
+        self.assertEqual(apple.signing_entitlements(profile, 'io.example.game', 'tvos')[key], 'Development')
+        self.assertEqual(profile['Entitlements'][key], ['Production', 'Development'])
+        profile['Entitlements']['get-task-allow'] = False
+        self.assertEqual(apple.signing_entitlements(profile, 'io.example.game', 'tvos')[key], 'Production')
+        profile['Entitlements'][key] = 'Development'
+        self.assertEqual(apple.signing_entitlements(profile, 'io.example.game', 'tvos')[key], 'Development')
+        profile['Entitlements'][key] = []
+        with self.assertRaisesRegex(ValueError, 'iCloud environment'):
+            apple.signing_entitlements(profile, 'io.example.game', 'tvos')
+
     def test_profile_cannot_change_platform_or_claim_another_app(self):
         profile = {'Platform': ['iOS'], 'Entitlements': {
             'application-identifier': 'TEAM.io.example.game',
