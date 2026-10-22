@@ -1,6 +1,7 @@
 # Ocarina ReTuned
 
-A native, single-screen Recomp of Ocarina of Time 3D for Windows, Mac, Linux, Android, iOS and Apple TV. A fork of TriAevum, with Ocarina ReFramed gameplay and a shared Ocarina ReTuned interface.
+A native, single-screen Recomp of Ocarina of Time 3D for Windows, Mac, Linux, Android, iOS and Apple TV. Ocarina ReTuned is a substantially modified fork of TriAevum, integrating Ocarina ReFramed gameplay with its own interface, ROM-preparation flow and platform support.
+
 
 **The first Preview is available.** Expect rough edges and share feedback about your device, controller and graphics settings.
 
@@ -15,6 +16,18 @@ A native, single-screen Recomp of Ocarina of Time 3D for Windows, Mac, Linux, An
 - Custom texture-pack support, with memory budgets suited to each device.
 - Touch controls on iOS and Android, plus configurable controller bindings.
 - iCloud save-sync support in separately configured Apple builds. Sync is off in the downloadable Preview packages.
+
+## How ReTuned differs from TriAevum
+
+TriAevum provides the runtime and translation foundation. ReTuned adds substantial work across the startup and settings interface, controller and touch input, Apple platforms, Android on-device ROM preparation, portable Windows preparation tools, texture-memory management and dialogue rendering.
+
+We also changed what is distributed:
+
+- **Replacement dialogue fonts:** ReTuned Dialogue provides our adapted Regular and Bold font set, based on Liberation Sans under the SIL Open Font License. It replaces reliance on the previous external HD font pack; its source attribution and license are included.
+- **Locally generated shaders:** the upstream embedded title-specific GLSL tables and precompiled SPIR-V pack were removed. The generic shader decompiler instead processes data from the user's game locally.
+- **Local game preparation:** ROMs and generated game modules are not bundled in the downloads. Users prepare their own supported ROM locally.
+
+Retained runtime components and the included ReFramed/Project Restoration-derived UI resources keep their original licenses and attribution notices.
 
 ## What you need
 
@@ -92,5 +105,7 @@ PYTHONPATH=src python3 -m retuned inspect-textures /path/to/textures
 - [TriAevum](https://github.com/coccofresco/TriAevum) — native runtime and translation foundation.
 - [Ocarina ReFramed](https://github.com/OTPR26/OOT3DHud) — single-screen gameplay integration and HUD resources, including Project Restoration-derived work.
 - [Majora ReMasked / DekUI](https://github.com/OTPR26/DekUI-Fork) — startup and settings reference.
+
+ReTuned Dialogue is based on [Liberation Sans](https://github.com/liberationfonts/liberation-fonts) under the [SIL Open Font License](resources/fonts/LICENSE.txt).
 
 Bundled components retain their original license and attribution notices. The Preview includes the approved ReFramed UI and Game Over resources alongside the ReTuned Dialogue fonts. Source-code licenses do not grant rights to game content.
