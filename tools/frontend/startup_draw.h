@@ -42,7 +42,7 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
   auto* draw=ImGui::GetWindowDrawList();
   const ImVec2 origin=ImGui::GetWindowPos();
   if(StartupArt) {
-   const float size=std::min(h*.78f,w*.54f);
+   const float size=.75f*std::min(h*.78f,w*.54f);
    const ImVec2 p{origin.x+w*.30f-size*.5f,origin.y+h*.55f-size*.5f};
    draw->AddImage(StartupArt,p,{p.x+size,p.y+size});
   }

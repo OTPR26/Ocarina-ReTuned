@@ -29,8 +29,11 @@ def prepare(engine, private_kit=None):
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
     replace(gradle, 'versionName = "0.1-intro-dev"', 'versionName = "0.1.0-native-prototype"')
+    # Public Preview packages must not expose the private test app's debug mode.
+    legacy_debug = '    buildTypes { getByName("release") { isDebuggable = true } }\n'
+    gradle.write_text(gradle.read_text().replace(legacy_debug, ''))
     replace(gradle, '    compileOptions {',
-            '    buildTypes { getByName("release") { isDebuggable = true } }\n    compileOptions {')
+            '    buildTypes { getByName("release") { isDebuggable = false } }\n    compileOptions {')
     replace(gradle, '"triaevum_title_bootstrap", "triaevum_title_aot", "c++_shared"',
             '"triaevum_title_bootstrap", "c++_shared"')
     replace(root / 'app/src/main/AndroidManifest.xml',

@@ -24,7 +24,7 @@ def apply(engine):
         marker='target_sources(oot3d_native_game PRIVATE "${CMAKE_CURRENT_LIST_DIR}/touch_input.cpp")'
         if marker not in cmake.read_text():cmake.write_text(cmake.read_text()+'\n'+marker+'\n')
 
-    for name in ('texture_folder.h','settings_pages.h','frontend_state.h','interface_metrics.h','responsive_layout.h','touch_model.h','touch_hud_model.h','touch_hud_state.h','touch_overlay.h','startup_draw.h','startup_layout.h','menu_navigation.h','television_remote.h','settings_navigation.h'):
+    for name in ('texture_folder.h','settings_pages.h','frontend_state.h','interface_metrics.h','responsive_layout.h','touch_model.h','touch_hud_model.h','touch_hud_state.h','touch_overlay.h','startup_draw.h','startup_layout.h','menu_navigation.h','television_remote.h','settings_navigation.h','menu_gamepads.h'):
         (include/('retuned_'+name)).write_text((source/name).read_text().replace('#include "interface_metrics.h"','#include "retuned_interface_metrics.h"').replace('#include "touch_hud_model.h"','#include "retuned_touch_hud_model.h"'))
     for path in (engine/'runtime/three_ds_recomp/src/fast/Fast3dGui.cpp',engine/'runtime/three_ds_recomp/src/fast/oot3d/graphics_settings_window.cpp'):
         text=path.read_text();marker='#include "fast/oot3d/retuned_settings_navigation.h"'
@@ -88,6 +88,18 @@ def apply(engine):
          '                    if(sdlEvent.button.which==SDL_TOUCH_MOUSEID && RetunedFrontend::SampleTouch(false).Captured)break;\n                    const int buttonIndex =\n                        Oot3dMouseButtonIndex(sdlEvent.button.button);')
     graphics=engine/'runtime/three_ds_recomp/src/fast/oot3d/graphics_settings_window.cpp'
     edit(graphics,'#include "fast/oot3d/retuned_blue_style.h"','#include "fast/oot3d/retuned_blue_style.h"\n#include "fast/oot3d/retuned_responsive_layout.h"\n#include "fast/oot3d/retuned_touch_overlay.h"')
+    # Startup is host UI too: keep the pointer visible and outside capture.
+    edit(gui,'const bool hostUiVisible = GetAnyGuiWindowVisible();',
+         'const bool hostUiVisible = GetAnyGuiWindowVisible() || (RetunedFrontend::NativeFrontendEnabled && RetunedFrontend::StartupVisible);')
+    mouse=engine/'runtime/three_ds_recomp/src/ship/window/MouseStateManager.cpp'
+    edit(mouse,'if (!window->GetGui()->GetMenuOrMenubarVisible()) {',
+         'if (!ShouldForceCursorVisibility() && !window->GetGui()->GetMenuOrMenubarVisible() && !window->GetGui()->GetAnyGuiWindowVisible()) {')
+    config=runtime/'oot3d_native_control_config.cpp'
+    edit(config,'  config.ControllerEnabled = true;\n  config.MovementStick = NativeAnalogStick::Left;',
+         '  config.ControllerEnabled = true;\n  config.CaptureMouseInGameplay = false; // Mixed/controller defaults leave the desktop pointer free.\n  config.MovementStick = NativeAnalogStick::Left;')
+    input_tests=runtime/'oot3d_native_a32_input_tests.cpp'
+    edit(input_tests,'    const auto defaults = NativeControlDefaults();',
+         '    const auto defaults = NativeControlDefaults();\n    Require(!defaults.CaptureMouseInGameplay, "fresh mixed-input defaults must not trap the desktop pointer");')
     from apply_television_menu import apply as apply_television
     apply_television(engine)
     # Shared patches can insert adjacent includes at the same anchor. Keep the
