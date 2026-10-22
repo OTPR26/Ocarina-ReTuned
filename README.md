@@ -31,7 +31,7 @@ Retained runtime components and the included ReFramed/Project Restoration-derive
 
 ## What you need
 
-Supply your own legally obtained, supported **decrypted USA Ocarina of Time 3D ROM** in `.3ds` or `.cci` format. Other regions and revisions are not currently supported.
+Supply your own legally obtained, supported **decrypted USA ROM** in `.3ds` or `.cci` format. Other regions and revisions are not currently supported.
 
 The downloads do not include a ROM, a prepared game module, or saves. First-run preparation uses your ROM locally and can take a while. Optional texture packs are supplied separately.
 
