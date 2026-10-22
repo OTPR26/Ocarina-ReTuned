@@ -21,11 +21,10 @@ A native, single-screen Recomp of Ocarina of Time 3D for Windows, Mac, Linux, An
 
 TriAevum provides the runtime and translation foundation. ReTuned adds substantial work across the startup and settings interface, controller and touch input, Apple platforms, Android on-device ROM preparation, portable Windows preparation tools, texture-memory management and dialogue rendering.
 
-We also changed what is distributed:
+ReTuned also replaces specific bundled resources:
 
 - **Replacement dialogue fonts:** ReTuned Dialogue provides our adapted Regular and Bold font set, based on Liberation Sans under the SIL Open Font License. It replaces reliance on the previous external HD font pack; its source attribution and license are included.
 - **Locally generated shaders:** the upstream embedded title-specific GLSL tables and precompiled SPIR-V pack were removed. The generic shader decompiler instead processes data from the user's game locally.
-- **Local game preparation:** ROMs and generated game modules are not bundled in the downloads. Users prepare their own supported ROM locally.
 
 Retained runtime components and the included ReFramed/Project Restoration-derived UI resources keep their original licenses and attribution notices.
 
