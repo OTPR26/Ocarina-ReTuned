@@ -1,6 +1,6 @@
 # Ocarina ReTuned
 
-A native, single-screen Recomp of Ocarina of Time 3D for Windows, Mac, Linux, Android, iOS and Apple TV. Ocarina ReTuned is a substantially modified fork of TriAevum, integrating Ocarina ReFramed gameplay with its own interface, ROM-preparation flow, and platform support.
+A native, single-screen Recomp of Ocarina of Time 3D for Windows, Mac, Linux, Android, iOS, and Apple TV. Ocarina ReTuned is a substantially modified fork of TriAevum, integrating Ocarina ReFramed gameplay with its own interface, ROM-preparation flow, and platform support.
 
 
 **The first Preview is available.** Expect rough edges and share feedback.
@@ -9,7 +9,7 @@ A native, single-screen Recomp of Ocarina of Time 3D for Windows, Mac, Linux, An
 
 ## Features
 
-- Single-screen gameplay with the Ocarina ReFramed HUD, menus and camera controls.
+- Single-screen gameplay with the Ocarina ReFramed HUD, menus, and camera controls.
 - A shared startup screen and settings menus, with controller navigation and Apple TV remote support.
 - Adjustable internal resolution and frame-rate interpolation, including 60 FPS.
 - Bundled HD dialogue fonts with Regular and Bold styles.
@@ -19,11 +19,11 @@ A native, single-screen Recomp of Ocarina of Time 3D for Windows, Mac, Linux, An
 
 ## How ReTuned differs from TriAevum
 
-TriAevum provides the runtime and translation foundation. ReTuned adds substantial work across the startup and settings interface, controller and touch input, Apple platforms, Android on-device ROM preparation, portable Windows preparation tools, texture-memory management and dialogue rendering.
+TriAevum provides the runtime and translation foundation. ReTuned adds substantial work across the startup and settings interface, controller and touch input, Apple platforms, Android on-device ROM preparation, portable Windows preparation tools, texture-memory management, and dialogue rendering.
 
 Key integration and resource changes:
 
-- **Ocarina ReFramed HUD and controls:** ReTuned extends the TriAevum runtime with ReFramed's gameplay patches and matching UI resources, integrating its single-screen HUD, inventory/pause menus and camera controls. These changes run in-game alongside the ReTuned startup and settings interface.
+- **Ocarina ReFramed HUD and controls:** ReTuned extends the TriAevum runtime with ReFramed's gameplay patches and matching UI resources, integrating its single-screen HUD, inventory/pause menus, and camera controls. These changes run in-game alongside the ReTuned startup and settings interface.
 - **Replacement dialogue fonts:** ReTuned Dialogue provides our adapted Regular and Bold font set, based on Liberation Sans under the SIL Open Font License. It replaces reliance on the previous external HD font pack; its source attribution and license are included.
 - **Locally generated shaders:** the upstream embedded title-specific GLSL tables and precompiled SPIR-V pack were removed. The generic shader decompiler instead processes data from the user's game locally.
 
@@ -33,7 +33,7 @@ Retained runtime components and the included ReFramed/Project Restoration-derive
 
 Supply your own legally obtained, supported **decrypted USA Ocarina of Time 3D ROM** in `.3ds` or `.cci` format. Other regions and revisions are not currently supported.
 
-The downloads do not include a ROM, a prepared game module or saves. First-run preparation uses your ROM locally and can take a while. Optional texture packs are supplied separately.
+The downloads do not include a ROM, a prepared game module, or saves. First-run preparation uses your ROM locally and can take a while. Optional texture packs are supplied separately.
 
 ## Downloads and installation
 
@@ -42,8 +42,8 @@ Choose the download for your platform from the [Preview release](https://github.
 | Platform | Download | Requirements and setup |
 | --- | --- | --- |
 | Windows x64 | `Ocarina-ReTuned-Preview-Windows-x64.zip` | Extract and run `OcarinaReTuned.exe`. Compiler and preparation tools are included: select your ROM and wait for preparation to finish. |
-| Mac | `Ocarina-ReTuned-Preview-Mac.zip` | Apple silicon, macOS 15 or later. Extract `Ocarina ReTuned.app`. ROM preparation requires Apple C++ command-line tools, CMake and Ninja. The app is ad-hoc signed and is not notarized. |
-| Linux x86_64 | `Ocarina-ReTuned-Preview-Linux-x86_64.tar.gz` | Extract and run `Ocarina-ReTuned.sh`. Requires glibc 2.38 or later, system graphics drivers, CMake 3.30 or later, Ninja and a C++20 compiler with system headers. Audio uses your desktop audio session. |
+| Mac | `Ocarina-ReTuned-Preview-Mac.zip` | Apple silicon, macOS 15 or later. Extract `Ocarina ReTuned.app`. ROM preparation requires Apple C++ command-line tools, CMake, and Ninja. The app is ad-hoc signed and is not notarized. |
+| Linux x86_64 | `Ocarina-ReTuned-Preview-Linux-x86_64.tar.gz` | Extract and run `Ocarina-ReTuned.sh`. Requires glibc 2.38 or later, system graphics drivers, CMake 3.30 or later, Ninja, and a C++20 compiler with system headers. Audio uses your desktop audio session. |
 | Android ARM64 | `Ocarina-ReTuned-Preview-Android-arm64.apk` | Install the APK and select your ROM. Preparation runs entirely on the device; no desktop companion is needed. |
 | iOS | `Ocarina-ReTuned-Preview-iOS-Unsigned.ipa` | Unsigned; requires ROM preparation and signing on a Mac before installation. See below. |
 | tvOS | `Ocarina-ReTuned-Preview-tvOS-Unsigned.ipa` | Unsigned; requires ROM preparation and signing on a Mac before installation. See below. |
@@ -58,11 +58,11 @@ The Mac app includes the preparation toolkit. Unpack the unsigned IPA and use `p
 Ocarina ReTuned.app/Contents/Resources/setup/project/tools/native/
 ```
 
-Run the script with `--help` for its required inputs. The Mac app supplies the preparation kit, host and controller database. Prepare, sign and install the resulting app locally. The prepared IPA contains your game data and must not be redistributed.
+Run the script with `--help` for its required inputs. The Mac app supplies the preparation kit, host, and controller database. Prepare, sign, and install the resulting app locally. The prepared IPA contains your game data and must not be redistributed.
 
 **iCloud sync is off in these downloads.** Enabling it requires a source build configured for a compatible iCloud container and provisioning profile; signing alone does not enable sync.
 
-## Fonts, textures and controls
+## Fonts, textures, and controls
 
 Choose **Settings > HUD > Dialogue font** to switch between Regular and Bold. Restart the app to apply the change.
 
@@ -72,7 +72,7 @@ Startup and settings support controller navigation. On Apple TV, Back on the rem
 
 ## Preview limitations
 
-- High resolutions, interpolated frame rates and large texture packs depend on your hardware. Texture-memory limits can leave some textures at their original resolution, especially on Apple TV.
+- High resolutions, interpolated frame rates, and large texture packs depend on your hardware. Texture-memory limits can leave some textures at their original resolution, especially on Apple TV.
 - First preparation can take a long time, particularly on slower devices.
 - Font-style changes require an app restart.
 - Mac and Linux preparation require the external build tools listed above.
@@ -86,7 +86,7 @@ Full PAK loader support, similar to ReMasked.
 
 ## Feedback
 
-When [reporting an issue](https://github.com/OTPR26/Ocarina-ReTuned/issues), include your platform, device, Preview version, controller, graphics settings and steps to reproduce it. Mention whether a texture pack is enabled. Do not attach ROMs, prepared game modules, signing credentials or personal account information.
+When [reporting an issue](https://github.com/OTPR26/Ocarina-ReTuned/issues), include your platform, device, Preview version, controller, graphics settings, and steps to reproduce it. Mention whether a texture pack is enabled. Do not attach ROMs, prepared game modules, signing credentials, or personal account information.
 
 ## Development
 
@@ -98,7 +98,7 @@ PYTHONPATH=src python3 -m retuned inspect-rom /path/to/game.3ds
 PYTHONPATH=src python3 -m retuned inspect-textures /path/to/textures
 ```
 
-[Source pins](resources/source-pins.json) and [native targets](resources/native-targets.json) record the project references and platform targets. ROMs, extracted game data, generated game modules, saves and signing material stay local and are excluded from distribution.
+[Source pins](resources/source-pins.json) and [native targets](resources/native-targets.json) record the project references and platform targets. ROMs, extracted game data, generated game modules, saves, and signing material stay local and are excluded from distribution.
 
 ## Credits and licensing
 
