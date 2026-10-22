@@ -1,9 +1,9 @@
 # Ocarina ReTuned
 
-A native, single-screen Recomp of Ocarina of Time 3D for Windows, Mac, Linux, Android, iOS and Apple TV. Ocarina ReTuned is a substantially modified fork of TriAevum, integrating Ocarina ReFramed gameplay with its own interface, ROM-preparation flow and platform support.
+A native, single-screen Recomp of Ocarina of Time 3D for Windows, Mac, Linux, Android, iOS and Apple TV. Ocarina ReTuned is a substantially modified fork of TriAevum, integrating Ocarina ReFramed gameplay with its own interface, ROM-preparation flow, and platform support.
 
 
-**The first Preview is available.** Expect rough edges and share feedback about your device, controller and graphics settings.
+**The first Preview is available.** Expect rough edges and share feedback.
 
 [Download the Preview](https://github.com/OTPR26/Ocarina-ReTuned/releases/tag/v0.1.0-preview) · [Report an issue](https://github.com/OTPR26/Ocarina-ReTuned/issues)
 
