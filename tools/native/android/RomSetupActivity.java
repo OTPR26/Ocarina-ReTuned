@@ -64,6 +64,8 @@ public class RomSetupActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        if (StartupDiagnostics.recover(this)) return;
+        StartupDiagnostics.stage(this, "launcher / checking prepared ROM");
         if (ready(this)) { launchGame(); return; }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
@@ -92,10 +94,13 @@ public class RomSetupActivity extends Activity {
         cancel = button("Cancel setup"); cancel.setVisibility(View.GONE); cancel.setOnClickListener(view -> requestCancel()); add(panel, cancel, 12);
         Button saves = button("Manage save files"); saves.setOnClickListener(view -> { if(!busy)SaveFiles.open(this); }); add(panel, saves, 12);
         add(panel, text("Your original ROM, saves and controller settings will not be replaced.", 15, false), 18);
+        Button diagnostics = button("Startup diagnostics"); diagnostics.setOnClickListener(view -> startActivity(new Intent(this, StartupDiagnosticsActivity.class))); add(panel, diagnostics, 12);
         setContentView(root); choose.requestFocus();
+        StartupDiagnostics.stage(this, "ROM chooser ready");
     }
 
     private void launchGame() {
+        StartupDiagnostics.stage(this, "reconciling saves before game launch");
         SaveFiles.launch(this);
     }
     private void requestCancel() {

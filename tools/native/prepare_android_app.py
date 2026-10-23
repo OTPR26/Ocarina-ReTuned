@@ -30,12 +30,12 @@ def prepare(engine, private_kit=None):
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
     text = gradle.read_text()
-    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview'):
-        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.1.3-preview"')
-    if 'versionName = "0.1.3-preview"' not in text:
+    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview'):
+        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.1.4-preview"')
+    if 'versionName = "0.1.4-preview"' not in text:
         raise ValueError('Android Preview version context changed')
-    text = re.sub(r'\bversionCode = [1234]\b', 'versionCode = 4', text)
-    if 'versionCode = 4' not in text: raise ValueError('Android version code context changed')
+    text = re.sub(r'\bversionCode = [12345]\b', 'versionCode = 5', text)
+    if 'versionCode = 5' not in text: raise ValueError('Android version code context changed')
     gradle.write_text(text)
     # Public Preview packages must not expose the private test app's debug mode.
     legacy_debug = '    buildTypes { getByName("release") { isDebuggable = true } }\n'
@@ -73,8 +73,9 @@ def prepare(engine, private_kit=None):
     replace(activity,'using 720p surface limit','using native output resolution')
     replace(activity,'        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);',
             '        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n        applyImmersiveWindow();')
-    replace(activity,'    @Override protected String[] getLibraries() {',
-            '    @Override public void onWindowFocusChanged(boolean focused) {\n        super.onWindowFocusChanged(focused);\n        if(focused)applyImmersiveWindow();\n    }\n\n    private void applyImmersiveWindow() {\n        if(android.os.Build.VERSION.SDK_INT>=30) {\n            getWindow().setDecorFitsSystemWindows(false);\n            android.view.WindowInsetsController controller=getWindow().getInsetsController();\n            if(controller!=null){\n                controller.hide(android.view.WindowInsets.Type.systemBars());\n                controller.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);\n            }\n        }else getWindow().getDecorView().setSystemUiVisibility(android.view.View.SYSTEM_UI_FLAG_FULLSCREEN | android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE | android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);\n    }\n\n    @Override protected String[] getLibraries() {')
+    if 'private void applyImmersiveWindow()' not in activity.read_text():
+        replace(activity,'    @Override protected String[] getLibraries() {',
+                '    @Override public void onWindowFocusChanged(boolean focused) {\n        super.onWindowFocusChanged(focused);\n        if(focused)applyImmersiveWindow();\n    }\n\n    private void applyImmersiveWindow() {\n        if(android.os.Build.VERSION.SDK_INT>=30) {\n            getWindow().setDecorFitsSystemWindows(false);\n            android.view.WindowInsetsController controller=getWindow().getInsetsController();\n            if(controller!=null){\n                controller.hide(android.view.WindowInsets.Type.systemBars());\n                controller.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);\n            }\n        }else getWindow().getDecorView().setSystemUiVisibility(android.view.View.SYSTEM_UI_FLAG_FULLSCREEN | android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE | android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);\n    }\n\n    @Override protected String[] getLibraries() {')
 
     replace(activity,
             'new File(getApplicationInfo().nativeLibraryDir,\n                "libtriaevum_title_aot.so")',
@@ -83,7 +84,7 @@ def prepare(engine, private_kit=None):
 
 
     # The Java bootstrap can run before SDL/title loading on a clean install.
-    for name in ('RomSetupActivity.java', 'RomPreparationService.java', 'PreparationKit.java', 'SaveFilesCore.java', 'SaveDocumentStore.java', 'SaveFiles.java', 'SaveFilesActivity.java'):
+    for name in ('RomSetupActivity.java', 'RomPreparationService.java', 'PreparationKit.java', 'SaveFilesCore.java', 'SaveDocumentStore.java', 'SaveFiles.java', 'SaveFilesActivity.java', 'StartupReport.java', 'StartupDiagnostics.java', 'StartupDiagnosticsActivity.java'):
         shutil.copy2(Path(__file__).parent/'android'/name, activity.parent/name)
     manifest = root/'app/src/main/AndroidManifest.xml'
     text = manifest.read_text()
@@ -98,6 +99,9 @@ def prepare(engine, private_kit=None):
     ET.register_namespace('android', namespace)
     document = ET.parse(manifest)
     application = document.getroot().find('application')
+    application.set(attribute('name'), '.StartupDiagnostics')
+    if not any(node.get(attribute('name')) == '.StartupDiagnosticsActivity' for node in application.findall('activity')):
+        ET.SubElement(application, 'activity', {attribute('name'): '.StartupDiagnosticsActivity', attribute('exported'): 'false'})
     launcher = next(node for node in application.findall('activity') if node.find('intent-filter') is not None)
     launcher.set(attribute('name'), '.TriAevumActivity')
     for node in list(application.findall('activity')):
@@ -121,6 +125,14 @@ def prepare(engine, private_kit=None):
         ('void retunedOpenSaveFiles(', '    public void retunedOpenSaveFiles(String action){SaveFiles.open(this,action);}'),
         ('String retunedSaveFilesStatus()', '    public String retunedSaveFilesStatus(){return SaveFiles.status();}')):
         if signature not in text:text=text.replace('    private TextureFolder retunedTextures;', method+'\n    private TextureFolder retunedTextures;')
+    if 'StartupDiagnostics.stage(this, "loading SDL and game libraries")' not in text:
+        text = text.replace('        super.onCreate(state);', '        StartupDiagnostics.stage(this, "loading SDL and game libraries");\n        super.onCreate(state);\n        if (org.libsdl.app.SDLActivity.mBrokenLibraries) {\n            if (!StartupDiagnostics.prefs(this).getBoolean("pending", false)) StartupDiagnostics.failure(this, new IllegalStateException("SDL initialization failed"));\n            startActivity(new android.content.Intent(this, StartupDiagnosticsActivity.class)); finish(); return;\n        }\n        StartupDiagnostics.stage(this, "SDL activity created");')
+        text = text.replace('        return new TriAevumSurface(context, maximumShortEdge);', '        StartupDiagnostics.stage(this, "creating graphics surface");\n        return new TriAevumSurface(context, maximumShortEdge);')
+    text = text.replace('        File profile = new File(getExternalFilesDir(null), "native-launch.json");', '        StartupDiagnostics.stage(this, "starting native runtime / Vulkan initialization");\n        File profile = new File(getExternalFilesDir(null), "native-launch.json");')
+    if 'SDLActivity.mBrokenLibraries' not in text:
+        text = text.replace('        super.onCreate(state);', '        super.onCreate(state);\n        if (org.libsdl.app.SDLActivity.mBrokenLibraries) {\n            if (!StartupDiagnostics.prefs(this).getBoolean("pending", false)) StartupDiagnostics.failure(this, new IllegalStateException("SDL initialization failed"));\n            startActivity(new android.content.Intent(this, StartupDiagnosticsActivity.class)); finish(); return;\n        }')
+    if 'public void loadLibraries()' not in text:
+        text = text.replace('    @Override protected String[] getLibraries() {', '    @Override public void loadLibraries() {\n        for (String library : getLibraries()) {\n            StartupDiagnostics.stage(this, "loading library " + library);\n            try { org.libsdl.app.SDL.loadLibrary(library, this); }\n            catch (UnsatisfiedLinkError | RuntimeException error) { StartupDiagnostics.failure(this, error); throw error; }\n        }\n        StartupDiagnostics.stage(this, "native libraries loaded");\n    }\n\n    @Override protected String[] getLibraries() {')
     gameplay.write_text(text)
     activity.write_text('package org.triaevum.android;\n/** Stable launcher component preserves existing home-screen shortcuts. */\npublic final class TriAevumActivity extends RomSetupActivity {}\n')
     asset = root/'app/src/main/assets/retuned'

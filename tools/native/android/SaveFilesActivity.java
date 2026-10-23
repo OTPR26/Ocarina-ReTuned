@@ -37,6 +37,7 @@ public final class SaveFilesActivity extends Activity {
             new AlertDialog.Builder(this).setTitle("Stop using the custom folder?").setMessage("Current app saves remain available. Files in the selected folder will not be deleted.").setNegativeButton("Cancel",null).setPositiveButton("Use app folder",(d,w)->work("Disconnecting custom folder...",()->{if(!SaveFiles.prefs(this).edit().remove("tree").remove("baseline").commit())throw new IOException("Could not save folder setting");SaveFiles.status("Using the app save folder. Custom folder files were kept.");})).show();
         });
         customButtons.add(buttons.get(buttons.size()-1));
+        button(panel,"Startup diagnostics",()->startActivity(new Intent(this,StartupDiagnosticsActivity.class)));
         button(panel,getIntent().getBooleanExtra("return-to-caller",false)?"Done":"Continue to startup",this::prepareAndLaunch);
         setContentView(scroll);
         SaveFiles.status(SaveFiles.folder(this)==null?"Using the app save folder.":"A custom save folder is selected. Folder access uses Android's document permission.");
