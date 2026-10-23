@@ -5,7 +5,9 @@
 #ifndef __IOS__
 #error Apple mobile host must use the same iOS platform definition as the renderer
 #endif
+#include "startup_status.h"
 #include <cstdio>
+#include <exception>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -39,9 +41,11 @@ static id ResolvePaths(id value, NSString* bundle, NSString* data) {
     return value;
 }
 
-int main(int, char**) {
+static int RunPreparedAppleGame() {
     @autoreleasepool {
         NSString* bundle=NSBundle.mainBundle.bundlePath;
+        const auto setup=RetunedValidateAppleSetup(bundle);
+        if(setup!=RetunedAppleStartupReady)return RetunedPresentAppleStartupIssue(setup);
         SDL_setenv("SDL_VULKAN_LIBRARY",[[bundle stringByAppendingPathComponent:@"Frameworks/MoltenVK.framework/MoltenVK"] UTF8String],1);
 #if TARGET_OS_TV
         SDL_SetHint(SDL_HINT_TV_REMOTE_AS_JOYSTICK,"0");
@@ -57,7 +61,7 @@ int main(int, char**) {
         NSError* error=nil;
         for (NSString* folder in @[@"",@"config",@"logs",@"saves"])
             if (![files createDirectoryAtPath:[data stringByAppendingPathComponent:folder]
-                withIntermediateDirectories:YES attributes:nil error:&error]) return 1;
+                withIntermediateDirectories:YES attributes:nil error:&error]) return RetunedPresentAppleStartupIssue(RetunedAppleStartupStorageError);
         // Seed first-launch data without replacing existing progress or settings.
         NSString* seeds=[bundle stringByAppendingPathComponent:@"PrivateGame/InitialData"];
         NSDirectoryEnumerator* entries=[files enumeratorAtPath:seeds];
@@ -74,7 +78,7 @@ int main(int, char**) {
                     id document=[NSJSONSerialization JSONObjectWithData:bytes options:0 error:&error];
                     if (document) bytes=[NSJSONSerialization dataWithJSONObject:ResolvePaths(document,bundle,data) options:0 error:&error];
                 }
-                if (!bytes || ![bytes writeToFile:destination options:NSDataWritingAtomic error:&error]) return 1;
+                if (!bytes || ![bytes writeToFile:destination options:NSDataWritingAtomic error:&error]) return RetunedPresentAppleStartupIssue(RetunedAppleStartupStorageError);
             }
         }
         NSString* settings=[data stringByAppendingPathComponent:@"config/native-game.json"];
@@ -84,7 +88,7 @@ int main(int, char**) {
             id resolved=document ? ResolvePaths(document,bundle,data) : nil;
             if (resolved && ![resolved isEqual:document]) {
                 NSData* updated=[NSJSONSerialization dataWithJSONObject:resolved options:0 error:&error];
-                if (!updated || ![updated writeToFile:settings options:NSDataWritingAtomic error:&error]) return 1;
+                if (!updated || ![updated writeToFile:settings options:NSDataWritingAtomic error:&error]) return RetunedPresentAppleStartupIssue(RetunedAppleStartupStorageError);
             }
         }
 #if TARGET_OS_IOS && !TARGET_OS_TV
@@ -99,16 +103,30 @@ int main(int, char**) {
         NSString* privateRoot=[bundle stringByAppendingPathComponent:@"PrivateGame"];
         for (NSString* name in @[@"process-manifest.json",@"native-launch.json"]) {
             NSData* input=[NSData dataWithContentsOfFile:[privateRoot stringByAppendingPathComponent:name]];
-            if (!input) { std::fprintf(stderr,"Private game setup is missing.\n"); return 1; }
+            if (!input) return RetunedPresentAppleStartupIssue(RetunedAppleStartupInvalidSetup);
             id document=[NSJSONSerialization JSONObjectWithData:input options:0 error:&error];
-            if (!document) return 1;
+            if (![document isKindOfClass:NSDictionary.class]) return RetunedPresentAppleStartupIssue(RetunedAppleStartupInvalidSetup);
             NSData* output=[NSJSONSerialization dataWithJSONObject:ResolvePaths(document,bundle,data) options:0 error:&error];
-            if (!output || ![output writeToFile:[data stringByAppendingPathComponent:name] options:NSDataWritingAtomic error:&error]) return 1;
+            if (!output || ![output writeToFile:[data stringByAppendingPathComponent:name] options:NSDataWritingAtomic error:&error]) return RetunedPresentAppleStartupIssue(RetunedAppleStartupStorageError);
         }
         std::string profile=[[data stringByAppendingPathComponent:@"native-launch.json"] UTF8String];
         std::vector<std::string> arguments={"OcarinaReTuned","--launch-profile",profile};
         std::vector<char*> pointers;
         for (auto& argument:arguments) pointers.push_back(argument.data());
-        return RetunedNativeMain(static_cast<int>(pointers.size()),pointers.data());
+        const int result=RetunedNativeMain(static_cast<int>(pointers.size()),pointers.data());
+        return result ? RetunedPresentAppleStartupIssue(RetunedAppleStartupRuntimeError) : 0;
+    }
+}
+
+int main(int, char**) {
+    @autoreleasepool {
+        try {
+            const int result=RunPreparedAppleGame();
+            return result;
+        } catch(const std::exception&) {
+            return RetunedPresentAppleStartupIssue(RetunedAppleStartupRuntimeError);
+        } catch(...) {
+            return RetunedPresentAppleStartupIssue(RetunedAppleStartupRuntimeError);
+        }
     }
 }

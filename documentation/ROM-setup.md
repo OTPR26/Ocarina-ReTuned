@@ -139,6 +139,8 @@ font or install a rasterizer.
 
 ## Preparing a private Apple installation
 
+See [iOS and Apple TV setup](Apple-setup.md) for the preparation command and startup troubleshooting. Signing the public IPA alone does not prepare the game.
+
 On macOS with Xcode, `tools/native/prepare_apple_app.py` prepares an iOS or
 tvOS installation from the user's supported ROM and a neutral host template.
 It requires explicit kit, ROM, isolated data-root, template app, provisioning

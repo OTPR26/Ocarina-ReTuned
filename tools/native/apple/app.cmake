@@ -2,7 +2,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_SYSTEM_NAME STREQUAL "tvOS")
     enable_language(OBJC OBJCXX)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/patch_sdl_scenes.py" "${SDL2_SOURCE_DIR}" COMMAND_ERROR_IS_FATAL ANY)
-    target_sources(oot3d_native_game PRIVATE "${CMAKE_CURRENT_LIST_DIR}/apple_main.mm")
+    target_sources(oot3d_native_game PRIVATE "${CMAKE_CURRENT_LIST_DIR}/apple_main.mm" "${CMAKE_CURRENT_LIST_DIR}/startup_status.mm")
     if(CMAKE_SYSTEM_NAME STREQUAL "tvOS")
         target_sources(oot3d_native_game PRIVATE "${CMAKE_CURRENT_LIST_DIR}/television_remote.mm")
         set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/television_remote.mm" PROPERTIES COMPILE_FLAGS "-fobjc-arc")
@@ -13,14 +13,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_SYSTEM_NAME STREQUAL "tvOS")
         set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/texture_folder.mm" "${CMAKE_CURRENT_LIST_DIR}/touch_controls.mm" PROPERTIES COMPILE_FLAGS "-fobjc-arc")
     endif()
     target_compile_definitions(oot3d_native_game PRIVATE RETUNED_APPLE_MOBILE=1 __IOS__)
-    set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/apple_main.mm" PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+    set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/apple_main.mm" "${CMAKE_CURRENT_LIST_DIR}/startup_status.mm" PROPERTIES COMPILE_FLAGS "-fobjc-arc")
     target_link_libraries(oot3d_native_game PRIVATE SDL2::SDL2main "-framework UIKit" "-framework GameController")
     set_target_properties(oot3d_native_game PROPERTIES
         MACOSX_BUNDLE TRUE OUTPUT_NAME OcarinaReTuned
         MACOSX_BUNDLE_GUI_IDENTIFIER io.github.otpr26.ocarinaretuned
         MACOSX_BUNDLE_BUNDLE_NAME "Ocarina ReTuned"
-        MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1.0"
-        MACOSX_BUNDLE_BUNDLE_VERSION "1"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1.1"
+        MACOSX_BUNDLE_BUNDLE_VERSION "2"
         BUILD_RPATH "@executable_path/Frameworks"
         INSTALL_RPATH "@executable_path/Frameworks")
 endif()
