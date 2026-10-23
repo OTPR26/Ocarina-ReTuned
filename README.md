@@ -39,14 +39,16 @@ The downloads do not include a ROM, a prepared game module, or saves. First-run 
 
 Choose the download for your platform from the [Preview release](https://github.com/OTPR26/Ocarina-ReTuned/releases/tag/v0.1.0-preview). Installation instructions and SHA-256 checksums are included on the release page.
 
+For iOS and Apple TV, use the [0.1.1 startup hotfix](https://github.com/OTPR26/Ocarina-ReTuned/releases/tag/v0.1.1-preview). **Preparing these apps requires a Mac with Xcode. Windows and Linux cannot currently prepare the Apple apps.**
+
 | Platform | Download | Requirements and setup |
 | --- | --- | --- |
 | Windows x64 | `Ocarina-ReTuned-Preview-Windows-x64.zip` | Extract and run `OcarinaReTuned.exe`. Compiler and preparation tools are included: select your ROM and wait for preparation to finish. |
 | Mac | `Ocarina-ReTuned-Preview-Mac.zip` | Apple silicon, macOS 15 or later. Extract `Ocarina ReTuned.app`. ROM preparation requires Apple C++ command-line tools, CMake, and Ninja. The app is ad-hoc signed and is not notarized. |
 | Linux x86_64 | `Ocarina-ReTuned-Preview-Linux-x86_64.tar.gz` | Extract and run `Ocarina-ReTuned.sh`. Requires glibc 2.38 or later, system graphics drivers, CMake 3.30 or later, Ninja, and a C++20 compiler with system headers. Audio uses your desktop audio session. |
 | Android ARM64 | `Ocarina-ReTuned-Preview-Android-arm64.apk` | Install the APK and select your ROM. Preparation runs entirely on the device; no desktop companion is needed. |
-| iOS | `Ocarina-ReTuned-Preview-iOS-Unsigned.ipa` | Unsigned; requires ROM preparation and signing on a Mac before installation. See below. |
-| tvOS | `Ocarina-ReTuned-Preview-tvOS-Unsigned.ipa` | Unsigned; requires ROM preparation and signing on a Mac before installation. See below. |
+| iOS | `Ocarina-ReTuned-Preview-0.1.1-iOS-Unsigned.ipa` | Unsigned; requires ROM preparation on a Mac with Xcode, then signing and installation. See below. |
+| tvOS | `Ocarina-ReTuned-Preview-0.1.1-tvOS-Unsigned.ipa` | Unsigned; requires ROM preparation on a Mac with Xcode, then signing and installation. See below. |
 
 ### iOS and Apple TV
 
@@ -59,6 +61,8 @@ Ocarina ReTuned.app/Contents/Resources/setup/project/tools/native/
 ```
 
 Run the script with `--help` for its required inputs. The Mac app supplies the preparation kit, host, and controller database. Prepare, sign, and install the resulting app locally. The prepared IPA contains your game data and must not be redistributed.
+
+See the [Apple setup guide](documentation/Apple-setup.md) for the full command and startup troubleshooting.
 
 **iCloud sync is off in these downloads.** Enabling it requires a source build configured for a compatible iCloud container and provisioning profile; signing alone does not enable sync.
 
