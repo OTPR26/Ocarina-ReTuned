@@ -29,6 +29,15 @@ translation, local C++ compilation, module ABI verification, and activation.
 embedded Python and APK-installed compiler/linker executables. It does not need
 Git, CMake, Termux, or a desktop computer on the user's Android device.
 
+Android compilation uses up to four workers, limited by CPU count and current
+available memory. Small or memory-constrained devices keep a single worker.
+Compiler optimization and floating-point settings are unchanged, and module
+linking, verification, and activation still occur only after every unit succeeds.
+The progress count reports completed units. Cancellation or a compiler failure
+stops and joins the remaining workers before temporary files are removed.
+A local `setup-timings.json` beside `setup.log` records stage durations for
+performance diagnosis without including ROM paths or game data.
+
 Generated game files are private local output. Never add them, test ROMs,
 compiled title modules, audit fixtures, or private preparation kits to the
 repository or public build artifacts. A distributable preparation kit needs
