@@ -82,6 +82,8 @@ Startup and settings support controller navigation. On Apple TV, Back on the rem
 - Mac and Linux preparation require the external build tools listed above.
 - Apple installation currently requires the Mac preparation and signing steps above.
 
+Android save import, export, and custom sync-folder setup are described in [Android saves](documentation/Android-saves.md).
+
 Keep a separate backup of saves before installing a Preview or changing signing channels. For Android updates, stay with the same APK signing channel.
 
 ## What's next

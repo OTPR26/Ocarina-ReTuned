@@ -90,12 +90,13 @@ public class RomSetupActivity extends Activity {
         }); add(panel, choose, 18);
         start = button("Continue to startup"); start.setVisibility(View.GONE); start.setOnClickListener(view -> launchGame()); add(panel, start, 12);
         cancel = button("Cancel setup"); cancel.setVisibility(View.GONE); cancel.setOnClickListener(view -> requestCancel()); add(panel, cancel, 12);
+        Button saves = button("Manage save files"); saves.setOnClickListener(view -> { if(!busy)SaveFiles.open(this); }); add(panel, saves, 12);
         add(panel, text("Your original ROM, saves and controller settings will not be replaced.", 15, false), 18);
         setContentView(root); choose.requestFocus();
     }
 
     private void launchGame() {
-        startActivity(new Intent().setClassName(getPackageName(), "org.triaevum.android.RetunedGameActivity")); finish();
+        SaveFiles.launch(this);
     }
     private void requestCancel() {
         startService(new Intent(this, RomPreparationService.class).setAction(RomPreparationService.CANCEL));

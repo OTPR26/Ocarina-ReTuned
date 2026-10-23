@@ -119,6 +119,11 @@ void GraphicsSettingsPanel::Draw() {
         ImGui::TextWrapped("Upstream engine credits: TriAevum by coccofresco. Uses libultraship, SDL, Dear ImGui and MoltenVK on Apple devices. Interface fonts: Liberation Sans (SIL Open Font License).");
         break;
       case SettingsPage::SaveStates:drawTabs("Save states");break;
+      case SettingsPage::SaveFiles:
+#ifdef __ANDROID__
+        RetunedFrontend::DrawAndroidSaveFiles();
+#endif
+        break;
       case SettingsPage::Advanced:DrawGrassSettings();ImGui::Separator();DrawMaterialsTab();break;
     }
     ImGui::PopItemWidth();ImGui::EndChild();

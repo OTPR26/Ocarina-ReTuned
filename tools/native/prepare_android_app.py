@@ -3,6 +3,7 @@
 from pathlib import Path
 import argparse
 import os
+import re
 import shutil
 import xml.etree.ElementTree as ET
 
@@ -29,12 +30,13 @@ def prepare(engine, private_kit=None):
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
     text = gradle.read_text()
-    for previous in ('0.1-intro-dev', '0.1.0-native-prototype'):
-        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.1.0-preview"')
-    if 'versionName = "0.1.0-preview"' not in text:
+    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview'):
+        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.1.2-preview"')
+    if 'versionName = "0.1.2-preview"' not in text:
         raise ValueError('Android Preview version context changed')
+    text = re.sub(r'\bversionCode = [123]\b', 'versionCode = 3', text)
+    if 'versionCode = 3' not in text: raise ValueError('Android version code context changed')
     gradle.write_text(text)
-    replace(gradle, 'versionCode = 1', 'versionCode = 2')
     # Public Preview packages must not expose the private test app's debug mode.
     legacy_debug = '    buildTypes { getByName("release") { isDebuggable = true } }\n'
     gradle.write_text(gradle.read_text().replace(legacy_debug, ''))
@@ -81,7 +83,7 @@ def prepare(engine, private_kit=None):
 
 
     # The Java bootstrap can run before SDL/title loading on a clean install.
-    for name in ('RomSetupActivity.java', 'RomPreparationService.java', 'PreparationKit.java'):
+    for name in ('RomSetupActivity.java', 'RomPreparationService.java', 'PreparationKit.java', 'SaveFilesCore.java', 'SaveDocumentStore.java', 'SaveFiles.java', 'SaveFilesActivity.java'):
         shutil.copy2(Path(__file__).parent/'android'/name, activity.parent/name)
     manifest = root/'app/src/main/AndroidManifest.xml'
     text = manifest.read_text()
@@ -103,6 +105,8 @@ def prepare(engine, private_kit=None):
     if not any(node.get(attribute('name')) == '.RetunedGameActivity' for node in application.findall('activity')):
         ET.SubElement(application, 'activity', {attribute('name'): '.RetunedGameActivity', attribute('exported'): 'false',
             attribute('screenOrientation'): 'sensorLandscape', attribute('configChanges'): 'keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|navigation|density'})
+    if not any(node.get(attribute('name')) == '.SaveFilesActivity' for node in application.findall('activity')):
+        ET.SubElement(application, 'activity', {attribute('name'): '.SaveFilesActivity', attribute('exported'): 'false', attribute('screenOrientation'): 'sensorLandscape'})
     if not any(node.get(attribute('name')) == '.RomPreparationService' for node in application.findall('service')):
         ET.SubElement(application, 'service', {attribute('name'): '.RomPreparationService', attribute('exported'): 'false', attribute('process'): ':preparation', attribute('foregroundServiceType'): 'dataSync'})
     document.write(manifest, encoding='unicode', xml_declaration=True)
@@ -111,6 +115,13 @@ def prepare(engine, private_kit=None):
     end = text.index('\n    }', start) + len('\n    }')
     text = text[:start] + (Path(__file__).parent/'android/game_arguments.java.inc').read_text().rstrip() + text[end:]
     gameplay.write_text(text.replace('class TriAevumActivity extends SDLActivity', 'class RetunedGameActivity extends SDLActivity'))
+    text=gameplay.read_text()
+    for signature, method in (
+        ('void retunedSaveCommitted()', '    public void retunedSaveCommitted(){SaveFiles.committed(this);}'),
+        ('void retunedOpenSaveFiles(', '    public void retunedOpenSaveFiles(String action){SaveFiles.open(this,action);}'),
+        ('String retunedSaveFilesStatus()', '    public String retunedSaveFilesStatus(){return SaveFiles.status();}')):
+        if signature not in text:text=text.replace('    private TextureFolder retunedTextures;', method+'\n    private TextureFolder retunedTextures;')
+    gameplay.write_text(text)
     activity.write_text('package org.triaevum.android;\n/** Stable launcher component preserves existing home-screen shortcuts. */\npublic final class TriAevumActivity extends RomSetupActivity {}\n')
     asset = root/'app/src/main/assets/retuned'
     asset.mkdir(parents=True, exist_ok=True)
