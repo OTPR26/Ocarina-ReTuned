@@ -86,7 +86,8 @@ Keep a separate backup of saves before installing a Preview or changing signing 
 
 ## What's next
 
-Full PAK loader support, similar to ReMasked.
+- Full PAK loader support, similar to ReMasked.
+- Prepare iOS and tvOS apps on Windows and Linux without requiring users to own a Mac. The planned approach uses bundled open-source compiler tools and a portable game-module interface, with all ROM processing kept local. This is under investigation and is not available in the current Preview.
 
 ## Feedback
 
