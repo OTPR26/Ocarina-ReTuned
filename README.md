@@ -91,6 +91,7 @@ Keep a separate backup of saves before installing a Preview or changing signing 
 
 ## What's next
 
+- Fix unintended controller shortcuts, including the window-selection overlay triggered by holding Square ([#5](https://github.com/OTPR26/Ocarina-ReTuned/issues/5)), while preserving controller navigation in Settings.
 - Full PAK loader support, similar to ReMasked.
 - Prepare iOS and tvOS apps on Windows and Linux without requiring users to own a Mac. The planned approach uses bundled open-source compiler tools and a portable game-module interface, with all ROM processing kept local. This is under investigation and is not available in the current Preview.
 
