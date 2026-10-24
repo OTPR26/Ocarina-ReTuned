@@ -10,6 +10,27 @@ spec.loader.exec_module(image)
 
 
 class ReframedImageTests(unittest.TestCase):
+    def test_file_selection_spacing_is_bounded_and_idempotent(self):
+        code = bytearray(48)
+        struct.pack_into('<IIII', code, 0, 0xE3E01007, 0, 0, 0)
+        struct.pack_into('<IIII', code, 16, 0xE3A01002, 0, 0xE3A01002, 0)
+        struct.pack_into('<I', code, 32, 0xE3A01002)  # unrelated viewport
+        named = {'SingleScreen_BeforeFileScene': (image.BASE, 16, 'FUNC', 1),
+                 'SingleScreen_DrawFileText': (image.BASE + 16, 8, 'FUNC', 1),
+                 'SingleScreen_BeforeFileBackdrop': (image.BASE + 24, 8, 'FUNC', 1)}
+        image.apply_file_selection_spacing(code, named)
+        self.assertEqual(struct.unpack_from('<I', code, 0)[0], 0xE3E0100F)
+        self.assertEqual(struct.unpack_from('<I', code, 16)[0], 0xE3E01005)
+        self.assertEqual(struct.unpack_from('<I', code, 24)[0], 0xE3E01005)
+        self.assertEqual(struct.unpack_from('<I', code, 32)[0], 0xE3A01002)
+        result = bytes(code)
+        image.apply_file_selection_spacing(code, named)
+        self.assertEqual(bytes(code), result)
+        struct.pack_into('<I', code, 24, 0)
+        with self.assertRaises(ValueError):
+            image.apply_file_selection_spacing(code, named)
+        self.assertEqual(struct.unpack_from('<I', code, 0)[0], 0xE3E0100F)
+
     def test_touch_action_owner_requires_matching_adapter(self):
         code=bytearray(128)
         struct.pack_into('<II',code,8,0xE59F3030,0xE5933000)

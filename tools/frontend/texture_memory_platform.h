@@ -35,6 +35,16 @@ inline TextureBudgets SelectMobileTextureBudgets(uint64_t physical, uint64_t pro
     if (usable < 5 * GiB) return {192 * MiB, 384 * MiB};
     return {256 * MiB, 512 * MiB};
 }
+inline TextureBudgets SelectAndroidTextureBudgets(uint64_t physical, uint64_t available) {
+    // High-memory Android devices can retain full-size replacement atlases.
+    // Bound the combined CPU/GPU caches by both RAM and current headroom.
+    if (physical < 6 * GiB) return SelectMobileTextureBudgets(physical, 0);
+    uint64_t total = std::min(physical / 4, 4 * GiB);
+    if (available != std::numeric_limits<uint64_t>::max())
+        total = std::min(total, available / 3);
+    if (total < 384 * MiB) return {96 * MiB, 192 * MiB};
+    return {total / 3, total - total / 3};
+}
 // CPU and GPU share physical memory on Apple Silicon. Keep both caches together
 // below one eighth of RAM; available memory may reduce this further at launch.
 inline TextureBudgets SelectDesktopTextureBudgets(uint64_t physical, uint64_t available) {
@@ -47,8 +57,14 @@ inline TextureBudgets SelectDesktopTextureBudgets(uint64_t physical, uint64_t av
 inline uint64_t TextureDecodeLimit(uint64_t decodedBudget, bool interfaceTexture) {
     return interfaceTexture ? decodedBudget : decodedBudget - 64 * MiB;
 }
-inline constexpr bool LimitTextureMemory() {
-#if defined(__APPLE__) || defined(__ANDROID__)
+inline std::atomic<bool> AndroidAdaptiveTextureMemory{true};
+inline void SetAdaptiveTextureMemory(bool enabled) {
+    AndroidAdaptiveTextureMemory.store(enabled);
+}
+inline bool LimitTextureMemory() {
+#if defined(__ANDROID__)
+    return AndroidAdaptiveTextureMemory.load();
+#elif defined(__APPLE__)
     return true;
 #else
     return false;
@@ -110,15 +126,19 @@ struct TextureBudgetState {
     TextureBudgetState() {
         const auto memory = ReadTextureMemorySnapshot();
         Available.store(memory.Available);
-        if (LimitTextureMemory() && !FixedTelevisionBudget()) {
+#if defined(__APPLE__) || defined(__ANDROID__)
+        if (!FixedTelevisionBudget()) {
 #if defined(__APPLE__) && !TARGET_OS_IPHONE
             const auto budget = SelectDesktopTextureBudgets(memory.Physical, memory.Available);
+#elif defined(__ANDROID__)
+            const auto budget = SelectAndroidTextureBudgets(memory.Physical, memory.Available);
 #else
             const auto budget = SelectMobileTextureBudgets(memory.Physical, memory.Allowance);
 #endif
             Decoded.store(budget.Decoded);
             Uploaded.store(budget.Uploaded);
         }
+#endif
     }
 };
 inline TextureBudgetState& TextureBudgetConfiguration() {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage a pinned, self-contained x64 compiler without installed developer tools.
+"""Stage a pinned, self-contained Windows compiler without developer installs.
 
 Inputs are original official release archives; no game or developer SDK input is
 accepted. The same compiler must build the host and its title modules.
@@ -21,6 +21,14 @@ RELEASES = {
     'ninja': ('ninja-build/ninja', 'v1.13.2', 'ninja-win.zip',
               '07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65'),
 }
+ARM64_HOST_RELEASES = {
+    'llvm': ('mstorsjo/llvm-mingw', '20261006', 'llvm-mingw-20261006-ucrt-aarch64.zip',
+             '9a835d5179c9f3a5a783c11a7f14062a249b4765dd11add64a66786864e82ab2'),
+    'cmake': ('Kitware/CMake', 'v4.4.4', 'cmake-4.4.4-windows-arm64.zip',
+              'ed673bbc4eb7c1e59b0407fd52f1680fc0ae3229a46b9b7b3ea9133764f07f67'),
+    'ninja': ('ninja-build/ninja', 'v1.13.2', 'ninja-winarm64.zip',
+              'e52f0bdef9dfb1003229dbd6508a508c4073fd017247002adc66e5e806cb0391'),
+}
 
 
 def digest(path):
@@ -28,7 +36,10 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def selected(component, path):
+def selected(component, path, target_arch='x64'):
+    if target_arch not in ('x64', 'arm64'):
+        raise ValueError('Unsupported Windows target architecture')
+    triple = 'aarch64' if target_arch == 'arm64' else 'x86_64'
     parts = path.parts
     if component == 'ninja':
         return path.as_posix() == 'ninja.exe'
@@ -36,7 +47,7 @@ def selected(component, path):
         original_notice = (parts[:2] == ('doc', 'cmake') and
                            path.name.lower() in ('license.rst', 'license', 'copying', 'copyright.txt', 'notice'))
         return original_notice or parts[0] in ('share', 'licenses') or path.as_posix() in ('bin/cmake.exe', 'bin/cmcldeps.exe')
-    if parts[0] in ('LICENSE.TXT', 'include', 'lib', 'share', 'x86_64-w64-mingw32'):
+    if parts[0] in ('LICENSE.TXT', 'include', 'lib', 'share', triple + '-w64-mingw32'):
         return True
     if parts[0] != 'bin':
         return False
@@ -46,17 +57,23 @@ def selected(component, path):
         return False
     # Keep compiler/linker resource wrappers and DLL dependencies; omit other
     # target architectures, debugger, IDE services and their bundled Python.
-    if name.startswith(('aarch64-', 'armv7-', 'arm64ec-', 'i686-', 'lldb', 'liblldb', 'libpython', 'clangd', 'clang-tidy')):
+    other_targets = tuple(arch + '-' for arch in ('aarch64', 'x86_64', 'armv7', 'arm64ec', 'i686') if arch != triple)
+    if name.startswith(other_targets + ('lldb', 'liblldb', 'libpython', 'clangd', 'clang-tidy')):
         return False
     return 'uwp' not in name
 
 
-def stage(archives, ninja_license, output):
+def stage(archives, ninja_license, output, target_arch='x64', host_arch='x64'):
+    if target_arch not in ('x64', 'arm64'):
+        raise ValueError('Unsupported Windows target architecture')
+    if host_arch not in ('x64', 'arm64'):
+        raise ValueError('Unsupported Windows compiler host architecture')
+    releases = ARM64_HOST_RELEASES if host_arch == 'arm64' else RELEASES
     output = Path(output).resolve()
     if output.exists():
         raise ValueError('Refusing to overwrite a toolchain')
     for component, path in archives.items():
-        if digest(path) != RELEASES[component][3]:
+        if digest(path) != releases[component][3]:
             raise ValueError('Official archive digest mismatch: ' + component)
     # The original upstream notice is an explicit input, never a synthesized summary.
     if not Path(ninja_license).is_file():
@@ -78,7 +95,7 @@ def stage(archives, ninja_license, output):
                     if entry.is_dir():
                         continue
                     relative = path if component == 'ninja' else PurePosixPath(*path.parts[1:])
-                    if not relative.parts or not selected(component, relative):
+                    if not relative.parts or not selected(component, relative, target_arch):
                         continue
                     destination = root / component / relative
                     if destination.exists():
@@ -86,7 +103,7 @@ def stage(archives, ninja_license, output):
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     with zipped.open(entry) as source, destination.open('wb') as target:
                         shutil.copyfileobj(source, target)
-            repo, tag, filename, sha = RELEASES[component]
+            repo, tag, filename, sha = releases[component]
             records.append({'component': component, 'url': f'https://github.com/{repo}/releases/download/{tag}/{filename}',
                             'sha256': sha, 'source': f'https://github.com/{repo}/tree/{tag}'})
         (root / 'licenses').mkdir()
@@ -99,10 +116,18 @@ def stage(archives, ninja_license, output):
             shutil.copy2(notice_root / name, root / 'licenses' / name)
         shutil.copy2(notice_root / 'sources.json', root / 'licenses/llvm-component-sources.json')
         shutil.copy2(ninja_license, root / 'licenses/ninja-COPYING')
-        shutil.copy2(Path(__file__).with_name('windows-toolchain.cmake'), root / 'windows-toolchain.cmake')
+        toolchain = Path(__file__).with_name('windows-toolchain.cmake').read_text()
+        if target_arch == 'arm64':
+            toolchain = toolchain.replace('set(CMAKE_SYSTEM_PROCESSOR AMD64)',
+                'set(CMAKE_SYSTEM_PROCESSOR ARM64)\nset(CMAKE_VS_PLATFORM_NAME ARM64)')
+            toolchain = toolchain.replace('x86_64-w64-mingw32', 'aarch64-w64-mingw32')
+            toolchain = toolchain.replace('llvm-windres.exe', 'aarch64-w64-mingw32-windres.exe')
+        (root / 'windows-toolchain.cmake').write_text(toolchain)
         files = {p.relative_to(root).as_posix(): digest(p) for p in sorted(root.rglob('*')) if p.is_file()}
         (root / 'toolchain-manifest.json').write_text(json.dumps({'format': 'retuned_windows_toolchain_v1',
-            'abi': 'x86_64-llvm-mingw-ucrt-20261006', 'components': records, 'files': files}, indent=2) + '\n')
+            'abi': ('aarch64' if target_arch == 'arm64' else 'x86_64') + '-llvm-mingw-ucrt-20261006',
+            'target_arch': target_arch, 'tools_host_arch': host_arch,
+            'components': records, 'files': files}, indent=2) + '\n')
         root.rename(output)
 
 
@@ -112,5 +137,8 @@ if __name__ == '__main__':
         parser.add_argument('--' + component, type=Path, required=True)
     parser.add_argument('--ninja-license', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--target-arch', choices=('x64', 'arm64'), default='x64')
+    parser.add_argument('--host-arch', choices=('x64', 'arm64'), default='x64')
     args = parser.parse_args()
-    stage({name: getattr(args, name) for name in RELEASES}, args.ninja_license, args.output)
+    stage({name: getattr(args, name) for name in RELEASES}, args.ninja_license,
+          args.output, args.target_arch, args.host_arch)

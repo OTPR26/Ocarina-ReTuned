@@ -1,0 +1,32 @@
+--- a/src/audio/switch/SDL_switchaudio.c
++++ b/src/audio/switch/SDL_switchaudio.c
+@@ -127,14 +127,17 @@
+         armDCacheFlush(ptr, this->spec.size);
+         audrvVoiceAddWaveBuf(&this->hidden->driver, 0, &this->hidden->buffer[current]);
+     }
+-    else if (!audrvVoiceIsPlaying(&this->hidden->driver, 0)) {
++    /* Altered for ReTuned: restart a drained voice even when adding a new buffer. */
++    if (!audrvVoiceIsPlaying(&this->hidden->driver, 0)) {
+         audrvVoiceStart(&this->hidden->driver, 0);
+     }
+ 
+     audrvUpdate(&this->hidden->driver);
+ 
+     if (current >= 0) {
+-        while (this->hidden->buffer[current].state != AudioDriverWaveBufState_Playing) {
++        /* A late update can observe Done without ever observing Playing. */
++        while (this->hidden->buffer[current].state == AudioDriverWaveBufState_Waiting
++               || this->hidden->buffer[current].state == AudioDriverWaveBufState_Queued) {
+             audrvUpdate(&this->hidden->driver);
+             audrenWaitFrame();
+         }
+@@ -147,7 +150,8 @@
+                 break;
+             }
+         }
+-        while (this->hidden->buffer[current].state == AudioDriverWaveBufState_Playing) {
++        /* No Playing buffer is valid when the renderer has drained its queue. */
++        while (current >= 0 && this->hidden->buffer[current].state == AudioDriverWaveBufState_Playing) {
+             audrvUpdate(&this->hidden->driver);
+             audrenWaitFrame();
+         }

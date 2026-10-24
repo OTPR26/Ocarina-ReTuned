@@ -28,6 +28,18 @@ int main() {
     assert(budget.Decoded==128*MiB && budget.Uploaded==256*MiB);
     budget=SelectMobileTextureBudgets(0,0);
     assert(budget.Decoded==128*MiB && budget.Uploaded==256*MiB);
+    // A high-memory handheld must fit an 8K RGBA atlas plus the UI reserve.
+    budget=SelectAndroidTextureBudgets(16*GiB,9*GiB);
+    assert(budget.Decoded==GiB && budget.Uploaded==2*GiB);
+    assert(TextureDecodeLimit(budget.Decoded,false)>=8192ULL*8192*4);
+    budget=SelectAndroidTextureBudgets(16*GiB,3*GiB);
+    assert(budget.Decoded+budget.Uploaded==GiB);
+    budget=SelectAndroidTextureBudgets(4*GiB,3*GiB);
+    assert(budget.Decoded==128*MiB && budget.Uploaded==256*MiB);
+    budget=SelectAndroidTextureBudgets(16*GiB,256*MiB);
+    assert(budget.Decoded==96*MiB && budget.Uploaded==192*MiB);
+    budget=SelectAndroidTextureBudgets(64*GiB,UINT64_MAX);
+    assert(budget.Decoded+budget.Uploaded==4*GiB);
     std::map<int, Entry> cache{{1,{40,1,false}}, {2,{40,3,true}}, {3,{40,2,false}}};
     std::vector<int> retired;
     auto cost=[](const auto& e){return e.second.bytes;};

@@ -1,11 +1,11 @@
 # Ocarina ReTuned
 
-A native, single-screen Recomp of OOT3D for Windows, Mac, Linux, Android, iOS, and Apple TV. Ocarina ReTuned is a substantially modified fork of TriAevum, integrating Ocarina ReFramed gameplay with its own interface, ROM-preparation flow, and platform support.
+A native, single-screen Recomp of OOT3D for Windows, Mac, Linux, Android, iOS, Apple TV, and experimental Nintendo Switch. Ocarina ReTuned is a substantially modified fork of TriAevum, integrating Ocarina ReFramed gameplay with its own interface, ROM-preparation flow, and platform support.
 
 
-**The first Preview is available.** Expect rough edges and share feedback.
+**Preview 0.2.0 is available.** Expect rough edges and share feedback.
 
-[Download the Preview](https://github.com/OTPR26/Ocarina-ReTuned/releases/tag/v0.1.0-preview) · [Report an issue](https://github.com/OTPR26/Ocarina-ReTuned/issues)
+[Download the Preview](https://github.com/OTPR26/Ocarina-ReTuned/releases/tag/v0.2.0-preview) · [Report an issue](https://github.com/OTPR26/Ocarina-ReTuned/issues)
 
 ## Features
 
@@ -37,18 +37,21 @@ The downloads do not include a ROM, a prepared game module, or saves. First-run 
 
 ## Downloads and installation
 
-Choose the download for your platform from the [Preview release](https://github.com/OTPR26/Ocarina-ReTuned/releases/tag/v0.1.0-preview). Installation instructions and SHA-256 checksums are included on the release page.
+Choose the download for your platform from the [Preview release](https://github.com/OTPR26/Ocarina-ReTuned/releases/tag/v0.2.0-preview). Installation instructions and SHA-256 checksums are included on the release page.
 
-For iOS and Apple TV, use the [0.1.1 startup hotfix](https://github.com/OTPR26/Ocarina-ReTuned/releases/tag/v0.1.1-preview). **Preparing these apps requires a Mac with Xcode. Windows and Linux cannot currently prepare the Apple apps.**
+For iOS and Apple TV, use the unsigned packages in Preview 0.2.0. **Preparing these apps requires a Mac with Xcode. Windows and Linux cannot currently prepare the Apple apps.**
 
 | Platform | Download | Requirements and setup |
 | --- | --- | --- |
-| Windows x64 | `Ocarina-ReTuned-Preview-Windows-x64.zip` | Extract and run `OcarinaReTuned.exe`. Compiler and preparation tools are included: select your ROM and wait for preparation to finish. |
-| Mac | `Ocarina-ReTuned-Preview-Mac.zip` | Apple silicon, macOS 15 or later. Extract `Ocarina ReTuned.app`. ROM preparation requires Apple C++ command-line tools, CMake, and Ninja. The app is ad-hoc signed and is not notarized. |
-| Linux x86_64 | `Ocarina-ReTuned-Preview-Linux-x86_64.tar.gz` | Extract and run `Ocarina-ReTuned.sh`. Requires glibc 2.38 or later, system graphics drivers, CMake 3.30 or later, Ninja, and a C++20 compiler with system headers. Audio uses your desktop audio session. |
-| Android ARM64 | `Ocarina-ReTuned-Preview-Android-arm64.apk` | Install the APK and select your ROM. Preparation runs entirely on the device; no desktop companion is needed. |
-| iOS | `Ocarina-ReTuned-Preview-0.1.1-iOS-Unsigned.ipa` | Unsigned; requires ROM preparation on a Mac with Xcode, then signing and installation. See below. |
-| tvOS | `Ocarina-ReTuned-Preview-0.1.1-tvOS-Unsigned.ipa` | Unsigned; requires ROM preparation on a Mac with Xcode, then signing and installation. See below. |
+| Windows x64 | `Ocarina-ReTuned-Preview-0.2.0-Windows-x64.zip` | Extract and run `OcarinaReTuned.exe`. Compiler and preparation tools are included: select your ROM and wait for preparation to finish. |
+| Mac | `Ocarina-ReTuned-Preview-0.2.0-Mac.zip` | Apple silicon, macOS 15 or later. Extract `Ocarina ReTuned.app`. ROM preparation requires Apple C++ command-line tools, CMake, and Ninja. The app is ad-hoc signed and is not notarized. |
+| Linux x86_64 | `Ocarina-ReTuned-Preview-0.2.0-Linux-x86_64.tar.gz` | Extract and run `Ocarina-ReTuned.sh`. Requires glibc 2.38 or later, system graphics drivers, CMake 3.30 or later, Ninja, and a C++20 compiler with system headers. Audio uses your desktop audio session. |
+| Android ARM64 | `Ocarina-ReTuned-Preview-0.2.0-Android-arm64.apk` | Install the APK and select your ROM. Preparation runs entirely on the device; no desktop companion is needed. |
+| iOS | `Ocarina-ReTuned-Preview-0.2.0-iOS-Unsigned.ipa` | Unsigned; requires ROM preparation on a Mac with Xcode, then signing and installation. See below. |
+| tvOS | `Ocarina-ReTuned-Preview-0.2.0-tvOS-Unsigned.ipa` | Unsigned; requires ROM preparation on a Mac with Xcode, then signing and installation. See below. |
+| Windows ARM64 | `Ocarina-ReTuned-Preview-0.2.0-Windows-ARM64.zip` | Experimental; Windows on ARM with a Vulkan driver. Preparation tools are included. Native ARM64 gameplay is unverified. |
+| Linux ARM64 | `Ocarina-ReTuned-Preview-0.2.0-Linux-ARM64.tar.gz` | Experimental; Ubuntu 24.04 / glibc 2.39 or newer, Vulkan drivers, CMake 3.30+, Ninja, and a C++20 compiler. ROM preparation passed in an ARM64 VM; physical GPU gameplay is unverified. |
+| Switch | `Ocarina-ReTuned-Preview-0.2.0-Switch-Experimental.zip` | Experimental; desktop ROM preparation required. Tested in emulation only. See the [Switch setup guide](documentation/Switch-setup.md). Use the mobile version of optional texture packs. |
 
 ### iOS and Apple TV
 

@@ -32,6 +32,15 @@ def apply(root, portable_windows=False):
         raise ValueError('Unexpected runtime revision')
     common(root)
     apply_windows_link_options(root)
+    # A cross-build runs the dependency manager on the build machine.
+    automate = root / 'CMake/automate-vcpkg.cmake'
+    source = automate.read_text()
+    before = '    if(WIN32)\n        set(VCPKG_EXEC ${VCPKG_ROOT}/vcpkg.exe)'
+    after = before.replace('if(WIN32)', 'if(CMAKE_HOST_WIN32)')
+    if after not in source:
+        if source.count(before) != 1:
+            raise ValueError('Dependency-manager host selection context changed')
+        automate.write_text(source.replace(before, after))
     # Windows needs extension entry points loaded through GLEW with either driver.
     gl_header = root / 'runtime/three_ds_recomp/include/fast/backends/gfx_opengl.h'
     source = gl_header.read_text()
@@ -57,12 +66,14 @@ def apply(root, portable_windows=False):
     if portable_windows:
         cmake = root / 'CMakeLists.txt'
         source = cmake.read_text()
-        before = '    set(VCPKG_TRIPLET x64-windows-static)\n    set(VCPKG_TARGET_TRIPLET x64-windows-static)'
-        after = '    set(VCPKG_TRIPLET x64-mingw-static)\n    set(VCPKG_TARGET_TRIPLET x64-mingw-static)'
-        if after not in source:
-            if source.count(before) != 1:
-                raise ValueError('Windows dependency triplet context changed')
-            cmake.write_text(source.replace(before, after))
+        for architecture, indent in (('x64', '    '), ('arm64', '        ')):
+            before = f'{indent}set(VCPKG_TRIPLET {architecture}-windows-static)\n{indent}set(VCPKG_TARGET_TRIPLET {architecture}-windows-static)'
+            after = before.replace('-windows-static', '-mingw-static')
+            if after not in source:
+                if source.count(before) != 1:
+                    raise ValueError('Windows dependency triplet context changed: ' + architecture)
+                source = source.replace(before, after)
+        cmake.write_text(source)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)

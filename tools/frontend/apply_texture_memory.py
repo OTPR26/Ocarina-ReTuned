@@ -10,6 +10,42 @@ def apply(engine):
     (include / 'retuned_texture_memory.h').write_text((source / 'texture_memory.h').read_text())
     (include / 'texture_memory_platform.h').write_text((source / 'texture_memory_platform.h').read_text())
 
+    settings = include / 'graphics_settings.h'
+    edit(settings, 'struct AzaharTexturePackSettings {\n',
+         'struct AzaharTexturePackSettings {\n    bool AdaptiveTextureMemory = true;\n')
+    persistence = root / 'src/fast/oot3d/graphics_settings_persistence.cpp'
+    edit(persistence, '                  {"LoadDirectory",\n',
+         '                  {"AdaptiveTextureMemory", settings.TexturePacks.Azahar.AdaptiveTextureMemory},\n'
+         '                  {"LoadDirectory",\n')
+    edit(persistence, '                if (version >= 9U) {\n',
+         '                if (azahar->contains("AdaptiveTextureMemory"))\n'
+         '                    ReadScalar(*azahar, "AdaptiveTextureMemory",\n'
+         '                        result.Value.TexturePacks.Azahar.AdaptiveTextureMemory,\n'
+         '                        "Graphics.TexturePacks.Azahar.AdaptiveTextureMemory", result);\n'
+         '                if (version >= 9U) {\n')
+    runtime = root / 'src/fast/oot3d/graphics_settings_runtime.cpp'
+    marker = '#include "fast/oot3d/texture_memory_platform.h"'
+    text = runtime.read_text()
+    if marker not in text: runtime.write_text(marker + '\n' + text)
+    marker = '#include "oot3d/renderer/azahar_texture_pack.h"'
+    text = runtime.read_text()
+    if marker not in text: runtime.write_text(marker + '\n' + text)
+    edit(runtime, '    if (rewriteLoadedSettings && !mPersistenceSuppressed) {',
+         '    RetunedFrontend::SetAdaptiveTextureMemory(mService.Current().TexturePacks.Azahar.AdaptiveTextureMemory);\n'
+         '    if (rewriteLoadedSettings && !mPersistenceSuppressed) {')
+    if 'mService.ConfirmCurrent();\n        RetunedFrontend::SetAdaptiveTextureMemory' not in runtime.read_text():
+        edit(runtime, '        mService.ConfirmCurrent();\n        mSaveState',
+             '        mService.ConfirmCurrent();\n'
+             '        RetunedFrontend::SetAdaptiveTextureMemory(mService.Current().TexturePacks.Azahar.AdaptiveTextureMemory);\n'
+             '        mSaveState')
+    edit(runtime, '    auto result = mService.Stage(std::move(candidate), capabilities);',
+         '    const bool previousAdaptiveTextureMemory = mService.Current().TexturePacks.Azahar.AdaptiveTextureMemory;\n'
+         '    auto result = mService.Stage(std::move(candidate), capabilities);')
+    edit(runtime, '        mSaveState = GraphicsSettingsSaveState::Pending;',
+         '        if (previousAdaptiveTextureMemory != mService.Current().TexturePacks.Azahar.AdaptiveTextureMemory)\n'
+         '            ::Oot3d::Renderer::AzaharTexturePackRuntime::Instance().Reload();\n'
+         '        mSaveState = GraphicsSettingsSaveState::Pending;')
+
     def header(path):
         marker = '#include "fast/oot3d/retuned_texture_memory.h"'
         text = path.read_text()

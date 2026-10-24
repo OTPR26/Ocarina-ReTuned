@@ -232,6 +232,8 @@ class WindowsGuiBuildEnvironment(unittest.TestCase):
                 file.write_bytes(b'tool fixture')
             original = {'PATH': 'untrusted-sdk-path', 'INCLUDE': 'installed-vs', 'LIB': 'installed-vs',
                         'CXX': 'cl.exe', 'SYSTEMROOT': r'C:\Windows', 'TEMP': 'keep-me'}
+            (root / 'toolchain-manifest.json').write_text(json.dumps({
+                'abi': 'x86_64-llvm-mingw-ucrt-20261006'}))
             saved = dict(original)
             result = setup.portable_windows_environment(original, root)
             self.assertEqual(original, saved)
@@ -244,6 +246,20 @@ class WindowsGuiBuildEnvironment(unittest.TestCase):
             (root / 'ninja/ninja.exe').unlink()
             with self.assertRaises(setup.SetupError):
                 setup.portable_windows_environment(original, root)
+
+    def test_arm64_tools_cannot_fall_back_to_x64_compiler(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in ('llvm/bin/x86_64-w64-mingw32-clang++.exe', 'cmake/bin/cmake.exe', 'ninja/ninja.exe'):
+                file = root / name
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_bytes(b'fixture')
+            (root / 'toolchain-manifest.json').write_text(json.dumps({
+                'abi': 'aarch64-llvm-mingw-ucrt-20261006'}))
+            with self.assertRaisesRegex(setup.SetupError, 'incomplete'):
+                setup.portable_windows_environment({}, root)
+            (root / 'llvm/bin/aarch64-w64-mingw32-clang++.exe').write_bytes(b'fixture')
+            self.assertIn(str(root / 'llvm/bin'), setup.portable_windows_environment({}, root)['PATH'])
 
     def test_portable_kit_resolves_compiler_tools_within_kit_only(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -1,5 +1,4 @@
     void TrimDecodedTexturesLocked(uint64_t protectedHash) {
-        if (!RetunedFrontend::LimitTextureMemory()) return;
         const auto replacementBytes = [](const auto& entry) -> uint64_t {
             return entry.second && entry.second->Rgba8 ? entry.second->Rgba8->size() : 0;
         };
@@ -15,6 +14,12 @@
             const auto it = mRetunedTextureUse.find(entry.first);
             return it == mRetunedTextureUse.end() ? 0ULL : it->second;
         };
+        if (!RetunedFrontend::LimitTextureMemory()) {
+            RetunedFrontend::DecodedTextureBytes.store(
+                RetunedFrontend::CacheBytes(mMaterialCache, materialBytes) +
+                RetunedFrontend::CacheBytes(mReplacementCache, replacementBytes));
+            return;
+        }
         const auto eligible = [&](const auto& entry) {
             return entry.first != protectedHash && !RetunedFrontend::IsInterfaceTexture(entry.first);
         };

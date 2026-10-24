@@ -4,13 +4,20 @@ from pathlib import Path
 from apply_neutral_shaders import apply as apply_neutral_shaders
 from apply_hd_font_sampling import apply as apply_hd_font_sampling
 from apply_font_choices import apply as apply_font_choices
+from apply_nri_lifetime import apply as apply_nri_lifetime
+from apply_spirv_embedding import apply as apply_spirv_embedding
 
 
 def apply(root):
+    apply_nri_lifetime(root)
+    apply_spirv_embedding(root)
     apply_neutral_shaders(root)
     apply_hd_font_sampling(root)
     apply_font_choices(root)
     patches = [
+        ('runtime/three_ds_recomp/src/fast/renderer/shaderc_compiler.cpp',
+         '#if defined(_WIN32) && !defined(SHADERC_SHAREDLIB)',
+         '#if defined(_WIN32) && !defined(SHADERC_SHAREDLIB) && !defined(RETUNED_STATIC_SHADERC)'),
         ('runtime/three_ds_recomp/src/ship/utils/StringHelper.cpp',
          '#include "ship/utils/StringHelper.h"',
          '#include "ship/utils/StringHelper.h"\n#include <cstdlib>\n#include <cstdio>'),
@@ -33,6 +40,8 @@ def apply(root):
         path = Path(root) / relative
         source = path.read_text()
         if source.count(after) == 1:
+            continue
+        if relative.endswith('oot3d_savestate_panel.cpp') and 'std::chrono::file_clock::to_sys(time)' in source:
             continue
         if source.count(before) != 1:
             raise ValueError('Portable source fix context changed: ' + relative)

@@ -161,6 +161,37 @@ def touch_action_owner(image, entry):
     return candidates[0]
 
 
+
+def apply_file_selection_spacing(image, named):
+    """Shift only the mod's preview/caption viewports, on every native host.
+
+    Bound each edit to its ELF function and require the reviewed ARM immediate.
+    Both original and already adjusted mod builds are accepted.
+    """
+    edits = (
+        ('SingleScreen_BeforeFileScene', 0xE3E01007, 0xE3E0100F, 1),
+        ('SingleScreen_DrawFileText', 0xE3A01002, 0xE3E01005, 1),
+        ('SingleScreen_BeforeFileBackdrop', 0xE3A01002, 0xE3E01005, 1),
+    )
+    replacements = []
+    for name, before, after, expected in edits:
+        address, size, _, _ = named[name]
+        start = address - BASE
+        if start < 0 or size <= 0 or size % 4 or start + size > len(image):
+            raise ValueError('Invalid file-selection function: ' + name)
+        words = [(offset, struct.unpack_from('<I', image, offset)[0])
+                 for offset in range(start, start + size, 4)]
+        old = [offset for offset, word in words if word == before]
+        new = [offset for offset, word in words if word == after]
+        if len(new) == expected and not old:
+            continue
+        if len(old) != expected or new:
+            raise ValueError('File-selection viewport context changed: ' + name)
+        replacements.extend((offset, after) for offset in old)
+    for offset, word in replacements:
+        struct.pack_into('<I', image, offset, word)
+
+
 def _prepare(args):
     if args.output.exists():
         raise ValueError('Refusing to replace a private title experiment')
@@ -170,6 +201,7 @@ def _prepare(args):
     image, intervals = apply_ips(base, args.ips.read_bytes())
     symbols = elf_symbols(args.readelf, args.elf)
     named = {name: (address, size, kind, section) for address, size, kind, name, section in symbols}
+    apply_file_selection_spacing(image, named)
     loader, loader_size, _, loader_section = named['loader_main']
     initialize, _, _, _ = named['NativeHud_InitializeScale']
     # The host maps the extra image segment. Do not invoke Luma's SVC 0x70.

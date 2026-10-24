@@ -74,6 +74,12 @@ def windows_build_environment(environment):
     return result
 
 
+WINDOWS_COMPILER_TARGETS = {
+    'x86_64-llvm-mingw-ucrt-20261006': 'x86_64',
+    'aarch64-llvm-mingw-ucrt-20261006': 'aarch64',
+}
+
+
 def portable_windows_environment(environment, tools):
     """Use only the app's compiler/build tools and Windows system executables."""
     root = Path(tools).resolve()
@@ -83,7 +89,12 @@ def portable_windows_environment(environment, tools):
                  'VSINSTALLDIR', 'WINDOWSSDKDIR', 'VSCMD_ARG_TGT_ARCH'):
         result.pop(name, None)
     directories = [root / 'llvm/bin', root / 'cmake/bin', root / 'ninja']
-    for executable in (directories[0] / 'x86_64-w64-mingw32-clang++.exe',
+    try:
+        metadata = json.loads((root / 'toolchain-manifest.json').read_text())
+        target = WINDOWS_COMPILER_TARGETS[metadata['abi']]
+    except (OSError, ValueError, KeyError) as error:
+        raise SetupError('The bundled Windows compiler manifest is missing or unsupported.') from error
+    for executable in (directories[0] / (target + '-w64-mingw32-clang++.exe'),
                        directories[1] / 'cmake.exe', directories[2] / 'ninja.exe'):
         if not executable.is_file():
             raise SetupError('The bundled Windows preparation tools are incomplete.')
@@ -270,7 +281,7 @@ class RomSetup:
             try:
                 compiler = json.loads((self.windows_tools / 'toolchain-manifest.json').read_text())
                 host = json.loads(self.host.with_name('preparation-abi.json').read_text())
-                if (compiler['abi'] != 'x86_64-llvm-mingw-ucrt-20261006' or
+                if (compiler['abi'] not in WINDOWS_COMPILER_TARGETS or
                         host['abi'] != compiler['abi'] or host['host_sha256'] != digest(self.host)):
                     raise ValueError('Compiler ABI mismatch')
             except (OSError, ValueError, KeyError) as error:
@@ -293,11 +304,14 @@ class RomSetup:
             import capstone
         except ImportError as error:
             raise SetupError('The preparation runtime is missing its Capstone dependency.') from error
-        subprocess.run([str(self.host), '--product-info'], check=True, env=self.environment,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.verify_host()
         for tool in (self.cmake, 'ninja'):
             if shutil.which(tool, path=self.environment.get('PATH')) is None:
                 raise SetupError('Required local build tool is missing: ' + Path(tool).name)
+
+    def verify_host(self):
+        subprocess.run([str(self.host), '--product-info'], check=True, env=self.environment,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def prepare(self, rom, data_root):
         self.checkpoint('checking', 'Checking the ROM and local preparation tools…')
@@ -369,7 +383,9 @@ class RomSetup:
         self.run([sys.executable, PROJECT / 'tools/native/generate_title_sources.py', '--engine', engine,
             '--program', work / 'aot-program.json',
             '--selection', work / 'selection.json', '--code', image / 'code.bin', '--output', generated,
-            '--shards', '64'])
+            '--observed-sites', image / 'observed-sites.json',
+            '--shards', str(getattr(self, 'title_shards', 64)),
+            '--shard-strategy', getattr(self, 'title_shard_strategy', 'stable')])
         sources = {p.name: digest(p) for p in generated.iterdir() if p.suffix in ('.cpp', '.h')}
         write_json(generated / 'TITLE_SOURCE_MANIFEST.json', {
             'format': 'triaevum_translated_title_source_v1', 'private_local_artifact': True,

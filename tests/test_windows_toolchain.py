@@ -42,3 +42,13 @@ class WindowsToolchainStaging(unittest.TestCase):
                      'doc/cmake/cmcppdap/NOTICE'):
             self.assertTrue(tools.selected('cmake', PurePosixPath(path)), path)
         self.assertFalse(tools.selected('cmake', PurePosixPath('doc/cmake/html/index.html')))
+
+    def test_arm64_selection_excludes_incompatible_x64_target_libraries(self):
+        for path in ('aarch64-w64-mingw32/lib/libc++.a',
+                     'bin/aarch64-w64-mingw32-clang++.exe', 'bin/libclang-cpp.dll'):
+            self.assertTrue(tools.selected('llvm', PurePosixPath(path), 'arm64'), path)
+        for path in ('x86_64-w64-mingw32/lib/libc++.a',
+                     'bin/x86_64-w64-mingw32-clang++.exe', 'bin/arm64ec-w64-mingw32-clang.exe'):
+            self.assertFalse(tools.selected('llvm', PurePosixPath(path), 'arm64'), path)
+        with self.assertRaises(ValueError):
+            tools.selected('llvm', PurePosixPath('bin/clang.exe'), 'unknown')

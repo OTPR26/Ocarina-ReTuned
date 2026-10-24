@@ -87,13 +87,13 @@ inline void ReportTextureMemory(uint64_t frame, uint64_t gpuBytes, size_t count)
 #if defined(__APPLE__) || defined(__ANDROID__)
     if (frame % 120 != 0) return;
     const auto memory = ReadTextureMemorySnapshot();
-        std::fprintf(stderr, "RETUNED_TEXTURE_MEMORY decoded=%llu gpu=%llu textures=%zu footprint=%llu available=%llu decoded_budget=%llu gpu_budget=%llu\n",
+        std::fprintf(stderr, "RETUNED_TEXTURE_MEMORY decoded=%llu gpu=%llu textures=%zu footprint=%llu available=%llu decoded_budget=%llu gpu_budget=%llu adaptive=%d\n",
             static_cast<unsigned long long>(DecodedTextureBytes.load()),
             static_cast<unsigned long long>(gpuBytes), count,
             static_cast<unsigned long long>(memory.Process),
             static_cast<unsigned long long>(memory.Available),
             static_cast<unsigned long long>(DecodedTextureBudget()),
-            static_cast<unsigned long long>(UploadedTextureBudget()));
+            static_cast<unsigned long long>(UploadedTextureBudget()), int(LimitTextureMemory()));
     std::fflush(stderr);
 #else
     (void)frame; (void)gpuBytes; (void)count;

@@ -1,5 +1,18 @@
     if(RetunedFrontend::MobileSettingsPlatform()) {
         bool changed=RetunedFrontend::Toggle("Use custom textures",&settings.LoadCustomTextures);
+#if defined(__ANDROID__)
+        const char* memoryMode=settings.AdaptiveTextureMemory?"Automatic":"Off";
+        if(ImGui::BeginCombo("Adaptive texture memory",memoryMode)) {
+            if(ImGui::Selectable("Automatic",settings.AdaptiveTextureMemory)) {
+                settings.AdaptiveTextureMemory=true;changed=true;
+            }
+            if(ImGui::Selectable("Off",!settings.AdaptiveTextureMemory)) {
+                settings.AdaptiveTextureMemory=false;changed=true;
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::TextWrapped("Automatic reduces texture-memory use on devices with limited RAM. Off keeps textures without a cache limit.");
+#endif
         auto& folders=RetunedFrontend::TextureFolders;
         if(folders.TakeSelection){
             const auto selected=folders.TakeSelection();

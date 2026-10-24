@@ -6,7 +6,16 @@ from apply_native_port import edit
 
 def apply(engine):
     source=Path(__file__).parent
+    from apply_movement_stick import apply as apply_movement
+    apply_movement(engine)
     runtime=engine/'tools/oot3d/native_game_runtime'
+    gui=engine/'runtime/three_ds_recomp/src/fast/Fast3dGui.cpp'
+    text=gui.read_text()
+    marker='// ReTuned frontend is shared with the Switch OpenGL backend.\n#if defined(__SWITCH__)\n'
+    if marker in text:
+        start=text.index(marker);end=text.index('#endif',start)+len('#endif')
+        text=text[:start]+text[start:end].replace('#if defined(__SWITCH__)\n','').replace('#endif','')+text[end:]
+        gui.write_text(text)
     for path in (runtime/'oot3d_native_a32_window_setup.cpp',runtime/'oot3d_native_a32_window_frame.cpp',engine/'runtime/three_ds_recomp/src/fast/Fast3dGui.cpp'):
         seen=set();lines=[]
         for line in path.read_text().splitlines(keepends=True):

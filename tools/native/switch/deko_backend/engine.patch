@@ -1,0 +1,206 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -226,3 +226,8 @@
+ 
+ 
+ include("${CMAKE_CURRENT_SOURCE_DIR}/ports/apple/app.cmake")
++
++if(RETUNED_SWITCH_DEKO)
++target_sources(oot3d_native_game PRIVATE "${RETUNED_SDL_SOURCE}/src/video/switch/SDL_switchvideo.c")
++target_sources(oot3d_native_game PRIVATE "${RETUNED_SDL_SOURCE}/src/audio/switch/SDL_switchaudio.c")
++endif()
+--- a/runtime/three_ds_recomp/src/fast/CMakeLists.txt
++++ b/runtime/three_ds_recomp/src/fast/CMakeLists.txt
+@@ -179,3 +179,12 @@
+ endif()
+ source_group("oot3d" FILES ${Source_Files__Oot3dRenderer})
+ target_sources(three_ds_recomp_runtime PRIVATE ${Source_Files__Oot3dRenderer})
++
++if(RETUNED_SWITCH_DEKO)
++file(GLOB deko_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/backends/retuned_deko/*.cpp")
++target_sources(three_ds_recomp_runtime PRIVATE ${deko_sources})
++target_compile_definitions(three_ds_recomp_runtime PRIVATE RETUNED_SWITCH_DEKO=1)
++target_include_directories(three_ds_recomp_runtime PRIVATE "${RETUNED_UAM_SOURCE}")
++target_link_libraries(three_ds_recomp_runtime PRIVATE "${RETUNED_UAM_LIBRARY}" "${DEVKITPRO}/libnx/lib/libdeko3dd.a")
++endif()
++
+--- a/runtime/three_ds_recomp/src/fast/Fast3dWindow.cpp
++++ b/runtime/three_ds_recomp/src/fast/Fast3dWindow.cpp
+@@ -10,6 +10,9 @@
+ #include "fast/backends/gfx_sdl.h"
+ #include "fast/backends/gfx_dxgi.h"
+ #include "fast/backends/gfx_opengl.h"
++#ifdef RETUNED_SWITCH_DEKO
++#include "fast/backends/retuned_deko/backend.h"
++#endif
+ #include "fast/backends/gfx_metal.h"
+ #include "fast/backends/gfx_direct3d_common.h"
+ #include "fast/backends/gfx_direct3d11.h"
+@@ -159,7 +162,11 @@
+ #endif
+ #ifdef ENABLE_OPENGL
+         case WindowBackend::FAST3D_SDL_OPENGL:
++            #ifdef RETUNED_SWITCH_DEKO
++            mRenderingApi = new GfxRenderingAPIDeko();
++#else
+             mRenderingApi = new GfxRenderingAPIOGL();
++#endif
+             mWindowManagerApi = new GfxWindowBackendSDL2();
+             break;
+ #endif
+--- a/runtime/three_ds_recomp/src/fast/Fast3dGui.cpp
++++ b/runtime/three_ds_recomp/src/fast/Fast3dGui.cpp
+@@ -1,3 +1,7 @@
++#ifdef RETUNED_SWITCH_DEKO
++#include "imgui.h"
++namespace Fast {void RetunedDekoGuiInit();void RetunedDekoGuiRender(ImDrawData*);}
++#endif
+ #include "fast/oot3d/retuned_menu_gamepads.h"
+ #include "fast/oot3d/retuned_settings_navigation.h"
+ #include "fast/Fast3dGui.h"
+@@ -464,7 +468,11 @@
+             if (Ship::Context::GetRawInstance()->GetConsoleVariables()->GetInteger(CVAR_ALLOW_BACKGROUND_INPUTS, 1)) {
+                 SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+             }
++            #ifdef RETUNED_SWITCH_DEKO
++            ImGui_ImplSDL2_InitForOther(static_cast<SDL_Window*>(mImpl.Opengl.Window));
++#else
+             ImGui_ImplSDL2_InitForOpenGL(static_cast<SDL_Window*>(mImpl.Opengl.Window), mImpl.Opengl.Context);
++#endif
+             break;
+ #ifdef ENABLE_OOT3D_VULKAN
+         case WindowBackend::FAST3D_SDL_OOT3D_VULKAN:
+@@ -530,7 +538,11 @@
+ #elif USE_OPENGLES
+             ImGui_ImplOpenGL3_Init("#version 300 es");
+ #else
++#ifdef RETUNED_SWITCH_DEKO
++            RetunedDekoGuiInit();
++#else
+             ImGui_ImplOpenGL3_Init("#version 120");
++#endif
+ #endif
+             break;
+ #endif
+@@ -574,7 +586,9 @@
+     switch (mImpl.Backend) {
+ #ifdef ENABLE_OPENGL
+         case WindowBackend::FAST3D_SDL_OPENGL:
++#ifndef RETUNED_SWITCH_DEKO
+             ImGui_ImplOpenGL3_Shutdown();
++#endif
+             break;
+ #endif
+ #if __APPLE__
+@@ -614,7 +628,9 @@
+     switch (mImpl.Backend) {
+ #ifdef ENABLE_OPENGL
+         case WindowBackend::FAST3D_SDL_OPENGL:
++#ifndef RETUNED_SWITCH_DEKO
+             ImGui_ImplOpenGL3_NewFrame();
++#endif
+             break;
+ #endif
+ 
+@@ -710,7 +726,11 @@
+     switch (mImpl.Backend) {
+ #ifdef ENABLE_OPENGL
+         case WindowBackend::FAST3D_SDL_OPENGL:
++#ifdef RETUNED_SWITCH_DEKO
++            RetunedDekoGuiRender(data);
++#else
+             ImGui_ImplOpenGL3_RenderDrawData(data);
++#endif
+             break;
+ #endif
+ 
+--- a/runtime/three_ds_recomp/src/fast/backends/gfx_sdl2.cpp
++++ b/runtime/three_ds_recomp/src/fast/backends/gfx_sdl2.cpp
+@@ -1,3 +1,9 @@
++#ifdef RETUNED_SWITCH_DEKO
++#define RETUNED_DEKO_WINDOW_FLAGS 0
++namespace Fast {void RetunedDekoPresent();}
++#else
++#define RETUNED_DEKO_WINDOW_FLAGS SDL_WINDOW_OPENGL
++#endif
+ #if defined(ENABLE_OPENGL) || defined(__APPLE__)
+ 
+ #include <algorithm>
+@@ -376,6 +382,10 @@
+     mUsesVulkan = strcmp(gfxApiName, "Vulkan") == 0;
+ #endif
+     ConfigureSdlVideoDriver(mUsesVulkan);
++#ifdef RETUNED_SWITCH_DEKO
++    // deko owns the NWindow; SDL retains Switch input/event handling.
++    SDL_SetHint(SDL_HINT_VIDEO_EXTERNAL_CONTEXT, "1");
++#endif
+ 
+ #if SDL_VERSION_ATLEAST(2, 24, 0)
+     /* fix DPI scaling issues on Windows */
+@@ -460,7 +470,7 @@
+         flags |= SDL_WINDOW_VULKAN;
+ #endif
+     } else if (use_opengl) {
+-        flags = flags | SDL_WINDOW_OPENGL;
++        flags = flags | RETUNED_DEKO_WINDOW_FLAGS;
+     } else {
+         flags = flags | SDL_WINDOW_METAL;
+     }
+@@ -508,13 +518,18 @@
+ #endif
+     } else if (use_opengl) {
+ #ifndef __SWITCH__
+-        SDL_GL_GetDrawableSize(mWnd, &mWindowWidth, &mWindowHeight);
++        SDL_GetWindowSize(mWnd, &mWindowWidth, &mWindowHeight);
+ 
+         if (startFullScreen) {
+             SetFullscreenImpl(true, false);
+         }
+ #endif
+ 
++#ifdef RETUNED_SWITCH_DEKO
++        mCtx = nullptr;
++        window_impl.Opengl = {mWnd, nullptr};
++        window_impl.Backend = WindowBackend::FAST3D_SDL_OPENGL;
++#else
+         mCtx = SDL_GL_CreateContext(mWnd);
+         if (mCtx == nullptr) {
+             throw std::runtime_error(std::string("SDL OpenGL context creation failed: ") + SDL_GetError());
+@@ -528,6 +543,7 @@
+ #endif
+         SDL_GL_SetSwapInterval(mVsyncEnabled ? 1 : 0);
+ 
++#endif
+         window_impl.Opengl = { mWnd, mCtx };
+         window_impl.Backend = WindowBackend::FAST3D_SDL_OPENGL;
+     } else {
+@@ -653,7 +669,7 @@
+ #endif
+ #endif
+     } else {
+-        SDL_GL_GetDrawableSize(mWnd, static_cast<int*>((void*)width), static_cast<int*>((void*)height));
++        SDL_GetWindowSize(mWnd, static_cast<int*>((void*)width), static_cast<int*>((void*)height));
+     }
+ #endif
+     SDL_GetWindowPosition(mWnd, static_cast<int*>(posX), static_cast<int*>(posY));
+@@ -781,7 +797,7 @@
+ #if defined(__APPLE__) || defined(__SWITCH__)
+                     SDL_GetWindowSize(mWnd, &mWindowWidth, &mWindowHeight);
+ #else
+-                    SDL_GL_GetDrawableSize(mWnd, &mWindowWidth, &mWindowHeight);
++                    SDL_GetWindowSize(mWnd, &mWindowWidth, &mWindowHeight);
+ #endif
+                     break;
+                 case SDL_WINDOWEVENT_CLOSE:
+@@ -904,7 +920,11 @@
+         if (mTargetFps != 0U) {
+             SyncFramerateWithTime();
+         }
++#ifdef RETUNED_SWITCH_DEKO
++        RetunedDekoPresent();
++#else
+         SDL_GL_SwapWindow(mWnd);
++#endif
+     }
+ }
+ 

@@ -25,6 +25,27 @@ def check_neutral_commands(commands):
         raise ValueError('Refusing translated title compilation')
 
 
+def binary_architecture(path, platform):
+    """Read the binary header instead of trusting build-folder or host names."""
+    with Path(path).open('rb') as stream:
+        header = stream.read(64)
+        if platform == 'linux' and header[:6] == b'\x7fELF\x02\x01':
+            machine = int.from_bytes(header[18:20], 'little')
+            architectures = {62: 'x86_64', 183: 'arm64'}
+        elif platform == 'windows' and header[:2] == b'MZ' and len(header) == 64:
+            stream.seek(int.from_bytes(header[60:64], 'little'))
+            signature = stream.read(6)
+            if signature[:4] != b'PE\0\0':
+                raise ValueError('Invalid Windows binary header')
+            machine = int.from_bytes(signature[4:6], 'little')
+            architectures = {0x8664: 'x86_64', 0xAA64: 'arm64'}
+        else:
+            raise ValueError('Unsupported desktop binary format')
+    if machine not in architectures:
+        raise ValueError('Unsupported desktop binary architecture')
+    return architectures[machine]
+
+
 def linux_audio_runtime(root, lib_root, config_root=Path('/usr/share/pipewire')):
     """SDL loads PipeWire and its plugins at runtime, outside ldd's closure."""
     lib_root = Path(lib_root)
@@ -155,11 +176,17 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
     check_neutral_commands(run('ninja', '-C', str(build), '-t', 'commands', 'triaevum_public_runtime'))
     targets = json.loads((build / 'triaevum-runtime-targets-Release.json').read_text())
     runtime, stub = (Path(targets[key]).resolve() for key in ('runtime', 'stub'))
+    architecture = binary_architecture(runtime, platform)
+    if binary_architecture(stub, platform) != architecture:
+        raise ValueError('Host and module architecture mismatch')
+    if platform == 'windows' and windows_triplet.split('-')[0] != ('arm64' if architecture == 'arm64' else 'x64'):
+        raise ValueError('Windows dependency triplet architecture mismatch')
     verify_neutral_shaders(engine, runtime)
     for path in (runtime, stub):
         if not path.is_relative_to(build) or not path.is_file():
             raise ValueError('Runtime target escaped build tree or is missing')
-    stem = 'Ocarina-ReTuned-Native-' + ('Windows-x64' if platform == 'windows' else 'Linux-x86_64')
+    suffix = 'ARM64' if architecture == 'arm64' else ('x64' if platform == 'windows' else 'x86_64')
+    stem = 'Ocarina-ReTuned-Native-' + platform.title() + '-' + suffix
     output.mkdir(parents=True, exist_ok=True)
     archive = output / (stem + ('.zip' if platform == 'windows' else '.tar.gz'))
     if archive.exists():
@@ -183,6 +210,8 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
             copied.update(p.name.lower() for p in audio_sources if '.so' in p.name)
         while pending:
             source = pending.pop()
+            if binary_architecture(source, platform) != architecture:
+                raise ValueError('Runtime dependency architecture mismatch: ' + source.name)
             if platform == 'linux':
                 listing = run('ldd', str(source))
                 if 'not found' in listing:
@@ -199,7 +228,7 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
                 search = [build, Path(os.environ['VULKAN_SDK']) / 'Bin']
                 redist = os.environ.get('VCToolsRedistDir')
                 if redist:
-                    search.extend(Path(redist).glob('x64/Microsoft.VC*.CRT'))
+                    search.extend(Path(redist).glob(('arm64' if architecture == 'arm64' else 'x64') + '/Microsoft.VC*.CRT'))
                 search.extend(Path(p) for p in os.environ.get('PATH', '').split(os.pathsep) if p)
                 libraries = []
                 for name in names:
@@ -214,6 +243,8 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
                         continue
                     libraries.append(match)
             for path in libraries:
+                if binary_architecture(path, platform) != architecture:
+                    raise ValueError('Runtime dependency architecture mismatch: ' + path.name)
                 if path.name.lower() in copied:
                     continue
                 copied.add(path.name.lower())
@@ -238,9 +269,9 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
             linux_dependency_notices(dependency_sources, notices)
         else:
             windows_dependency_notices(engine.parent / 'dependencies/vcpkg', notices, windows_triplet)
-            if windows_triplet == 'x64-mingw-static':
+            if windows_triplet in ('x64-mingw-static', 'arm64-mingw-static'):
                 (root / 'preparation-abi.json').write_text(json.dumps({
-                    'abi': 'x86_64-llvm-mingw-ucrt-20261006',
+                    'abi': ('aarch64' if architecture == 'arm64' else 'x86_64') + '-llvm-mingw-ucrt-20261006',
                     'host_sha256': hashlib.sha256(executable.read_bytes()).hexdigest()}, indent=2) + '\n')
         (root / 'README.txt').write_text('Ocarina ReTuned desktop host preview\n\nThis neutral host contains no ROM, title library or game assets.\nA locally prepared, platform-matching title is required for gameplay.\nUse --launch-profile with your local launch profile for testing.\n')
         if platform == 'linux':
@@ -255,7 +286,8 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
         result = subprocess.run([str(executable), '--product-info'], cwd=root, env=env, check=True, text=True, capture_output=True)
         (root / 'product-info.json').write_text(result.stdout)
         files = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file()}
-        (root / 'package-manifest.json').write_text(json.dumps({'schema':1, 'platform':platform, 'files':files}, indent=2)+'\n')
+        (root / 'package-manifest.json').write_text(json.dumps({'schema':1, 'platform':platform,
+            'architecture':architecture, 'files':files}, indent=2)+'\n')
         shutil.make_archive(str(output / stem), 'zip' if platform == 'windows' else 'gztar', temp, stem)
     print(archive.name)
 
@@ -263,7 +295,8 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--platform', choices=('windows', 'linux'), required=True)
-    parser.add_argument('--windows-triplet', choices=('x64-windows-static', 'x64-mingw-static'), default='x64-windows-static')
+    parser.add_argument('--windows-triplet', choices=('x64-windows-static', 'x64-mingw-static',
+        'arm64-windows-static', 'arm64-mingw-static'), default='x64-windows-static')
     for name in ('engine', 'build', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
     args = parser.parse_args()

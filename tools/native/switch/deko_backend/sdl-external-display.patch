@@ -1,0 +1,29 @@
+--- a/src/video/switch/SDL_switchvideo.c
++++ b/src/video/switch/SDL_switchvideo.c
+@@ -221,7 +221,8 @@
+         return SDL_SetError("Switch only supports one window");
+     }
+ 
+-    if (!_this->egl_data) {
++    /* ReTuned alteration: allow an externally owned deko3d display. */
++    if ((window->flags & SDL_WINDOW_OPENGL) && !_this->egl_data) {
+         return SDL_SetError("EGL not initialized");
+     }
+ 
+@@ -237,9 +238,13 @@
+         return SDL_SetError("Could not set NWindow dimensions: 0x%x", rc);
+     }
+ 
+-    window_data->egl_surface = SDL_EGL_CreateSurface(_this, nWindow);
+-    if (window_data->egl_surface == EGL_NO_SURFACE) {
+-        return SDL_SetError("Could not create GLES window surface");
++    window_data->egl_surface = EGL_NO_SURFACE;
++    if (window->flags & SDL_WINDOW_OPENGL) {
++        window_data->egl_surface = SDL_EGL_CreateSurface(_this, nWindow);
++        if (window_data->egl_surface == EGL_NO_SURFACE) {
++            SDL_free(window_data);
++            return SDL_SetError("Could not create GLES window surface");
++        }
+     }
+ 
+     /* Setup driver data for this window */
