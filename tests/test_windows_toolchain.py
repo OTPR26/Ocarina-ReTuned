@@ -10,6 +10,9 @@ spec.loader.exec_module(tools)
 
 
 class WindowsToolchainStaging(unittest.TestCase):
+    def test_omits_unused_store_signing_templates(self):
+        self.assertFalse(tools.selected('cmake', PurePosixPath('share/cmake/Templates/Windows/Windows_TemporaryKey.pfx')))
+
     def test_unverified_archive_never_creates_tool_directory(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

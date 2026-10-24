@@ -44,6 +44,9 @@ def selected(component, path, target_arch='x64'):
     if component == 'ninja':
         return path.as_posix() == 'ninja.exe'
     if component == 'cmake':
+        # Store-app signing templates are unused by ROM preparation.
+        if path.suffix.lower() in ('.pfx', '.p12'):
+            return False
         original_notice = (parts[:2] == ('doc', 'cmake') and
                            path.name.lower() in ('license.rst', 'license', 'copying', 'copyright.txt', 'notice'))
         return original_notice or parts[0] in ('share', 'licenses') or path.as_posix() in ('bin/cmake.exe', 'bin/cmcldeps.exe')
