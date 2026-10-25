@@ -94,6 +94,19 @@ unsigned ScreenPresentation_CanSwitch(void) {
     # Keep ReFramed's top-screen HUD in Dual. Its existing visibility settings
     # still control it; a second display is not an implicit Hide HUD request.
 
+    hud = root / 'src/native_hud.c'
+    text = marker + hud.read_text()
+    for before, after in (
+        ('    const u8 pauseLayout = InputRemap_IsItemsPageActive() ? 1 :',
+         '    const u8 dual = ScreenPresentation_IsDual();\n    const u8 pauseLayout = dual ? 0 : InputRemap_IsItemsPageActive() ? 1 :'),
+        ('    const u8 ocarinaLayout = pauseLayout == 0 && InputRemap_IsOcarinaUiOpen();',
+         '    const u8 ocarinaLayout = !dual && pauseLayout == 0 && InputRemap_IsOcarinaUiOpen();'),
+    ):
+        if text.count(before) != 1:
+            raise ValueError('Dual top HUD layout context changed')
+        text = text.replace(before, after)
+    hud.write_text(text)
+
     # The native sidebar has a dedicated four-glyph renderer (X, Y, I, II).
     # Suppress only that draw in Dual, as ReMasked does for native item labels.
     # Icon renderers, ammo renderers, fades and touch handling remain native.

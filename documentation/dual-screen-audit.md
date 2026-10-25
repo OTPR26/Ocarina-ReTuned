@@ -237,7 +237,9 @@ floating mode button. Changes wait for the existing safe guest handshake;
 selecting Single keeps the lower display until any active menu transition
 finishes. An unavailable second display falls back to Single while preserving
 the selection. The ReFramed HUD remains on the top screen in Dual and follows
-the normal HUD visibility setting.
+the normal HUD visibility setting. Dual also bypasses the single-screen Items
+and Ocarina HUD relocation: the top HUD keeps its gameplay positions while
+the lower screen owns those menus.
 
 The Android top view uses the full main display and supplies those dimensions
 to scene projection, rather than fitting it back into the original 5:3 frame.
