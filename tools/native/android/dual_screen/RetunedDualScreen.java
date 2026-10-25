@@ -15,11 +15,12 @@ final class RetunedDualScreen implements DisplayManager.DisplayListener {
  private final Handler handler=new Handler(Looper.getMainLooper());private boolean closed=false,wanted=true;
  static native void surface(Surface surface);static native boolean displayWanted();
  static native void touch(int x,int y,boolean down);
+ static native void size(int width,int height);
  RetunedDualScreen(Activity activity){this.activity=activity;manager=(DisplayManager)activity.getSystemService(Activity.DISPLAY_SERVICE);
   manager.registerDisplayListener(this,handler);refresh();
   handler.post(new Runnable(){public void run(){if(closed)return;boolean next=displayWanted();if(next!=wanted){wanted=next;refresh();}handler.postDelayed(this,250);}});
  }
- private void refresh(){if(closed)return;Display chosen=null;for(Display d:manager.getDisplays())if(wanted&&d.getDisplayId()!=activity.getDisplay().getDisplayId()&&d.getState()==Display.STATE_ON){chosen=d;break;}
+ private void refresh(){if(closed)return;Display chosen=null;for(Display d:manager.getDisplays())if(wanted&&d.getDisplayId()!=activity.getWindowManager().getDefaultDisplay().getDisplayId()&&d.getState()==Display.STATE_ON){chosen=d;break;}
   if(lower!=null&&(chosen==null||lower.getDisplay().getDisplayId()!=chosen.getDisplayId())){lower.dismiss();lower=null;}
   if(lower==null&&chosen!=null){android.util.Log.i("ReTunedDual","Opening lower display "+chosen.getDisplayId()+" "+chosen.getName());lower=new Lower(activity,chosen);lower.getWindow().addFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);lower.show();}
  }
@@ -37,7 +38,7 @@ final class RetunedDualScreen implements DisplayManager.DisplayListener {
     touch(inside?(int)(x/fitW*320):0,inside?(int)(y/fitH*240):0,down&&inside);return true;});
   }
   public void surfaceCreated(SurfaceHolder h){surface(h.getSurface());}
-  public void surfaceChanged(SurfaceHolder h,int f,int w,int height){surface(h.getSurface());}
-  public void surfaceDestroyed(SurfaceHolder h){touch(0,0,false);surface(null);}
+  public void surfaceChanged(SurfaceHolder h,int f,int w,int height){size(view.getWidth(),view.getHeight());surface(h.getSurface());}
+  public void surfaceDestroyed(SurfaceHolder h){touch(0,0,false);surface(null);size(0,0);}
  }
 }

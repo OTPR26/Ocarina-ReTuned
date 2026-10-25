@@ -239,6 +239,16 @@ finishes. An unavailable second display falls back to Single while preserving
 the selection. The ReFramed HUD remains on the top screen in Dual and follows
 the normal HUD visibility setting.
 
+The Android top view uses the full main display and supplies those dimensions
+to scene projection, rather than fitting it back into the original 5:3 frame.
+The lower view retains its native 4:3 proportions. Its rotated 240x320 and
+480x320 render targets scale to the lower SurfaceView's fitted pixel dimensions;
+the latter retains its two-sample display transfer. This allows high-resolution
+custom textures to survive lower-screen composition instead of being reduced
+to the original render-target resolution. Unrelated targets are unchanged.
+Sanitized coordinate tests cover Thor, wide external outputs, both native
+sampling ratios, and unavailable displays.
+
 The lower swapchain needs the native renderer's color and depth attachments.
 Identity pre-transform matches the main Android output. A compositor reporting
 SUBOPTIMAL without a changed surface is not a reason to rebuild identical

@@ -6,6 +6,7 @@
 namespace RetunedFrontend {
 inline std::atomic<bool> AndroidLowerAvailable{false}, AndroidDualSelected{true}, AndroidGuestDualActive{false};
 inline std::atomic<unsigned> AndroidLowerTouch{0};
+inline std::atomic<unsigned> AndroidLowerWidth{0},AndroidLowerHeight{0};
 inline bool AndroidDualProbeRequested() {
  const char* v=std::getenv("RETUNED_SCREEN_PROBE");return v&&std::string_view(v)=="android-dual";
 }

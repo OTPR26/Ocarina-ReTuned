@@ -6,3 +6,8 @@ extern "C" JNIEXPORT jboolean JNICALL Java_org_triaevum_android_RetunedDualScree
 extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_RetunedDualScreen_touch(JNIEnv*,jclass,jint x,jint y,jboolean pressed) {
  RetunedFrontend::AndroidLowerTouch=pressed&&x>=0&&x<320&&y>=0&&y<240?0x80000000u|(unsigned(x)<<8)|unsigned(y):0;
 }
+
+extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_RetunedDualScreen_size(JNIEnv*,jclass,jint width,jint height) {
+ RetunedFrontend::AndroidLowerWidth=width>0?unsigned(width):0;
+ RetunedFrontend::AndroidLowerHeight=height>0?unsigned(height):0;
+}

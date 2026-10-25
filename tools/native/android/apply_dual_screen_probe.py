@@ -21,7 +21,7 @@ def apply(root):
  edit(probe,'#include "duo_game_display.h"','#include "duo_game_display.h"\n#include "android_display_state.h"')
  edit(probe,'inline bool ScreenProbeRequested(){return DuoProbeRequested()', 'inline bool ScreenProbeRequested(){return AndroidDualProbeRequested() || DuoProbeRequested()')
  edit(probe,'inline bool ScreenProbeEnabled(){return DuoProbeRequested()', 'inline bool ScreenProbeEnabled(){return (AndroidDualProbeRequested() && ProbeGuestDualActive.load()) || DuoProbeRequested()')
- edit(probe,'inline GameScreenLayout ScreenProbeLayout(float width,float height) {','inline GameScreenLayout ScreenProbeLayout(float width,float height) {\n if(AndroidDualProbeRequested())return {FitScreen({0,0,width,height},400.f/240.f),FitScreen({0,0,width,height},320.f/240.f)};')
+ edit(probe,'inline GameScreenLayout ScreenProbeLayout(float width,float height) {','inline GameScreenLayout ScreenProbeLayout(float width,float height) {\n if(AndroidDualProbeRequested())return {{0,0,width,height},FitScreen({0,0,width,height},320.f/240.f)};')
  bridge=runtime/'retuned_reframed_screen_probe.h'
  edit(bridge,'        // Private diagnostic control only.', '        if (AndroidDualProbeRequested()) requested = AndroidLowerAvailable.load() && AndroidDualSelected.load() ? GamePresentation::Dual : GamePresentation::Single;\n        // Private diagnostic control only.')
  edit(bridge,'        ProbeGuestDualActive = mBridge.Effective() == GamePresentation::Dual;',
@@ -44,6 +44,24 @@ def apply(root):
                 ImGui::TextWrapped("Screen mode changes after closing game menus and returning to gameplay.");
         }
         ImGui::SeparatorText("Menu");''')
+ (inc/'android_lower_resolution.h').write_bytes((here/'lower_resolution.h').read_bytes())
+ resolution=inc/'render_resolution_policy.h'
+ edit(resolution,'#include "fast/oot3d/graphics_settings.h"','#include "fast/oot3d/graphics_settings.h"\n#include "android_display_state.h"\n#include "android_lower_resolution.h"')
+ edit(resolution,'    RenderExtent base = guestExtent;','''#ifdef __ANDROID__
+    if(RetunedFrontend::AndroidDualProbeRequested() && RetunedFrontend::AndroidGuestDualActive.load()) {
+        if(const auto lower=RetunedFrontend::AndroidLowerRenderExtent(guestExtent.Width,guestExtent.Height,
+             RetunedFrontend::AndroidLowerWidth.load(),RetunedFrontend::AndroidLowerHeight.load()))
+            return ScaleRenderExtent({lower->Width,lower->Height},internalScale);
+    }
+#endif
+    RenderExtent base = guestExtent;''')
+ targets=root/'runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_pica.cpp'
+ edit(targets,'    target.Height = targetExtent.Height;','''    target.Height = targetExtent.Height;
+#ifdef __ANDROID__
+    if(RetunedFrontend::AndroidDualProbeRequested() && RetunedFrontend::AndroidGuestDualActive.load() &&
+       key.Height==320 && (key.Width==240 || key.Width==480))
+        std::fprintf(stderr,"RETUNED_LOWER_RESOLUTION guest=%ux%u render=%ux%u\\n",key.Width,key.Height,target.Width,target.Height);
+#endif''')
  hdr=root/'runtime/three_ds_recomp/include/fast/backends/gfx_vulkan.h'
  edit(hdr,'#include <vulkan/vulkan.h>','#include <vulkan/vulkan.h>\n#ifdef __ANDROID__\n#include "fast/oot3d/android_secondary_swapchain.h"\n#endif')
  edit(hdr,'    VkInstance mInstance = VK_NULL_HANDLE;','    VkInstance mInstance = VK_NULL_HANDLE;\n#ifdef __ANDROID__\n    RetunedFrontend::AndroidSecondarySwapchain mAndroidLower;\n#endif')
