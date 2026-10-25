@@ -57,7 +57,7 @@ Android provides display discovery/listeners and presentation-display APIs. Devi
 
 For Duo, Apple's guidance covers adaptive inner/outer window sizes and reserved fold/camera regions. The UIKit hinge API reports discrete state and angle, while layout APIs define usable regions. These are inputs to our Hybrid policy, not an existing ReTuned implementation. See [preparing for Duo](https://developer.apple.com/iphone-duo/prepare/), [adaptive layouts](https://developer.apple.com/videos/play/tech-talks/111463/), and [hinge observation](https://developer.apple.com/videos/play/tech-talks/111464/).
 
-The audited local toolchain reports Xcode 27.0 and the iOS 27.0 SDK. No available Duo simulator was listed. Duo-specific API availability and the required SDK/simulator must be verified before implementation; do not claim Duo testing based on an ordinary iPhone simulator.
+The project now uses the installed Xcode 27.1 and iOS 27.1 SDK through an explicit `DEVELOPER_DIR`. The iOS 27.1 runtime and a dedicated Duo simulator are installed. The older Xcode beta remains available for other projects; the global toolchain selection was not changed.
 
 ## Acceptance checks
 
@@ -121,15 +121,42 @@ Dual and the restored ReFramed HUD in Single. It completed 2,600 host frames
 and exited successfully. This establishes a gameplay switching proof, not
 complete Dual Screen support: all native menus, held-touch transitions,
 dialogue, audio continuity, and long sessions still require validation.
-Android output routing and Duo Single/Dual/Hybrid remain unimplemented.
+Android output routing and playable Duo Single/Dual/Hybrid integration remain unimplemented.
 
 Host checks cover invalid/absent capabilities, deferred changes, invalid
 mode requests, guest execution failures, and a false acknowledgement. The C
 mode protocol and C++ handshake pass AddressSanitizer/UndefinedBehaviorSanitizer
 checks; the ARM mod, native host, and translated title module build locally.
 
-The installed iOS 27.0 SDK has no hinge headers. The owner authorized updating
-Xcode; the official Xcode 27.1 download includes the iOS 27.1 SDK and Duo
-simulator support. Installation and API/simulator verification must complete
-before a Duo build is claimed. No installed game apps or real saves were
-changed by these experiments, and no GitHub Actions were used.
+## Duo SDK and layout proof
+
+The owner-authorized Xcode update is complete, including first-launch components
+and the iOS 27.1 simulator runtime. `duo_layout_observer.mm` reads UIKit hinge
+updates, safe bounds, division strips, and active occlusions. New UIKit symbols
+are weak linked, and the observer also compiles with the older SDK fallback.
+
+The standalone `tests/apple/build_duo_probe.py` diagnostic uses no game data.
+On a dedicated Duo simulator, Single expanded from the outer to the inner
+display without enabling Dual. Manual Dual arranged two aspect-correct panes
+around Apple's division strip; rotating a partially folded device changed
+from side-by-side to stacked panes. Closing fell back to Single, and reopening
+restored the selected Dual mode without restarting the diagnostic. An actual
+lower-pane tap mapped to native coordinate 160,120; an upper-pane tap was rejected.
+These checks validate layout and input routing in the diagnostic, not gameplay.
+
+The shared mode policy preserves the user's preference through fallbacks,
+requires a compatible prepared-game capability, and debounces a confirmed
+laptop-posture signal. Hybrid remains disabled in the diagnostic: the simulator
+reports no device-motion data, and hinge angle or a horizontal divider alone
+does not prove laptop posture. Physical posture classification, live game
+integration, and native-menu transition validation remain unfinished.
+
+Build the isolated diagnostic with:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+python3 tests/apple/build_duo_probe.py /path/to/OcarinaDisplayProbe.app
+```
+
+No installed game apps or real saves were changed by these experiments, and
+no GitHub Actions were used.
