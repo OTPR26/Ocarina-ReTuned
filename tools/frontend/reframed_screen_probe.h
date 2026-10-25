@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <iostream>
 #include <span>
+#include <array>
 #include <string>
 #include <stdexcept>
 
@@ -15,7 +16,7 @@ namespace RetunedFrontend {
 class ReframedScreenProbe {
  public:
     void Initialize(const std::filesystem::path& manifest) {
-        if (!ScreenProbeEnabled()) return;
+        if (!ScreenProbeRequested()) return;
         ProbeGuestBridgeBound = true;
         std::ifstream file(manifest);
         nlohmann::json root;
@@ -31,7 +32,7 @@ class ReframedScreenProbe {
     }
     bool Apply(Oot3dNativeGame::NativeA32Process& process, uint64_t frame) {
         if (!mBridge.Supported()) return false;
-        GamePresentation requested = GamePresentation::Dual;
+        GamePresentation requested = DuoProbeRequested() ? DuoDisplay.Requested(mBridge.Supported()) : GamePresentation::Dual;
         // Private diagnostic control only. No saved user preference is changed.
         if (const char* path = std::getenv("RETUNED_SCREEN_PROBE_CONTROL")) {
             std::ifstream control(path);
@@ -56,13 +57,22 @@ class ReframedScreenProbe {
         if (mBridge.Faulted())
             throw std::runtime_error("Screen-presentation handshake failed; stopping the isolated probe");
         ProbeGuestDualActive = mBridge.Effective() == GamePresentation::Dual;
-        if (previous == mBridge.Effective()) return false;
+        bool layoutChanged = false;
+        if (DuoProbeRequested()) {
+            const auto layout = DuoDisplay.Layout(1,1,ProbeGuestDualActive.load());
+            const std::array<float,8> values{layout.Top.X,layout.Top.Y,layout.Top.Width,layout.Top.Height,
+                layout.Lower.X,layout.Lower.Y,layout.Lower.Width,layout.Lower.Height};
+            layoutChanged = !mLastLayout || *mLastLayout != values;
+            mLastLayout = values;
+        }
+        if (previous == mBridge.Effective()) return layoutChanged;
         std::cout << "RETUNED_SCREEN_SWITCH frame=" << frame << " mode="
                   << (ProbeGuestDualActive ? "dual" : "single") << std::endl;
         return true;
     }
  private:
     ScreenPresentationBridge mBridge;
+    std::optional<std::array<float,8>> mLastLayout;
 };
 inline ReframedScreenProbe NativeScreenProbe;
 }

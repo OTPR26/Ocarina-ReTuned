@@ -39,5 +39,16 @@ int main(){
  ProbeGuestDualActive=false;
  assert(!ScreenProbeEnabled());
  ProbeGuestBridgeBound=false;
+ Mode("duo");
+ assert(ScreenProbeRequested() && ScreenProbeEnabled());
+ DuoDisplay.Publish({true,false,{0,0,900,700},{0,20,900,660},{430,0,40,700},{}});
+ auto single=ScreenProbeLayout(900,700);
+ assert(single.Top.Width==900 && !single.Lower.Width);
+ assert(!ScreenProbeTouch(900,700,600,350));
+ ProbeGuestDualActive=true;
+ auto dual=ScreenProbeLayout(900,700);
+ auto touch=ScreenProbeTouch(900,700,dual.Lower.X+dual.Lower.Width/2,dual.Lower.Y+dual.Lower.Height/2);
+ assert(touch && touch->X==160 && touch->Y==120);
+ ProbeGuestDualActive=false;
  Mode("");
 }

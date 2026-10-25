@@ -73,6 +73,24 @@ unsigned ScreenPresentation_CanSwitch(void) {
 }
 '''
     path.write_text(text)
+    # Native Dual menus already consume 320x240 input. The unified shell's
+    # 400x240 transform would otherwise intercept and misroute those touches.
+    inputs = root / 'src/input_remap.c'
+    text = marker + inputs.read_text()
+    for before, after in (
+        ('if (sItemsMenuOpen || sDirectOptions || sPauseOpening || sPauseClosing) {',
+         'if (!ScreenPresentation_IsDual() && (sItemsMenuOpen || sDirectOptions || sPauseOpening || sPauseClosing)) {'),
+        ('if (sItemsMenuOpen && !sPauseOpening && !sPauseClosing && touchPress) {',
+         'if (!ScreenPresentation_IsDual() && sItemsMenuOpen && !sPauseOpening && !sPauseClosing && touchPress) {'),
+        ('if (sItemsMenuOpen && !sPauseOpening && !sPauseClosing &&\n        freshTouch && sPhysicalTouchHeld) {',
+         'if (!ScreenPresentation_IsDual() && sItemsMenuOpen && !sPauseOpening && !sPauseClosing &&\n        freshTouch && sPhysicalTouchHeld) {'),
+        ('if (sItemsMenuOpen && !sFooterFocus && !sFooterNavigationLatch &&',
+         'if (!ScreenPresentation_IsDual() && sItemsMenuOpen && !sFooterFocus && !sFooterNavigationLatch &&'),
+    ):
+        if text.count(before) != 1:
+            raise ValueError('Dual menu input context changed')
+        text = text.replace(before, after)
+    inputs.write_text(text)
     hud = root / 'src/native_hud.c'
     text = marker + hud.read_text()
     signature = 'void NativeHud_Update(GlobalContext* globalCtx) {'

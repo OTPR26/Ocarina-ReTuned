@@ -7,8 +7,11 @@ from apply_native_port import edit
 def apply(engine):
  engine=Path(engine);source=Path(__file__).parent
  include=engine/'runtime/three_ds_recomp/include/fast/oot3d'
- for name in ('screen_layout.h','screen_probe.h'):
+ for name in ('screen_probe.h',):
   (include/('retuned_'+name)).write_text((source/name).read_text())
+ for name in ('screen_layout.h','screen_presentation_bridge.h','screen_mode_policy.h','duo_game_display.h'):
+  (include/name).write_bytes((source/name).read_bytes())
+ (include/'retuned_screen_layout.h').write_text('#pragma once\n#include "screen_layout.h"\n')
  backend=engine/'runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_pica_display.cpp'
  text=backend.read_text();marker='#include "fast/oot3d/retuned_screen_probe.h"\n'
  if marker not in text:backend.write_text(marker+text)
@@ -58,6 +61,8 @@ def apply(engine):
                       presentationRenderTargetNamespace, &renderError)) {'''
  after='''            [&, bottomSelection = selectedBottom->second] {
               RetunedFrontend::ProbeScanoutScope probeScope(RetunedFrontend::GameScreen::Lower);
+              if (RetunedFrontend::ScreenProbeEnabled() &&
+                  RetunedFrontend::ScreenProbeLayout(1,1).Lower.Width<=0) return;
               auto bottomNamespace=presentationRenderTargetNamespace;
               if(RetunedFrontend::ScreenProbeEnabled() &&
                  !picaPresentationScheduler.HasSnapshot(bottomSelection,bottomNamespace))
@@ -69,6 +74,11 @@ def apply(engine):
               if (!picaPresentationScheduler.PresentExisting(
                       api, bottomSelection,
                       bottomNamespace, &renderError)) {'''
+ # Upgrade a previous revision of this opt-in block in an isolated tree.
+ text=frame.read_text()
+ old='              auto bottomNamespace=presentationRenderTargetNamespace;'
+ guard='              if (RetunedFrontend::ScreenProbeEnabled() &&\n                  RetunedFrontend::ScreenProbeLayout(1,1).Lower.Width<=0) return;\n'
+ if old in text and guard not in text:frame.write_text(text.replace(old,guard+old))
  edit(frame,before,after)
  setup=runtime/'oot3d_native_a32_window_setup.cpp';text=setup.read_text()
  if marker not in text:setup.write_text(marker+text)
@@ -83,15 +93,24 @@ def apply(engine):
  inp=runtime/'oot3d_native_a32_window_input.cpp';text=inp.read_text()
  if marker not in text:inp.write_text(marker+text)
  edit(inp,'''  const bool gameplayMouseEligible = ResolveNativeGameplayMouseOwnership(''','''  const bool gameplayMouseEligible = !RetunedFrontend::ScreenProbeEnabled() && ResolveNativeGameplayMouseOwnership(''')
- edit(inp,'''  if (nativeFrontendTouchEnabled && !hostGuiVisible) {''','''  if(RetunedFrontend::ScreenProbeEnabled() && !hostGuiVisible) {
+ # Upgrade only our previous opt-in touch block, retaining applier idempotence.
+ text=inp.read_text()
+ text=text.replace('if(RetunedFrontend::ScreenProbeEnabled() && !hostGuiVisible) {',
+                   'if(RetunedFrontend::ScreenProbeEnabled() && (!RetunedFrontend::DuoProbeRequested() || RetunedFrontend::ProbeGuestDualActive.load()) && !hostGuiVisible) {')
+ text=text.replace('if (!RetunedFrontend::ScreenProbeEnabled() && nativeFrontendTouchEnabled && !hostGuiVisible) {',
+                   'if ((!RetunedFrontend::ScreenProbeEnabled() || (RetunedFrontend::DuoProbeRequested() && !RetunedFrontend::ProbeGuestDualActive.load())) && nativeFrontendTouchEnabled && !hostGuiVisible) {')
+ text=text.replace('    const auto layout=RetunedFrontend::ScreenProbeLayout(window.GetWidth(),window.GetHeight());\n','')
+ text=text.replace('const auto touch=RetunedFrontend::MapLowerScreenTouch(layout,pointer.x,pointer.y);',
+                   'const auto touch=RetunedFrontend::ScreenProbeTouch(window.GetWidth(),window.GetHeight(),pointer.x,pointer.y);')
+ inp.write_text(text)
+ edit(inp,'''  if (nativeFrontendTouchEnabled && !hostGuiVisible) {''','''  if(RetunedFrontend::ScreenProbeEnabled() && (!RetunedFrontend::DuoProbeRequested() || RetunedFrontend::ProbeGuestDualActive.load()) && !hostGuiVisible) {
     if(window.IsMouseCaptured())window.SetMouseCapture(false);
     window.SetCursorVisibility(true);
     const auto pointer=window.GetMousePos();
-    const auto layout=RetunedFrontend::ScreenProbeLayout(window.GetWidth(),window.GetHeight());
-    const auto touch=RetunedFrontend::MapLowerScreenTouch(layout,pointer.x,pointer.y);
+    const auto touch=RetunedFrontend::ScreenProbeTouch(window.GetWidth(),window.GetHeight(),pointer.x,pointer.y);
     frame.Hid.TouchPressed=touch.has_value() && window.GetMouseState(Ship::LUS_MOUSE_BTN_LEFT);
     frame.Hid.TouchX=touch?touch->X:0;frame.Hid.TouchY=touch?touch->Y:0;
   }
-  if (!RetunedFrontend::ScreenProbeEnabled() && nativeFrontendTouchEnabled && !hostGuiVisible) {''')
+  if ((!RetunedFrontend::ScreenProbeEnabled() || (RetunedFrontend::DuoProbeRequested() && !RetunedFrontend::ProbeGuestDualActive.load())) && nativeFrontendTouchEnabled && !hostGuiVisible) {''')
 
 if __name__=='__main__':apply(Path(sys.argv[1]))

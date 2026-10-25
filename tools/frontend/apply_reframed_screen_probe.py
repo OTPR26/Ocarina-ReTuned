@@ -13,6 +13,7 @@ def apply(engine):
     here = Path(__file__).parent
     for name in ('screen_presentation_bridge.h', 'reframed_screen_probe.h'):
         (runtime / ('retuned_' + name)).write_bytes((here / name).read_bytes())
+    (runtime / 'retuned_screen_presentation_bridge.h').write_text('#pragma once\n#include "fast/oot3d/screen_presentation_bridge.h"\n')
     marker = '#include "retuned_reframed_screen_probe.h"\n'
     for name in ('setup', 'frame'):
         path = runtime / ('oot3d_native_a32_window_' + name + '.cpp')

@@ -160,3 +160,47 @@ python3 tests/apple/build_duo_probe.py /path/to/OcarinaDisplayProbe.app
 
 No installed game apps or real saves were changed by these experiments, and
 no GitHub Actions were used.
+
+## Playable Duo host integration experiment
+
+The opt-in `tools/native/apple/apply_duo_game_probe.py` connects the UIKit
+observer to the SDL game window. Single and Dual selections request a mode
+through the prepared-game handshake. Rendering follows the acknowledged mode;
+layout changes release the current touch sample and refresh scene projection.
+The same safe-area/division geometry supplies drawable-pixel composition and
+logical-point lower-screen touch mapping. Closed or unavailable lower views
+reject lower touches. Hybrid remains unavailable.
+
+The private Apple simulator host and matching translated module compile and
+link. Device-target compilation of the UIKit/SDL adapter also passes. This is
+not yet a successful Duo gameplay test: Apple's simulator GPU advertises a
+32-byte render-target budget and lacks `VK_FORMAT_R32_UINT` storage-image
+atomics. Skipping the optional, disabled grass initializer in this simulator
+experiment gets past its eager 44/52-byte pipelines, but the required image
+atomic capability still stops native game presentation. GPU validation was
+not disabled. Physical-device rendering is unchanged by the simulator-only
+workaround.
+
+The shared game was tested separately on the Mac GPU with copied saves, including
+a replay of the Duo simulator's measured fold geometry. This is not native Duo
+execution. Native
+Dual Items, Gear, Map, and the Ocarina song list render. Native-coordinate
+item selection changes the item description, and lower-screen tab touches
+change Gear/Map/Items correctly. The experiment now bypasses the single-screen
+400x240 shell transform for native Dual touches. A mode change requested while
+Items was open remained deferred until the menu closed, then returned to
+Single in the same process.
+
+The experiment is excluded from normal package staging. File selection,
+naming, Save/Game Over, physical touch/controller input, suspend/resume,
+long-session audio continuity, and complete native Duo gameplay remain open
+validation items. Existing prepared data does not gain this capability without
+a compatible mod/module preparation. No release or installed user app was
+changed.
+
+The Apple host must be configured with `OOT3D_DIRECT_AOT_PLUGIN=ON` and
+`OOT3D_WHOLE_AOT_PRODUCT_MODE=ON`, the matching simulator/device MoltenVK
+library, and the correct SDK. The private diagnostic uses
+`RETUNED_SCREEN_PROBE=duo`; no normal build enables it implicitly. The simulator
+run used the Authentic graphics preset. Its UIKit Single/Dual selector is a
+private test control, not the final saved Settings interface.
