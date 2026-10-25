@@ -204,3 +204,14 @@ library, and the correct SDK. The private diagnostic uses
 `RETUNED_SCREEN_PROBE=duo`; no normal build enables it implicitly. The simulator
 run used the Authentic graphics preset. Its UIKit Single/Dual selector is a
 private test control, not the final saved Settings interface.
+
+## Dual-screen sidebar buttons
+
+The experimental Dual presentation uses icon-only side buttons, matching
+ReMasked's removal of native controller labels. The canonical gameplay and
+Items sidebar each have a dedicated four-glyph draw for X, Y, I, and II;
+`dual_screen_sidebar.c` skips only those draws in Dual. Single retains the
+native labels. Equipped-item renderers, quantity renderers, button artwork,
+transition alpha, and native touch handling are unchanged. The separate sword
+B badge is collapsed only during gameplay submission, then its source geometry
+is restored immediately. No shared atlas pixels are erased.

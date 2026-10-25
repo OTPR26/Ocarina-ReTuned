@@ -103,6 +103,30 @@ unsigned ScreenPresentation_CanSwitch(void) {
     }''')
     hud.write_text(text)
 
+    # The native sidebar has a dedicated four-glyph renderer (X, Y, I, II).
+    # Suppress only that draw in Dual, as ReMasked does for native item labels.
+    # Icon renderers, ammo renderers, fades and touch handling remain native.
+    (root / 'src/dual_screen_sidebar.c').write_text((here / 'dual_screen_sidebar.c').read_text())
+    patches = root / 'src/patches.s'
+    patches.write_text(patches.read_text() + """
+.section .patch_DualSidebarSubmission, "ax"
+    bl ScreenPresentation_SubmitSidebar
+.section .patch_DualGameplayItemLabels, "ax"
+    bl ScreenPresentation_DrawItemLabels
+.section .patch_DualInventoryItemLabels, "ax"
+    bl ScreenPresentation_DrawItemLabels
+""")
+    linker = root / 'oot_e.ld'
+    text = linker.read_text()
+    anchor = '\t. = 0x100000;'
+    if text.count(anchor) != 1:
+        raise ValueError('Canonical sidebar linker context changed')
+    linker.write_text(text.replace(anchor, anchor + """
+    .patch_DualSidebarSubmission 0x41EAE0 : { *(.patch_DualSidebarSubmission) }
+    .patch_DualGameplayItemLabels 0x42F5EC : { *(.patch_DualGameplayItemLabels) }
+    .patch_DualInventoryItemLabels 0x434CF0 : { *(.patch_DualInventoryItemLabels) }
+"""))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
