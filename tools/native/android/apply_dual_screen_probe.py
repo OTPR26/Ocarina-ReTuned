@@ -1,0 +1,112 @@
+"""Install the opt-in Android dual-display hardware experiment; not release staging."""
+from pathlib import Path
+import sys
+sys.path[:0]=[str(Path(__file__).resolve().parents[2]/'frontend'),str(Path(__file__).resolve().parents[2]/'reframed')]
+from apply_reframed_screen_probe import apply as presentation
+
+def apply(root):
+ root=Path(root)
+ # Shared presentation staging rewrites its headers. Preserve the Android
+ # additions on repeated application to this private experimental tree.
+ marker=root/'runtime/three_ds_recomp/include/fast/oot3d/android_secondary_swapchain.h'
+ if not marker.exists():presentation(root)
+ here=Path(__file__).parent/'dual_screen';inc=root/'runtime/three_ds_recomp/include/fast/oot3d';runtime=root/'tools/oot3d/native_game_runtime'
+ for src,dst in [('display_state.h','android_display_state.h'),('secondary_swapchain.h','android_secondary_swapchain.h')]: (inc/dst).write_bytes((here/src).read_bytes())
+ def edit(path,before,after):
+  s=path.read_text()
+  if after in s:return
+  if s.count(before)!=1:raise ValueError('Android dual context changed: '+str(path)+' '+before[:50])
+  path.write_text(s.replace(before,after))
+ probe=inc/'retuned_screen_probe.h'
+ edit(probe,'#include "duo_game_display.h"','#include "duo_game_display.h"\n#include "android_display_state.h"')
+ edit(probe,'inline bool ScreenProbeRequested(){return DuoProbeRequested()', 'inline bool ScreenProbeRequested(){return AndroidDualProbeRequested() || DuoProbeRequested()')
+ edit(probe,'inline bool ScreenProbeEnabled(){return DuoProbeRequested()', 'inline bool ScreenProbeEnabled(){return (AndroidDualProbeRequested() && ProbeGuestDualActive.load()) || DuoProbeRequested()')
+ edit(probe,'inline GameScreenLayout ScreenProbeLayout(float width,float height) {','inline GameScreenLayout ScreenProbeLayout(float width,float height) {\n if(AndroidDualProbeRequested())return {FitScreen({0,0,width,height},400.f/240.f),FitScreen({0,0,width,height},320.f/240.f)};')
+ bridge=runtime/'retuned_reframed_screen_probe.h'
+ edit(bridge,'        // Private diagnostic control only.', '        if (AndroidDualProbeRequested()) requested = AndroidLowerAvailable.load() && AndroidDualSelected.load() ? GamePresentation::Dual : GamePresentation::Single;\n        // Private diagnostic control only.')
+ edit(bridge,'        ProbeGuestDualActive = mBridge.Effective() == GamePresentation::Dual;',
+      '        ProbeGuestDualActive = mBridge.Effective() == GamePresentation::Dual;\n        if(AndroidDualProbeRequested())AndroidGuestDualActive=ProbeGuestDualActive.load();')
+ setup=runtime/'oot3d_native_a32_window_setup.cpp'
+ edit(setup,'  context = Ship::Context::GetRawInstance();','  context = Ship::Context::GetRawInstance();\n  if(RetunedFrontend::AndroidDualProbeRequested())RetunedFrontend::AndroidDualSelected=context->GetConfig()->GetBool("Interface.DualScreen",true);')
+ graphics=root/'runtime/three_ds_recomp/src/fast/oot3d/graphics_settings_window.cpp'
+ edit(graphics,'#include <algorithm>','#include <algorithm>\n#include "fast/oot3d/android_display_state.h"')
+ edit(graphics,'        ImGui::SeparatorText("Menu");','''        if(RetunedFrontend::AndroidDualProbeRequested()) {
+            ImGui::SeparatorText("Display");
+            int mode=RetunedFrontend::AndroidDualSelected.load()?1:0;
+            if(ImGui::Combo("Screen mode",&mode,"Single\\0Dual\\0")) {
+                RetunedFrontend::AndroidDualSelected=mode==1;
+                RetunedFrontend::AndroidLowerTouch=0;
+                config->SetBool("Interface.DualScreen",mode==1);config->Save();
+            }
+            if(mode==1 && !RetunedFrontend::AndroidLowerAvailable.load())
+                ImGui::TextWrapped("Dual screen uses a connected second display. Using Single until it is available.");
+            if(RetunedFrontend::AndroidDualSelected.load()!=RetunedFrontend::AndroidGuestDualActive.load())
+                ImGui::TextWrapped("Screen mode changes after closing game menus and returning to gameplay.");
+        }
+        ImGui::SeparatorText("Menu");''')
+ hdr=root/'runtime/three_ds_recomp/include/fast/backends/gfx_vulkan.h'
+ edit(hdr,'#include <vulkan/vulkan.h>','#include <vulkan/vulkan.h>\n#ifdef __ANDROID__\n#include "fast/oot3d/android_secondary_swapchain.h"\n#endif')
+ edit(hdr,'    VkInstance mInstance = VK_NULL_HANDLE;','    VkInstance mInstance = VK_NULL_HANDLE;\n#ifdef __ANDROID__\n    RetunedFrontend::AndroidSecondarySwapchain mAndroidLower;\n#endif')
+ display=root/'runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_pica_display.cpp'
+ edit(display,'        const bool copyBoundary = copyOutput != nullptr;', '''        const bool copyBoundary = copyOutput != nullptr;
+#ifdef __ANDROID__
+        const bool androidLower = !copyBoundary && RetunedFrontend::AndroidDualProbeRequested() &&
+            RetunedFrontend::ProbeGuestDualActive.load() && RetunedFrontend::ProbeScanoutScreen == RetunedFrontend::GameScreen::Lower;
+        const auto oldExtent=mSwapchainExtent;
+        const auto oldImage=mSwapchainImages[mCurrentImage];
+        const auto oldView=mSwapchainImageViews[mCurrentImage];
+        const auto oldFramebuffer=mSwapchainFramebuffers[mCurrentImage];
+        const auto oldTransfer=mLastPresentedNativePicaDisplayTransfer;
+        const bool oldPresented=mNativePicaPresentedThisFrame;
+        RetunedFrontend::AndroidOutputRestore restoreAndroid([&]{if(androidLower){
+            mSwapchainExtent=oldExtent;mSwapchainImages[mCurrentImage]=oldImage;
+            mSwapchainImageViews[mCurrentImage]=oldView;mSwapchainFramebuffers[mCurrentImage]=oldFramebuffer;
+            mLastPresentedNativePicaDisplayTransfer=oldTransfer;mNativePicaPresentedThisFrame=oldPresented;
+        }});
+        if(androidLower){
+            if(!mAndroidLower.Acquire(mInstance,mPhysicalDevice,mDevice,mGraphicsQueueFamily,mSwapchainFormat,mDepthFormat,mRenderPass,mCommandBuffers[mCurrentFrame],mFrameCounter))return true;
+            mSwapchainExtent=mAndroidLower.Extent;mSwapchainImages[mCurrentImage]=mAndroidLower.Image();
+            mSwapchainImageViews[mCurrentImage]=mAndroidLower.View();mSwapchainFramebuffers[mCurrentImage]=mAndroidLower.Framebuffer();
+        }
+#endif''')
+ edit(display,'        const bool alphaOverlay = !copyBoundary &&','''        const bool alphaOverlay = !copyBoundary &&
+#ifdef __ANDROID__
+            !androidLower &&
+#endif''')
+ frame=display.with_name('gfx_vulkan_frame.cpp')
+ edit(frame,'    mFrameActive = false;\n    mFrameSubmitted = true;','''#ifdef __ANDROID__
+    if(RetunedFrontend::AndroidDualProbeRequested())mAndroidLower.Present(mGraphicsQueue);
+#endif
+    mFrameActive = false;
+    mFrameSubmitted = true;''')
+ lifecycle=display.with_name('gfx_vulkan_lifecycle.cpp')
+ edit(lifecycle,'        vkDestroyDevice(mDevice, nullptr);','''#ifdef __ANDROID__
+        mAndroidLower.Destroy();
+#endif
+        vkDestroyDevice(mDevice, nullptr);''')
+ inp=runtime/'oot3d_native_a32_window_input.cpp'
+ # The shared probe maps a single window. Android gets independent lower touches.
+ edit(inp,'    const auto touch=RetunedFrontend::ScreenProbeTouch(window.GetWidth(),window.GetHeight(),pointer.x,pointer.y);', '''    const auto touch=RetunedFrontend::AndroidDualProbeRequested() ? std::optional<RetunedFrontend::LowerScreenTouch>{} : RetunedFrontend::ScreenProbeTouch(window.GetWidth(),window.GetHeight(),pointer.x,pointer.y);''')
+ edit(inp,'  if ((!RetunedFrontend::ScreenProbeEnabled() ||', '''  if(RetunedFrontend::AndroidDualProbeRequested() && RetunedFrontend::ProbeGuestDualActive.load() && !hostGuiVisible){
+    const auto value=RetunedFrontend::AndroidLowerTouch.load();
+    frame.Hid.TouchPressed=(value&0x80000000u)!=0;frame.Hid.TouchX=(value>>8)&511;frame.Hid.TouchY=value&255;
+  }
+  if ((!RetunedFrontend::ScreenProbeEnabled() ||''')
+ android=root/'ports/android/runtime';(android/'display_jni.cpp').write_bytes((here/'display_jni.cpp').read_bytes())
+ edit(android/'CMakeLists.txt','target_sources(oot3d_native_game PRIVATE android_host.cpp)','target_sources(oot3d_native_game PRIVATE android_host.cpp display_jni.cpp)')
+ cmake=android/'CMakeLists.txt'
+ if 'target_link_libraries(oot3d_native_game PRIVATE android)' not in cmake.read_text():
+  cmake.write_text(cmake.read_text()+'\ntarget_link_libraries(oot3d_native_game PRIVATE android)\n')
+ edit(android/'CMakeLists.txt','target_include_directories(oot3d_native_game PRIVATE "${CMAKE_CURRENT_LIST_DIR}")','target_include_directories(oot3d_native_game PRIVATE "${CMAKE_CURRENT_LIST_DIR}" "${root}/runtime/three_ds_recomp/include/fast/oot3d")')
+ # include lookup works for both host and renderer translation units.
+ (android/'android_secondary_swapchain.h').write_text('#include "fast/oot3d/android_secondary_swapchain.h"\n')
+ java=root/'ports/android/app/src/main/java/org/triaevum/android'
+ (java/'RetunedDualScreen.java').write_bytes((here/'RetunedDualScreen.java').read_bytes())
+ activity=java/'RetunedGameActivity.java'
+ edit(activity,'    private TouchOverlay touchOverlay;', '    private TouchOverlay touchOverlay;\n    private RetunedDualScreen dualScreen;')
+ edit(activity,'        StartupDiagnostics.stage(this, "loading SDL and game libraries");','''        try {android.system.Os.setenv("RETUNED_SCREEN_PROBE","android-dual",true);android.system.Os.setenv("TRIAEVUM_VULKAN_PRESENT_DISPATCH","graphics",true);}catch(Exception e){throw new RuntimeException(e);}
+        StartupDiagnostics.stage(this, "loading SDL and game libraries");''')
+ edit(activity,'        retunedTextures=new TextureFolder(this);','        retunedTextures=new TextureFolder(this);\n        dualScreen=new RetunedDualScreen(this);')
+ edit(activity,'    @Override protected void onPause()', '    @Override protected void onDestroy(){if(dualScreen!=null)dualScreen.close();super.onDestroy();}\n\n    @Override protected void onPause()')
+
+if __name__=='__main__':apply(Path(sys.argv[1]))

@@ -215,3 +215,40 @@ native labels. Equipped-item renderers, quantity renderers, button artwork,
 transition alpha, and native touch handling are unchanged. The separate sword
 B badge is collapsed only during gameplay submission, then its source geometry
 is restored immediately. No shared atlas pixels are erased.
+
+## Android physical-display experiment
+
+`tools/native/android/apply_dual_screen_probe.py` is an opt-in integration for
+an otherwise prepared Android engine. It is excluded from release staging.
+The matching prepared mod/module is required; updating only the APK does not
+add native Dual capability to an older prepared game.
+
+On the Thor, Android exposes the lower internal panel as a separate display,
+not as a presentation-category display. A nonfocusable Android Presentation
+owns its SurfaceView. The renderer presents native lower scanout through a
+second Vulkan swapchain on the same graphics device/queue, without CPU image
+copying or a second guest update. Native lower-screen touch uses the same
+aspect-fitted 320x240 viewport as rendering. Removing a surface releases its
+held touch sample. The private probe serializes GPU completion before lower
+presentation; optimized scheduling is still future work.
+
+General settings contains a saved Single/Dual screen preference. There is no
+floating mode button. Changes wait for the existing safe guest handshake;
+selecting Single keeps the lower display until any active menu transition
+finishes. An unavailable second display falls back to Single while preserving
+the selection. The ReFramed HUD remains on the top screen in Dual and follows
+the normal HUD visibility setting.
+
+The lower swapchain needs the native renderer's color and depth attachments.
+Identity pre-transform matches the main Android output. A compositor reporting
+SUBOPTIMAL without a changed surface is not a reason to rebuild identical
+buffers every frame. Raw native-window dimensions and swapchain extents are
+tracked separately because Android display rotation can make them differ.
+
+Private Thor testing has verified two physical outputs, upright lower
+rendering, native lower-screen touch, icon-only side buttons, and copied
+in-game saves. The final General preference, top-HUD, and swapchain-stability
+checks are recorded separately in private receipts. Suspend/resume, display
+loss/reconnection, long-session audio/performance, all menu transitions, and
+the final release preparation flow still need coverage. This is a hardware
+test build, not a published Android dual-screen release.

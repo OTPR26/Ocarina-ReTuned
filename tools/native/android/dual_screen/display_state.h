@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#pragma once
+#include <atomic>
+#include <cstdlib>
+#include <string_view>
+namespace RetunedFrontend {
+inline std::atomic<bool> AndroidLowerAvailable{false}, AndroidDualSelected{true}, AndroidGuestDualActive{false};
+inline std::atomic<unsigned> AndroidLowerTouch{0};
+inline bool AndroidDualProbeRequested() {
+ const char* v=std::getenv("RETUNED_SCREEN_PROBE");return v&&std::string_view(v)=="android-dual";
+}
+}

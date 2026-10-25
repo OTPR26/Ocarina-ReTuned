@@ -91,17 +91,8 @@ unsigned ScreenPresentation_CanSwitch(void) {
             raise ValueError('Dual menu input context changed')
         text = text.replace(before, after)
     inputs.write_text(text)
-    hud = root / 'src/native_hud.c'
-    text = marker + hud.read_text()
-    signature = 'void NativeHud_Update(GlobalContext* globalCtx) {'
-    if text.count(signature) != 1:
-        raise ValueError('Native HUD context changed')
-    text = text.replace(signature, signature + '''
-    if (ScreenPresentation_IsDual()) {
-        NATIVE_HUD_VISIBLE = 0;
-        return;
-    }''')
-    hud.write_text(text)
+    # Keep ReFramed's top-screen HUD in Dual. Its existing visibility settings
+    # still control it; a second display is not an implicit Hide HUD request.
 
     # The native sidebar has a dedicated four-glyph renderer (X, Y, I, II).
     # Suppress only that draw in Dual, as ReMasked does for native item labels.
