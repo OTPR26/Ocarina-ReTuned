@@ -387,6 +387,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 @property(nonatomic, strong) NSArray<RetunedTouchButton*>* allInputButtons;
 @property(nonatomic, strong) UIButton* visibilityButton;
 @property(nonatomic) BOOL controlsHiddenByUser;
+@property(nonatomic) BOOL controlsEnabled;
 @property(nonatomic) BOOL menuVisible;
 @property(nonatomic) CGFloat controlScale;
 @property(nonatomic) BOOL extraShoulders;
@@ -405,6 +406,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
     if (self != nil) {
         self.backgroundColor = UIColor.clearColor;
         self.multipleTouchEnabled = YES;
+        self.controlsEnabled = YES;
         self.faceButtonLayout = 0;
         self.controlScale = 1;
 
@@ -537,6 +539,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 }
 
 - (void)toggleControlsVisibility {
+    if (!self.controlsEnabled) return;
     self.controlsHiddenByUser = !self.controlsHiddenByUser;
     [self cancelAllInputs];
     RetunedTouchSetEnabled(!self.controlsHiddenByUser);
@@ -544,14 +547,14 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 }
 
 - (void)applyVisibility {
-    BOOL hideGameplayControls = self.controlsHiddenByUser;
+    BOOL hideGameplayControls = !self.controlsEnabled || self.controlsHiddenByUser;
     for (UIView* view in self.controlGroup.subviews) {
         view.hidden = hideGameplayControls;
     }
     self.buttonZL.hidden=hideGameplayControls || !self.extraShoulders;
     self.buttonZR.hidden=hideGameplayControls || !self.extraShoulders;
     self.buttonBack.hidden = hideGameplayControls;
-    self.visibilityButton.hidden = NO;
+    self.visibilityButton.hidden = !self.controlsEnabled;
 }
 
 - (void)setRetunedMenuVisible:(BOOL)visible {
@@ -757,7 +760,8 @@ void RetunedIOS_SetTouchControlsEnabled(int enabled) {
     dispatch_async(dispatch_get_main_queue(), ^{
         sTouchControlsDesired = YES;
         ApplyTouchControlsState();
-        sTouchOverlay.controlsHiddenByUser = enabled == 0;
+        sTouchOverlay.controlsEnabled = enabled != 0;
+        sTouchOverlay.controlsHiddenByUser = NO;
         [sTouchOverlay applyVisibility];
     });
 }

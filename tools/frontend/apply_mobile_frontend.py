@@ -24,7 +24,7 @@ def apply(engine):
         marker='target_sources(oot3d_native_game PRIVATE "${CMAKE_CURRENT_LIST_DIR}/touch_input.cpp")'
         if marker not in cmake.read_text():cmake.write_text(cmake.read_text()+'\n'+marker+'\n')
 
-    for name in ('texture_folder.h','settings_pages.h','frontend_state.h','interface_metrics.h','responsive_layout.h','touch_model.h','touch_hud_model.h','touch_hud_state.h','touch_overlay.h','startup_draw.h','startup_layout.h','menu_navigation.h','television_remote.h','settings_navigation.h','menu_gamepads.h'):
+    for name in ('texture_folder.h','settings_pages.h','frontend_state.h','interface_metrics.h','responsive_layout.h','touch_model.h','touch_visibility.h','touch_hud_model.h','touch_hud_state.h','touch_overlay.h','startup_draw.h','startup_layout.h','menu_navigation.h','television_remote.h','settings_navigation.h','menu_gamepads.h'):
         (include/('retuned_'+name)).write_text((source/name).read_text().replace('#include "interface_metrics.h"','#include "retuned_interface_metrics.h"').replace('#include "touch_hud_model.h"','#include "retuned_touch_hud_model.h"'))
     for path in (engine/'runtime/three_ds_recomp/src/fast/Fast3dGui.cpp',engine/'runtime/three_ds_recomp/src/fast/oot3d/graphics_settings_window.cpp'):
         text=path.read_text();marker='#include "fast/oot3d/retuned_settings_navigation.h"'

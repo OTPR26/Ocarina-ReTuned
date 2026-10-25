@@ -27,7 +27,7 @@ public final class TouchOverlay extends View {
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final ArrayList<Control> controls=new ArrayList<>();
     private final SparseArray<Control> fingers=new SparseArray<>();
-    private boolean menu=true, shown=true, ready=false, editor=false, floating=true, extras=false, itemIcons=false;
+    private boolean menu=true, shown=true, configured=true, ready=false, editor=false, floating=true, extras=false, itemIcons=false;
     private int faceLayout=0;
     private float controlSize=1;
     private float unit=1, left=0, right=0, bottom=0, top=0;
@@ -115,7 +115,7 @@ public final class TouchOverlay extends View {
         if(shown&&!menu)add(4,"Settings",w/2-138*unit,h-bottom-30*unit,76*unit,30*unit,1);
         hudDisplay(w,h);
         for(Control c:controls){int slot=c.shape==0&&c.id>=0&&c.id<4?c.id:c.shape==3?c.id-7:-1;if(slot>=0)hudAnchor(slot,c.bounds.centerX()/w,c.bounds.centerY()/h);}
-        add(-1,"◉",w-right-30*unit,h-bottom-30*unit,30*unit,30*unit,0);
+        if(configured)add(-1,"◉",w-right-30*unit,h-bottom-30*unit,30*unit,30*unit,0);
     }
     @Override protected void onSizeChanged(int w,int h,int ow,int oh) {cancelInputs();try{displayMetrics(getResources().getDisplayMetrics().density,h);}catch(UnsatisfiedLinkError ignored){}layoutControls();}
     @Override protected void onDraw(Canvas canvas) {
@@ -126,7 +126,7 @@ public final class TouchOverlay extends View {
             if(current!=lastState || controlSize!=scale) {
                 displayMetrics(getResources().getDisplayMetrics().density,getHeight());
                 itemIcons=(current&256)!=0;extras=(current&128)!=0;controlSize=scale;editor=(current&32)!=0;floating=(current&64)!=0;faceLayout=(current>>3)&3;
-                cancelInputs();lastState=current;ready=(current&1)!=0;menu=(current&2)!=0;shown=(current&4)!=0;layoutControls();
+                cancelInputs();lastState=current;ready=(current&1)!=0;menu=(current&2)!=0;shown=(current&4)!=0;configured=(current&512)!=0;layoutControls();
             }
         } catch(UnsatisfiedLinkError notLoaded) {postInvalidateOnAnimation();return;}
         if(!ready||editor){postInvalidateOnAnimation();return;}

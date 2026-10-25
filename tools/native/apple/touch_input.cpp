@@ -31,7 +31,7 @@ extern "C" void RetunedTouchSetAxis(int axis,int value) {
 }
 extern "C" void RetunedTouchSetEnabled(int enabled) {
  using namespace RetunedFrontend;
- TouchEnabled=enabled!=0;TouchVisibilityDirty=true;
+ TouchVisibility.Show(enabled!=0);
  std::lock_guard lock(TouchMutex);NativeTouch.Reset();
 }
 #ifdef __ANDROID__
@@ -42,7 +42,7 @@ extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_button(
 extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_axis(JNIEnv*,jclass,jint axis,jint value) {RetunedTouchSetAxis(axis,value);}
 extern "C" JNIEXPORT jint JNICALL Java_org_triaevum_android_TouchOverlay_state(JNIEnv*,jclass) {
  using namespace RetunedFrontend;
- return (NativeFrontendEnabled?1:0)|(TouchHostMenu.load()?2:0)|(TouchEnabled.load()?4:0)|(TouchFaceLayout.load()<<3)|(TouchHostMode.load()!=0?32:0)|(TouchFloating.load()?64:0)|(TouchExtraShoulders.load()?128:0)|(TouchHudActive.load()&&TouchHudLive.load()?256:0);
+ return (NativeFrontendEnabled?1:0)|(TouchHostMenu.load()?2:0)|(TouchVisibility.ControlsVisible()?4:0)|(TouchVisibility.ButtonVisible()?512:0)|(TouchFaceLayout.load()<<3)|(TouchHostMode.load()!=0?32:0)|(TouchFloating.load()?64:0)|(TouchExtraShoulders.load()?128:0)|(TouchHudActive.load()&&TouchHudLive.load()?256:0);
 }
 #endif
 

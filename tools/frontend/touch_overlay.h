@@ -2,6 +2,7 @@
 #pragma once
 #include "ship/audio/retuned_output_gain.h"
 #include "retuned_touch_model.h"
+#include "retuned_touch_visibility.h"
 #include "retuned_touch_hud_state.h"
 #include "retuned_blue_style.h"
 #include "retuned_frontend_state.h"
@@ -37,7 +38,8 @@ inline constexpr bool TouchPlatform() {
 inline TouchModel MobileTouch;
 inline NativeTouchState NativeTouch;
 inline std::mutex TouchMutex;
-inline std::atomic<bool> TouchEnabled{TouchPlatform()};
+inline TouchVisibilityState TouchVisibility{TouchPlatform()};
+inline std::atomic<bool>& TouchEnabled=TouchVisibility.Configured;
 inline bool TouchInputActive=false;
 inline int TouchMenuMode=-1;
 inline std::atomic<bool> TouchHostMenu{true};
@@ -45,7 +47,7 @@ inline std::atomic<int> TouchHostMode{1};
 inline bool TouchSettingsWasDown=false;
 inline float TouchOpacity=.28f;
 inline std::atomic<float> NativeTouchOpacity{.28f},TouchSize{1.f};
-inline std::atomic<bool> TouchFloating{true},TouchVisibilityDirty{false};
+inline std::atomic<bool> TouchFloating{true};
 inline std::atomic<int> TouchFaceLayout{0};
 inline std::atomic<bool> TouchExtraShoulders{false};
 inline std::atomic<int> TouchZLAction{-1},TouchZRAction{-1};
@@ -76,7 +78,7 @@ inline void InitializeTouch() {
  auto config=Ship::Context::GetRawInstance()->GetConfig();
  TouchIconOpacity=std::clamp(config->GetFloat("Touch.IconOpacity",1.f),0.f,1.f);
  TouchHudRequested=config->GetBool("Touch.ItemIcons",true);
- TouchEnabled=config->GetBool("Touch.Enabled",TouchPlatform());
+ TouchVisibility.Configure(config->GetBool("Touch.Enabled",TouchPlatform()));
  TouchOpacity=std::clamp(config->GetFloat("Touch.Opacity",.28f),.1f,.75f);
  TouchSize=std::clamp(config->GetFloat("Touch.Scale",1.f),.75f,1.25f);
  TouchFloating=config->GetBool("Touch.Floating",true);
@@ -90,6 +92,7 @@ inline void InitializeTouch() {
 }
 inline TouchSnapshot SampleTouch(bool consume) {
  std::lock_guard lock(TouchMutex);
+ if(!TouchVisibility.ControlsVisible()){MobileTouch.Reset();NativeTouch.Reset();return {};}
  auto state=MobileTouch.Sample(consume);const auto native=NativeTouch.Sample(consume);
  state.Buttons|=native.Buttons;state.Captured|=native.Captured;
  if(native.MoveX||native.MoveY){state.MoveX=native.MoveX;state.MoveY=native.MoveY;}
@@ -114,10 +117,9 @@ inline void MenuTouchInput(const TouchSnapshot& state,bool menu,bool settingsVis
 inline void DrawTouch(bool settingsVisible) {
  if(!NativeFrontendEnabled||!TouchPlatform())return;
  NativeTouchOpacity.store(TouchOpacity);
- if(TouchVisibilityDirty.exchange(false)){auto config=Ship::Context::GetRawInstance()->GetConfig();config->SetBool("Touch.Enabled",TouchEnabled.load());config->Save();}
  const int mode=settingsVisible?2:StartupVisible?1:0;
  const bool menu=mode!=0;
- TouchHudActive=TouchEnabled.load()&&TouchHudRequested.load()&&mode==0;
+ TouchHudActive=TouchVisibility.ControlsVisible()&&TouchHudRequested.load()&&mode==0;
  TouchHostMenu.store(menu);TouchHostMode.store(mode);
  if(mode!=TouchMenuMode) {
   std::lock_guard lock(TouchMutex);MobileTouch.Reset();NativeTouch.Reset();TouchMenuMode=mode;
@@ -153,7 +155,7 @@ inline void DrawTouch(bool settingsVisible) {
 #endif
  auto* draw=ImGui::GetForegroundDrawList();
  for(const auto& c:TouchLayout) {
-  if(!TouchEnabled&&c.Action!=TouchAction::Settings)continue;
+  if(!TouchVisibility.ControlsVisible())continue;
   if(menu && (c.Action==TouchAction::Look||c.Action==TouchAction::Target||c.Action==TouchAction::Shield||c.Action==TouchAction::ItemI||c.Action==TouchAction::ItemII||c.Action==TouchAction::X||c.Action==TouchAction::Y||c.Action==TouchAction::Inventory))continue;
   const ImVec2 center{v->Pos.x+c.X*v->Size.x,v->Pos.y+c.Y*v->Size.y};
   const float radius=c.Radius*v->Size.y;
@@ -176,7 +178,7 @@ inline void DrawTouchSettings() {
  if(!TouchPlatform()){ImGui::TextWrapped("Touch controls are available on iPhone, iPad and Android.");return;}
  auto config=Ship::Context::GetRawInstance()->GetConfig();
  bool commit=false,enabled=TouchEnabled.load(),floating=TouchFloating.load();
- if(Toggle("Show touch controls",&enabled)){TouchEnabled=enabled;commit=true;}
+ if(Toggle("Show touch controls",&enabled)){TouchVisibility.Configure(enabled);commit=true;}
  float size=TouchSize.load();
  if(ImGui::SliderFloat("Control size",&size,.75f,1.25f,"%.2fx"))TouchSize=size;
  commit|=ImGui::IsItemDeactivatedAfterEdit();
@@ -200,7 +202,7 @@ inline void DrawTouchSettings() {
   };
   assign("ZL action",TouchZLAction);assign("ZR action",TouchZRAction);
  }
- ImGui::TextWrapped("The visibility button hides the controller and Settings button together. Tap it again to restore them.");
+ ImGui::TextWrapped("The visibility button appears only when touch controls are enabled. It temporarily hides or restores the controls without changing this setting.");
  ImGui::Spacing();ImGui::TextWrapped("L: targeting. R: shield. D-pad: item shortcuts. Start: inventory. Settings: app options.");
  if(commit){
   {std::lock_guard lock(TouchMutex);NativeTouch.Reset();}
