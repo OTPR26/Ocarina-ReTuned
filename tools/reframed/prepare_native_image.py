@@ -192,6 +192,29 @@ def apply_file_selection_spacing(image, named):
         struct.pack_into('<I', image, offset, word)
 
 
+def presentation_bridge(named):
+    """Advertise only a complete, executable live-presentation bridge.
+
+    Older release mods deliberately have no such capability. Do not infer it
+    from the presence of a lower framebuffer or SingleScreen hook symbols.
+    """
+    names = ('ScreenPresentation_GetMode', 'ScreenPresentation_TrySetMode')
+    present = [name in named for name in names]
+    if not any(present):
+        return None
+    if not all(present):
+        raise ValueError('Incomplete screen-presentation bridge')
+    functions = {}
+    for name in names:
+        address, size, kind, _ = named[name]
+        if kind != 'FUNC' or address < INJECTION or address % 4 or size < 4 or size % 4:
+            raise ValueError('Invalid screen-presentation function: ' + name)
+        functions[name] = address
+    if len(set(functions.values())) != len(names):
+        raise ValueError('Aliased screen-presentation bridge functions')
+    return {'schema': 1, 'modes': ['single', 'dual'], 'functions': functions}
+
+
 def _prepare(args):
     if args.output.exists():
         raise ValueError('Refusing to replace a private title experiment')
@@ -245,6 +268,9 @@ def _prepare(args):
                 'ocarina_layout':object_symbols['sNativeHudOcarinaLayout'],
                 'action_source':object_symbols['sNativeActionSource'],
                 'action_owner':touch_action_owner(image,named['NativeHud_PrepareActionPrompt'][0])}}
+        presentation = presentation_bridge(named)
+        if presentation is not None:
+            frontend['presentation'] = presentation
     out = args.output
     out.mkdir(parents=True)
     (out / 'code.bin').write_bytes(image)

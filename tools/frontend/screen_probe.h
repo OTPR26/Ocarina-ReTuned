@@ -4,10 +4,14 @@
 #include <cstdlib>
 #include <cstdint>
 #include <string_view>
+#include <atomic>
 namespace RetunedFrontend {
+inline std::atomic<bool> ProbeGuestBridgeBound{false};
+inline std::atomic<bool> ProbeGuestDualActive{false};
 // Developer opt-in only. This does not enable an untested public screen-mode
 // setting or claim that a prepared Single Screen mod has Dual Screen semantics.
 inline ScreenArrangement ScreenProbeArrangement() {
+ if(ProbeGuestBridgeBound.load() && !ProbeGuestDualActive.load())return ScreenArrangement::Single;
  const char* value=std::getenv("RETUNED_SCREEN_PROBE");
  if(value && std::string_view(value)=="stacked")return ScreenArrangement::Stacked;
  if(value && std::string_view(value)=="side-by-side")return ScreenArrangement::SideBySide;

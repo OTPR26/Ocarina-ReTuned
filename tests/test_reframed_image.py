@@ -10,6 +10,26 @@ spec.loader.exec_module(image)
 
 
 class ReframedImageTests(unittest.TestCase):
+    def test_presentation_capability_is_explicit_and_complete(self):
+        self.assertIsNone(image.presentation_bridge({}))
+        get = 'ScreenPresentation_GetMode'
+        set_mode = 'ScreenPresentation_TrySetMode'
+        symbols = {get: (image.INJECTION, 8, 'FUNC', '1'),
+                   set_mode: (image.INJECTION + 8, 32, 'FUNC', '1')}
+        bridge = image.presentation_bridge(symbols)
+        self.assertEqual(bridge['schema'], 1)
+        self.assertEqual(bridge['modes'], ['single', 'dual'])
+        self.assertEqual(bridge['functions'][get], image.INJECTION)
+        with self.assertRaises(ValueError):
+            image.presentation_bridge({get: symbols[get]})
+        for invalid in ((image.BASE, 8, 'FUNC', '1'),
+                        (image.INJECTION + 1, 8, 'FUNC', '1'),
+                        (image.INJECTION, 0, 'FUNC', '1'),
+                        (image.INJECTION, 8, 'OBJECT', '1'),
+                        symbols[set_mode]):
+            with self.subTest(symbol=invalid), self.assertRaises(ValueError):
+                image.presentation_bridge({get: invalid, set_mode: symbols[set_mode]})
+
     def test_file_selection_spacing_is_bounded_and_idempotent(self):
         code = bytearray(48)
         struct.pack_into('<IIII', code, 0, 0xE3E01007, 0, 0, 0)

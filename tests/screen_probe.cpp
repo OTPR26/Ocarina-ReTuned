@@ -30,5 +30,14 @@ int main(){
  try{ProbeScanoutScope scope(GameScreen::Lower);assert(ProbeScanoutScreen==GameScreen::Lower);throw std::runtime_error("render failure");}
  catch(const std::runtime_error&){}
  assert(ProbeScanoutScreen==GameScreen::Top);
+ Mode("stacked");
+ ProbeGuestBridgeBound=true;
+ assert(!ScreenProbeEnabled());
+ assert(ProbeOutputWidth(1200,720)==1200);
+ ProbeGuestDualActive=true;
+ assert(ScreenProbeEnabled());
+ ProbeGuestDualActive=false;
+ assert(!ScreenProbeEnabled());
+ ProbeGuestBridgeBound=false;
  Mode("");
 }

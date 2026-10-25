@@ -91,3 +91,45 @@ clang++ -std=c++20 -I /path/to/local/runtime/runtime/three_ds_recomp/include/fas
 ```
 
 Any runtime test must use an explicit `--launch-profile` pointing to isolated data. The probe is not an upgrade path for an existing prepared game.
+
+## ReFramed live-switch experiment
+
+The next private experiment adds a frame-boundary handshake between the host
+and one switchable ReFramed module. `apply_screen_presentation.py` instruments
+an isolated canonical native mod source; `apply_reframed_screen_probe.py`
+connects it to the opt-in renderer. Neither applier runs in release staging.
+
+The native preparer normalizes supported input to its canonical EUR-addressed
+image. This experiment therefore builds the matching EUR-addressed mod, even
+when the user's source cartridge is USA. Selecting a mod by the input ROM's
+label alone produces incorrect native call targets; translation closure must
+pass before a test can run.
+
+The prepared manifest advertises `reframed_frontend.presentation` schema 1
+only when both mode-query and mode-request functions exist and are valid ARM
+functions. Existing modules advertise no capability. The host follows the
+guest's acknowledged mode, retries a busy request, and stops the isolated
+test if execution or acknowledgement fails. It releases the current pointer
+sample when changing the view layout. The mod currently accepts transitions
+only outside file selection, dialogue, pause/menu transitions, ocarina, and
+Game Over. A pending choice does not alter rendering or saved preferences.
+
+A local test loaded a copied save into the Temple of Time and switched
+Single → Dual at guest frame 633, then Dual → Single at frame 847 in the same
+process. Captures show the independent lower map/items/health interface in
+Dual and the restored ReFramed HUD in Single. It completed 2,600 host frames
+and exited successfully. This establishes a gameplay switching proof, not
+complete Dual Screen support: all native menus, held-touch transitions,
+dialogue, audio continuity, and long sessions still require validation.
+Android output routing and Duo Single/Dual/Hybrid remain unimplemented.
+
+Host checks cover invalid/absent capabilities, deferred changes, invalid
+mode requests, guest execution failures, and a false acknowledgement. The C
+mode protocol and C++ handshake pass AddressSanitizer/UndefinedBehaviorSanitizer
+checks; the ARM mod, native host, and translated title module build locally.
+
+The installed iOS 27.0 SDK has no hinge headers. The owner authorized updating
+Xcode; the official Xcode 27.1 download includes the iOS 27.1 SDK and Duo
+simulator support. Installation and API/simulator verification must complete
+before a Duo build is claimed. No installed game apps or real saves were
+changed by these experiments, and no GitHub Actions were used.
