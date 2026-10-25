@@ -239,7 +239,15 @@ finishes. An unavailable second display falls back to Single while preserving
 the selection. The ReFramed HUD remains on the top screen in Dual and follows
 the normal HUD visibility setting. Dual also bypasses the single-screen Items
 and Ocarina HUD relocation: the top HUD keeps its gameplay positions while
-the lower screen owns those menus.
+the lower screen owns those menus. During Dual menus, the otherwise-unused
+rupee cell supplies the East/A circle in the controller diamond, and the rupee
+digits are hidden. Gameplay restores the usual currency display.
+
+Prepared manifests must retain the texture-hash aliases for any modified
+ReFramed resource atlases. The private Thor fixture initially omitted those
+entries, preventing a custom pack's original Items atlas from matching its
+modified counterpart. This specifically affected Items tabs and Back artwork;
+rendering the lower target at high resolution alone could not resolve it.
 
 The Android top view uses the full main display and supplies those dimensions
 to scene projection, rather than fitting it back into the original 5:3 frame.

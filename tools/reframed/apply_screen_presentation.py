@@ -105,6 +105,25 @@ unsigned ScreenPresentation_CanSwitch(void) {
         if text.count(before) != 1:
             raise ValueError('Dual top HUD layout context changed')
         text = text.replace(before, after)
+    # Dual menus keep the gameplay clusters, but have no gameplay A prompt.
+    # Reuse the rupee cell for the blank East base and hide its digit cells.
+    for before, after in (
+        ('static u8 sNativeHudPauseLayout;',
+         'static u8 sNativeHudPauseLayout;\nstatic u8 sNativeHudDualMenuLayout;'),
+        ('    const float scale = NativeHud_GetScale();\n    if (sNativeHudOcarinaLayout)',
+         '    if (sNativeHudDualMenuLayout) {\n        NativeHud_SetQuadRect(0, 374.0f, 45.0f, 390.0f, 29.0f);\n        for (u32 quad = 24; quad <= 26; ++quad) NativeHud_CollapseQuad(quad);\n    }\n    const float scale = NativeHud_GetScale();\n    if (sNativeHudOcarinaLayout)'),
+        ('NativeHud_ScaleQuad(0, 400.0f, 240.0f, scale); // Rupee icon',
+         'NativeHud_ScaleQuad(0, 400.0f, sNativeHudDualMenuLayout ? 0.0f : 240.0f, scale); // East base or rupee'),
+        ('    if (sNativeHudPauseLayout != 0) {',
+         '    if (sNativeHudPauseLayout != 0 || sNativeHudDualMenuLayout) {'),
+        ('    if (pauseLayout != sNativeHudPauseLayout ||',
+         '    const u8 dualMenuLayout = dual && (InputRemap_IsItemsMenuOpen() || InputRemap_IsOcarinaUiOpen());\n    if (dualMenuLayout != sNativeHudDualMenuLayout || pauseLayout != sNativeHudPauseLayout ||'),
+        ('        sNativeHudPauseLayout = pauseLayout;',
+         '        sNativeHudDualMenuLayout = dualMenuLayout;\n        sNativeHudPauseLayout = pauseLayout;'),
+    ):
+        if text.count(before) != 1:
+            raise ValueError('Dual assignment HUD context changed: ' + before)
+        text = text.replace(before, after)
     hud.write_text(text)
 
     # The native sidebar has a dedicated four-glyph renderer (X, Y, I, II).
