@@ -1,0 +1,9 @@
+Right-shoulder outline reused from the Project Restoration-derived HD HUD
+used by Majora ReMasked. Only the isolated white outline is retained.
+
+Project Restoration by leoetlino and contributors:
+https://github.com/leoetlino/project-restoration
+https://restoration.zora.re/hd-hud
+
+The native HUD mesh is traced from remasked-right-shoulder.png. It retains
+the original sloping top, rounded right side, and transparent interior.

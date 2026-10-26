@@ -27,6 +27,16 @@ int main() {
     display.Publish({true,false,{0,0,700,900},{0,20,700,860},{0,420,700,40},{}});
     assert(display.Requested(true)==GamePresentation::Dual);
     assert(display.Layout(700,900,true).Lower.Y>=460);
+    LowerEquipmentPanelEnabled=false;
+    const auto centered=display.Layout(700,900,true);
+    LowerEquipmentPanelEnabled=true;
+    const auto aligned=display.Layout(700,900,true);
+    const auto pane=display.LowerPanelBounds(700,900,true);
+    assert(aligned.Lower.Y==pane.Y && centered.Lower.Y>=aligned.Lower.Y);
+    assert(aligned.Lower.Width==centered.Lower.Width && aligned.Lower.Height==centered.Lower.Height);
+    auto alignedTouch=display.Touch(700,900,true,aligned.Lower.X+aligned.Lower.Width/2,aligned.Lower.Y+aligned.Lower.Height/2);
+    assert(alignedTouch && alignedTouch->X==160 && alignedTouch->Y==120);
+    assert(!display.Touch(700,900,true,aligned.Lower.X+1,aligned.Lower.Y+aligned.Lower.Height+1));
     display.Select(ScreenPreference::Hybrid); // not exposed/accepted yet
     assert(display.Requested(true)==GamePresentation::Dual);
     display.Select(ScreenPreference::Single);

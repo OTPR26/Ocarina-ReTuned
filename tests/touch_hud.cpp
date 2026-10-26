@@ -18,6 +18,16 @@ int main(){
   const auto c=HudQuadCenter(geometry,quad);assert(std::abs(c[0]-anchors[slot].X*400)<.001f);assert(std::abs(c[1]-anchors[slot].Y*240)<.001f);
   assert(geometry[quad*12+3]-geometry[quad*12]==12);assert(geometry[quad*12+7]-geometry[quad*12+1]==14);assert(geometry[quad*12+2]==7);
  }
+ // X-jump moves the equipped X item and its ammo together to ZR.
+ auto jumpGeometry=original;auto jumpAnchors=anchors;
+ assert(!PlaceTouchHud(jumpGeometry,jumpAnchors,400.f/240.f,2));
+ jumpAnchors[8]={.86f,.15f,true};
+ assert(PlaceTouchHud(jumpGeometry,jumpAnchors,400.f/240.f,2));
+ const auto item=HudQuadCenter(jumpGeometry,6);
+ assert(std::abs(item[0]-344.f)<.001f&&std::abs(item[1]-36.f)<.001f);
+ assert(std::abs((jumpGeometry[28*12]-jumpGeometry[6*12])-(original[28*12]-original[6*12]))<.001f);
+ auto zrJump=original;assert(PlaceTouchHud(zrJump,anchors,400.f/240.f,1));
+ assert(std::abs(HudQuadCenter(zrJump,6)[0]-anchors[2].X*400)<.001f);
  // A west touch arm outside the legacy HUD must survive in the window overlay.
  const float phoneAspect=2868.f/1320.f;
  const TouchHudAnchor west{.05f,.7f,true};

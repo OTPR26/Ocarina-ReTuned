@@ -21,6 +21,7 @@ extern "C" void RetunedIOS_SetTouchControlsEnabled(int enabled);
 extern "C" void RetunedIOS_SetTouchOpacity(float opacity);
 extern "C" void RetunedIOS_SetTouchScale(float scale);
 extern "C" void RetunedIOS_SetExtraShoulders(int enabled);
+extern "C" void RetunedIOS_SetManualJump(int mode);
 extern "C" void RetunedIOS_SetTouchHudIcons(int enabled);
 extern "C" void RetunedIOS_SetFaceButtonLayout(int layout);
 extern "C" void RetunedIOS_SetTouchLeftStickFloating(int floating);
@@ -140,6 +141,9 @@ inline void DrawTouch(bool settingsVisible) {
  if(nativeSize!=TouchSize.load()){nativeSize=TouchSize.load();RetunedIOS_SetTouchScale(nativeSize);}
  if(nativeFace!=TouchFaceLayout.load()){nativeFace=TouchFaceLayout.load();RetunedIOS_SetFaceButtonLayout(nativeFace);}
  if(nativeFloating!=static_cast<int>(TouchFloating.load())){nativeFloating=TouchFloating.load();RetunedIOS_SetTouchLeftStickFloating(nativeFloating);}
+ static int nativeJump=-1;
+ const int jump=menu?0:TouchManualJumpMode.load();
+ if(nativeJump!=jump){nativeJump=jump;RetunedIOS_SetManualJump(jump);}
  static int nativeExtra=-1;
  if(nativeExtra!=static_cast<int>(TouchExtraShoulders.load())){nativeExtra=TouchExtraShoulders.load();RetunedIOS_SetExtraShoulders(nativeExtra);}
  static int nativeHud=-1;
@@ -200,8 +204,10 @@ inline void DrawTouchSettings() {
    int selected=0;for(int i=0;i<12;++i)if(actions[i]==stored.load())selected=i;
    if(ImGui::Combo(label,&selected,labels,12)){stored=actions[selected];commit=true;}
   };
-  assign("ZL action",TouchZLAction);assign("ZR action",TouchZRAction);
+  assign("ZL action",TouchZLAction);
+  ImGui::BeginDisabled(TouchManualJumpMode.load()!=0);assign("ZR action",TouchZRAction);ImGui::EndDisabled();
  }
+ if(TouchManualJumpMode.load()!=0)ImGui::TextWrapped(TouchManualJumpMode.load()==2?"Manual jump: X jumps; ZR uses the X item. ZR is shown automatically.":"Manual jump: ZR jumps and is shown automatically.");
  ImGui::TextWrapped("The visibility button appears only when touch controls are enabled. It temporarily hides or restores the controls without changing this setting.");
  ImGui::Spacing();ImGui::TextWrapped("L: targeting. R: shield. D-pad: item shortcuts. Start: inventory. Settings: app options.");
  if(commit){

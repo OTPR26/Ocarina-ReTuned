@@ -1,6 +1,6 @@
 # Optional dual-screen support: code audit and implementation plan
 
-Audit date: 2026-10-25. This is a source audit and proposed design, not implemented support or a hardware test.
+Audit date: 2026-10-25. The opening sections record the initial source audit. Implementation and hardware-test updates follow below.
 
 ## Required behavior
 
@@ -272,3 +272,60 @@ checks are recorded separately in private receipts. Suspend/resume, display
 loss/reconnection, long-session audio/performance, all menu transitions, and
 the final release preparation flow still need coverage. This is a hardware
 test build, not a published Android dual-screen release.
+
+### Lower quick-equipment strip
+
+The Android experiment aligns the unchanged 4:3 lower picture to the top.
+On Thor this leaves a 1240x150 strip below its 1240x930 picture. Native touch
+mapping follows the new origin; strip touches never enter the game picture.
+Boots and tunic buttons cycle owned equipment through the existing native
+equipment-action consumer, including its age, gameplay, cutscene, and player
+refresh checks. Requests are consumed once on the guest thread, never from
+the Android UI thread, and are discarded when unavailable. Equipment changes
+remain disabled in native pause pages and host Settings.
+
+The Shard of Agony symbol appears only with quest ownership and reads the
+original detection-animation counter. It has no host proximity algorithm or
+independent flashing timer. Artwork is cropped locally from the game/selected texture-pack atlases: the
+common leather background, blank I/II-style frame, and equipment icons. These
+private cached PNGs are not embedded in the host APK. Production integration
+still needs to create/refresh that cache during local preparation and texture
+selection. Near-secret runtime validation is
+recorded separately from compilation and state-model checks.
+
+The Android strip is hardware-tested on Thor. The Apple adapter compiles,
+but has not been validated on physical Duo hardware.
+
+The quick strip reuses the uninterrupted gray stone column behind the
+Items side buttons. Its long axis is rotated into a full-width footer with
+no restarted tile seams. In Dual, Gear uses a centered, larger portrait and
+a smaller centered help viewport to restore the single-screen balance between
+Link and his description. Single-screen Gear retains its right-side layout.
+
+A shallow top bevel separates the gray quick strip from the native lower
+menu. The native Back button and its touch target remain unchanged.
+
+### Optional bottom panel and Duo adapter
+
+General exposes Bottom equipment panel only when Dual is selected. The saved
+Interface.DualEquipmentPanel preference is shared by the Android and Duo
+adapters. Its description is: "Uses spare space below the 4:3 game picture.
+Best on taller secondary displays, like the AYN Thor." Disabling it restores
+the vertically centered lower picture; both adapters derive lower touch
+coordinates from the same effective picture rectangle. The option does not
+change the 4:3 image size or stretch it to fill the secondary display.
+
+The Duo UIKit adapter uses the same guest-thread equipment consumer and native
+Shard animation signal, cached game/selected-pack artwork, dark stone, shallow
+bevel, and ownership checks. Its screen-mode selector belongs in General,
+not an overlay on the game. The lower render target follows its drawable
+resolution. Private local preparation must provide the matching Dual-capable
+game module and local artwork cache. Hybrid posture switching remains gated
+pending physical posture validation; compilation and simulated geometry are
+not a claim of playable Duo hardware validation.
+
+### Dual top-preview alignment follow-up
+
+The Dual Gear/Items description moves upward to balance the gap below the floating portrait with the bottom margin. Calibration uses the floating Gear doll rather than the gameplay actor visible behind it: the Thor target is approximately 68 pixels on either side of the board at 1080p. Dual Items retains its full-size native rotating model and uses Gear’s compact description transform. These transforms are gated to settled Dual Items/Gear pages. Single-screen layouts and lower-screen touch targets retain their existing transforms. The Thor owner approved the preview proportions and description spacing.
+
+The owner approved the measured description spacing. A subsequent closing-transition fix suppresses the native preview camera and final help group while Dual menus tear down, preventing a flash of the original shirt/description. The native pass still finishes, and its temporary clip is then cleared. The actual overlay/finish scopes pass local sanitizer checks covering closing after page ownership clears, restoration before gameplay, settled pages, and Single-mode isolation. The Thor owner confirmed the original presentation flash is gone when closing both Gear and Items.

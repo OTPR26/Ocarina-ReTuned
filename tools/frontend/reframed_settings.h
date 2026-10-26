@@ -41,9 +41,12 @@ class Settings {
                 if(stored.at("schema")!=1)throw std::runtime_error("Unsupported Reframed settings version");
                 for(size_t i=0;i<Keys.size();++i)mValues[i]=stored.at(Keys[i]).get<int>();
                 if(!Valid(mValues))throw std::runtime_error("Invalid Reframed settings");
+                mManualJump=stored.value("manual_jump",0);
+                if(mManualJump<0 || mManualJump>2)mManualJump=0;
                 mConfigured=true;
             }
             mReady=true;
+            TouchManualJumpMode=0;
         } catch(const std::exception& e){mError=e.what();}
     }
     bool Ready()const{std::lock_guard lock(mMutex);return mReady;}
@@ -55,10 +58,26 @@ class Settings {
         if(!Valid(changed))return;
         nlohmann::json saved{{"schema",1}};
         for(size_t i=0;i<Keys.size();++i)saved[Keys[i]]=changed[i];
+        saved["manual_jump"]=mManualJump;
         if(!Ship::Context::GetRawInstance()->GetConfig()->SetBlock("Reframed",saved)) {
             mError="Could not save settings. Your previous selection remains active.";return;
         }
         mValues=changed;mConfigured=true;mError.clear();
+    }
+    bool HasManualJump()const {
+        std::lock_guard lock(mMutex);
+        return mReady && mBridge.at("functions").contains("ManualJump_Set");
+    }
+    int ManualJump()const{std::lock_guard lock(mMutex);return mManualJump;}
+    void SetManualJump(int value) {
+        std::lock_guard lock(mMutex);
+        if(value<0 || value>2)return;
+        nlohmann::json saved{{"schema",1},{"manual_jump",value}};
+        for(size_t i=0;i<Keys.size();++i)saved[Keys[i]]=mValues[i];
+        if(!Ship::Context::GetRawInstance()->GetConfig()->SetBlock("Reframed",saved)) {
+            mError="Could not save settings. Your previous selection remains active.";return;
+        }
+        mManualJump=value;mError.clear();
     }
     void Apply(Oot3dNativeGame::NativeA32Process& process) {
         std::lock_guard lock(mMutex);
@@ -101,6 +120,16 @@ class Settings {
                 for(uint32_t i=0;i<3;++i){const std::array<uint32_t,2> args{i,uint32_t(mValues[6+i])};invoke("MovementOptions_Set",args);}
                 mPrevious=mValues;mApplied=true;
             }
+            if(mBridge.at("functions").contains("ManualJump_Set") && mManualJumpApplied!=mManualJump) {
+                uint32_t value=static_cast<uint32_t>(mManualJump);
+                invoke("ManualJump_Set",{&value,1});mManualJumpApplied=mManualJump;
+            }
+            // Native inventory/instrument controls retain their original meaning.
+            uint8_t touchPause=1,touchInstrument=1;
+            const bool jumpGameplay=NativeTouchHud.Ready() &&
+                memory.Read8(NativeTouchHud.PauseLayout,&touchPause) &&
+                memory.Read8(NativeTouchHud.OcarinaLayout,&touchInstrument) && !touchPause && !touchInstrument;
+            TouchManualJumpMode=jumpGameplay && mManualJumpApplied>=0?mManualJumpApplied:0;
             const bool touchHud=NativeTouchHud.Ready()&&TouchHudActive.load();
             if(touchHud||mTouchHudApplied){
                 constexpr std::array<uint32_t,4> sizes{0,75,100,125};
@@ -114,6 +143,7 @@ class Settings {
     mutable std::recursive_mutex mMutex;
     nlohmann::json mBridge;
     std::array<int,9> mValues{0,0,0,2,2,0,0,0,0},mPrevious{};
+    int mManualJump=0,mManualJumpApplied=-1;
     bool mReady=false,mConfigured=false,mApplied=false,mTouchHudApplied=false;
     std::string mError;
 };
@@ -147,6 +177,13 @@ class Panel final:public Fast::Oot3d::GraphicsSettingsPanelTab {
             combo(6,"Movement speed","Normal\0+10%\0+20%\0","Walking and running; other actions stay normal.");
             combo(7,"Roll speed","Normal\0+10%\0+20%\0","Increases roll speed and distance.");
             combo(8,"Roll recovery","Normal\0-10%\0-20%\0","Shortens the final recovery of a forward roll.");
+            if(settings.HasManualJump()) {
+                int jump=settings.ManualJump();
+                ImGui::TextUnformatted("Manual jump");
+                ImGui::SetNextItemWidth(std::min(ImGui::GetContentRegionAvail().x,ImGui::GetFontSize()*24));
+                if(ImGui::Combo("##manual_jump",&jump,"Off\0ZR\0X\0"))settings.SetManualJump(jump);
+                ImGui::TextWrapped("Jump while standing or moving on the ground. Choosing X moves its equipped item to ZR.");
+            }
         }
         ImGui::EndDisabled();
     }

@@ -28,7 +28,7 @@ public final class TouchOverlay extends View {
     private final ArrayList<Control> controls=new ArrayList<>();
     private final SparseArray<Control> fingers=new SparseArray<>();
     private boolean menu=true, shown=true, configured=true, ready=false, editor=false, floating=true, extras=false, itemIcons=false;
-    private int faceLayout=0;
+    private int faceLayout=0, jumpMode=0;
     private float controlSize=1;
     private float unit=1, left=0, right=0, bottom=0, top=0;
     private int lastState=-1;
@@ -36,6 +36,17 @@ public final class TouchOverlay extends View {
     private ColorMatrixColorFilter opacityFilter;
     private final Drawable cross,crossItems;
     private Drawable image(String name) {return getContext().getDrawable(getResources().getIdentifier("retuned_touch_"+name,"drawable",getContext().getPackageName())).mutate();}
+    private boolean usesItemIcon(int id, int shape) {
+        if (!itemIcons) return false;
+        if (id == 105 && jumpMode == 2) return true;
+        return shape == 0 && id >= 0 && id < 4 && !(id == 2 && jumpMode == 2);
+    }
+    private String artworkFor(int id, int shape) {
+        if (shape == 0) return usesItemIcon(id, shape) ? "face_items" : "face";
+        if (id == 104 || id == 9) return "left";
+        if (id == 105 || id == 10) return usesItemIcon(id, shape) ? "right_items" : "right";
+        return "system";
+    }
     private final class Control {
         final int id; final String label; final RectF bounds; final int shape;
         final Drawable drawable;
@@ -43,7 +54,7 @@ public final class TouchOverlay extends View {
         Control(int id,String label,float x,float y,float w,float h,int shape) {
             this.id=id;this.label=label;this.bounds=new RectF(x,y,x+w,y+h);this.shape=shape;
             cx=bounds.centerX();cy=bounds.centerY();
-            drawable=shape==2||shape==3?null:image(shape==0?(itemIcons&&id>=0&&id<4?"face_items":"face"):id==104||id==9?"left":id==105||id==10?"right":"system");
+            drawable = shape == 2 || shape == 3 ? null : image(artworkFor(id, shape));
         }
         void release() {
             if(shape==2) {axis(id,0);axis(id+1,0);}
@@ -81,10 +92,12 @@ public final class TouchOverlay extends View {
         if(editor)return;
         if(shown) {
             {
-                if(extras)add(104,"ZL",left,top,84*unit,46*unit,1);
-                add(9,"L",left,top+(extras?56:0)*unit,84*unit,46*unit,1);
-                if(extras)add(105,"ZR",w-right-84*unit,top,84*unit,46*unit,1);
-                add(10,"R",w-right-84*unit,top+(extras?56:0)*unit,84*unit,46*unit,1);
+                float sw=63*unit,sh=34.5f*unit,gap=10*unit;
+                boolean pair=extras||jumpMode!=0;
+                if(pair)add(104,"",left,top,sw,sh,1);
+                add(9,"",left,top+(pair?sh+gap:0),sw,sh,1);
+                if(pair)add(105,"",w-right-sw,top,sw,sh,1);
+                add(10,"",w-right-sw,top+(pair?sh+gap:0),sw,sh,1);
             }
             float fx=w-right-93*unit,fy=h-bottom-93*unit,fs=44*unit;
             if(faceLayout==2) {
@@ -114,7 +127,7 @@ public final class TouchOverlay extends View {
         }
         if(shown&&!menu)add(4,"Settings",w/2-138*unit,h-bottom-30*unit,76*unit,30*unit,1);
         hudDisplay(w,h);
-        for(Control c:controls){int slot=c.shape==0&&c.id>=0&&c.id<4?c.id:c.shape==3?c.id-7:-1;if(slot>=0)hudAnchor(slot,c.bounds.centerX()/w,c.bounds.centerY()/h);}
+        for(Control c:controls){int slot=c.shape==0&&c.id>=0&&c.id<4?c.id:c.shape==3?c.id-7:-1;if(c.id==105)slot=8;if(slot>=0)hudAnchor(slot,c.bounds.centerX()/w,c.bounds.centerY()/h);}
         if(configured)add(-1,"◉",w-right-30*unit,h-bottom-30*unit,30*unit,30*unit,0);
     }
     @Override protected void onSizeChanged(int w,int h,int ow,int oh) {cancelInputs();try{displayMetrics(getResources().getDisplayMetrics().density,h);}catch(UnsatisfiedLinkError ignored){}layoutControls();}
@@ -125,7 +138,7 @@ public final class TouchOverlay extends View {
             float scale=size();
             if(current!=lastState || controlSize!=scale) {
                 displayMetrics(getResources().getDisplayMetrics().density,getHeight());
-                itemIcons=(current&256)!=0;extras=(current&128)!=0;controlSize=scale;editor=(current&32)!=0;floating=(current&64)!=0;faceLayout=(current>>3)&3;
+                jumpMode=(current>>10)&3;itemIcons=(current&256)!=0;extras=(current&128)!=0;controlSize=scale;editor=(current&32)!=0;floating=(current&64)!=0;faceLayout=(current>>3)&3;
                 cancelInputs();lastState=current;ready=(current&1)!=0;menu=(current&2)!=0;shown=(current&4)!=0;configured=(current&512)!=0;layoutControls();
             }
         } catch(UnsatisfiedLinkError notLoaded) {postInvalidateOnAnimation();return;}
@@ -137,9 +150,9 @@ public final class TouchOverlay extends View {
         for(Control c:controls) {
             if(c.shape==2) {
                 if(!c.down){if(floating||c.id!=0)continue;c.cx=left+75*unit;c.cy=getHeight()-bottom-75*unit;}
-                paint.setStyle(Paint.Style.FILL);paint.setColor(0x20ffffff);canvas.drawCircle(c.cx,c.cy,75*unit,paint);
+                paint.setColor(0x20ffffff);
                 paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(2*unit);canvas.drawCircle(c.cx,c.cy,75*unit,paint);
-                paint.setStyle(Paint.Style.FILL);canvas.drawCircle(c.cx+c.x*51*unit,c.cy+c.y*51*unit,24*unit,paint);continue;
+                canvas.drawCircle(c.cx+c.x*51*unit,c.cy+c.y*51*unit,24*unit,paint);continue;
             }
             if(c.shape==3) {
                 if(c.id==11) {
@@ -154,7 +167,7 @@ public final class TouchOverlay extends View {
             paint.setStyle(Paint.Style.FILL);paint.setColor((Math.min(255,Math.round(37*alpha/.28f))<<24)|0xffffff);
             String label=c.label;
             if(c.shape==3)label=c.id==11?"▲":c.id==12?"▼":c.id==13?"◀":"▶";
-            boolean faceIcon=itemIcons&&c.shape==0&&c.id>=0&&c.id<4;
+            boolean faceIcon = usesItemIcon(c.id, c.shape);
             paint.setTextSize((faceIcon?10:14)*unit);
             canvas.drawText(label,faceIcon?c.bounds.left+c.bounds.width()*.8f:c.bounds.centerX(),(faceIcon?c.bounds.top+c.bounds.height()*.8f:c.bounds.centerY())-(paint.ascent()+paint.descent())/2,paint);
         }

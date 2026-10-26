@@ -3,14 +3,16 @@
 #include "retuned_screen_layout.h"
 #include "duo_game_display.h"
 #include <cstdlib>
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
 #include <cstdint>
 #include <string_view>
 #include <atomic>
 namespace RetunedFrontend {
 inline std::atomic<bool> ProbeGuestBridgeBound{false};
 inline std::atomic<bool> ProbeGuestDualActive{false};
-// Developer opt-in only. This does not enable an untested public screen-mode
-// setting or claim that a prepared Single Screen mod has Dual Screen semantics.
+// Desktop arrangements remain diagnostic; mobile modes use device capabilities.
 inline ScreenArrangement ScreenProbeArrangement() {
  if(ProbeGuestBridgeBound.load() && !ProbeGuestDualActive.load())return ScreenArrangement::Single;
  const char* value=std::getenv("RETUNED_SCREEN_PROBE");
@@ -19,11 +21,14 @@ inline ScreenArrangement ScreenProbeArrangement() {
  return ScreenArrangement::Single;
 }
 inline bool DuoProbeRequested() {
+#if defined(__APPLE__) && TARGET_OS_IOS && !TARGET_OS_TV
+ return true;
+#endif
  const char* value=std::getenv("RETUNED_SCREEN_PROBE");
  return value && std::string_view(value)=="duo";
 }
 inline bool ScreenProbeRequested(){return DuoProbeRequested() || ScreenProbeArrangement()!=ScreenArrangement::Single;}
-inline bool ScreenProbeEnabled(){return DuoProbeRequested() || ScreenProbeArrangement()!=ScreenArrangement::Single;}
+inline bool ScreenProbeEnabled(){return (DuoProbeRequested() && DuoDisplay.Available()) || ScreenProbeArrangement()!=ScreenArrangement::Single;}
 inline GameScreenLayout ScreenProbeLayout(float width,float height) {
  if(DuoProbeRequested())return DuoDisplay.Layout(width,height,ProbeGuestDualActive.load());
  // Input uses logical points, scanout uses drawable pixels: keep the gap relative.

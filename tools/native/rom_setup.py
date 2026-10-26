@@ -405,6 +405,9 @@ class RomSetup:
         manifest['source'].update(code_bin_path=str(final / 'code.bin'),
             exheader_path=str(final / 'exheader.bin'), romfs_image_path=str(final / 'romfs.bin'))
         write_json(stage / 'process-manifest.json', manifest)
+        equipment_art = load_module('_retuned_equipment_art', PROJECT / 'tools/native/prepare_lower_equipment_art.py')
+        asset_receipt['lower_equipment'] = equipment_art.prepare_romfs(
+            stage / 'romfs.bin', stage / 'lower-equipment')
         shutil.move(work / 'ui-notices', stage / 'ui-notices')
         if self.hd_font_coverage is not None:
             asset_receipt['hd_font_coverage'] = ui_assets.verify_font_coverage(self.hd_font_coverage)

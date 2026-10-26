@@ -215,6 +215,24 @@ def presentation_bridge(named):
     return {'schema': 1, 'modes': ['single', 'dual'], 'functions': functions}
 
 
+def manual_jump_bridge(named):
+    """Older prepared games omit this opt-in capability entirely."""
+    names=('ManualJump_Get','ManualJump_Set')
+    if not any(name in named for name in names):
+        return {}
+    if not all(name in named for name in names):
+        raise ValueError('Incomplete manual-jump bridge')
+    functions={}
+    for name in names:
+        address,size,kind,_=named[name]
+        if kind!='FUNC' or address<INJECTION or address%4 or size<4 or size%4:
+            raise ValueError('Invalid manual-jump function: '+name)
+        functions[name]=address
+    if len(set(functions.values()))!=len(names):
+        raise ValueError('Aliased manual-jump bridge functions')
+    return functions
+
+
 def _prepare(args):
     if args.output.exists():
         raise ValueError('Refusing to replace a private title experiment')
@@ -258,6 +276,7 @@ def _prepare(args):
             'Camera_GetDistanceOption','Camera_SetDistanceOption','Camera_GetControlMode',
             'Camera_SetControlMode','MovementOptions_Get','MovementOptions_Set',
             'InputRemap_IsOcarinaUiOpen','InputRemap_IsOcarinaUiReady','InputRemap_CloseOcarinaUi')
+        jump_functions=manual_jump_bridge(named)
         frontend = {'schema':1,'context_pointer':object_symbols['gGlobalContext'],
             'save_context':args.save_context,'functions':{name:named[name][0] for name in functions},
             'touch_hud':{'upload_positions':named['NativeHud_UploadPositions'][0],
@@ -268,6 +287,9 @@ def _prepare(args):
                 'ocarina_layout':object_symbols['sNativeHudOcarinaLayout'],
                 'action_source':object_symbols['sNativeActionSource'],
                 'action_owner':touch_action_owner(image,named['NativeHud_PrepareActionPrompt'][0])}}
+        frontend['functions'].update(jump_functions)
+        if jump_functions:
+            frontend['touch_hud']['manual_jump_bumper']={'first_quad':33,'quad_count':64}
         presentation = presentation_bridge(named)
         if presentation is not None:
             frontend['presentation'] = presentation

@@ -138,6 +138,7 @@ def assemble(installation, template, platform, provisioning, identity, destinati
         private.mkdir()
         for name in ('code.bin', 'exheader.bin', 'romfs.bin', 'font_coverage.zip'):
             shutil.copyfile(installation / name, private / name)
+        shutil.copytree(installation / 'lower-equipment', private / 'lower-equipment')
         shutil.copyfile(controller_db, private / 'gamecontrollerdb.txt')
         for name, data in (('process-manifest.json', manifest), ('native-launch.json', launch)):
             (private / name).write_text(json.dumps(data, indent=2) + '\n')

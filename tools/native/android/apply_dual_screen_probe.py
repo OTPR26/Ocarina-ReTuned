@@ -1,4 +1,4 @@
-"""Install the opt-in Android dual-display hardware experiment; not release staging."""
+"""Install optional Android dual-display presentation and equipment controls."""
 from pathlib import Path
 import sys
 sys.path[:0]=[str(Path(__file__).resolve().parents[2]/'frontend'),str(Path(__file__).resolve().parents[2]/'reframed')]
@@ -12,6 +12,10 @@ def apply(root):
  if not marker.exists():presentation(root)
  here=Path(__file__).parent/'dual_screen';inc=root/'runtime/three_ds_recomp/include/fast/oot3d';runtime=root/'tools/oot3d/native_game_runtime'
  for src,dst in [('display_state.h','android_display_state.h'),('secondary_swapchain.h','android_secondary_swapchain.h')]: (inc/dst).write_bytes((here/src).read_bytes())
+ (inc/'lower_equipment_state.h').write_bytes((here.parents[2]/'frontend/lower_equipment_state.h').read_bytes())
+ (inc/'retuned_lower_equipment.h').write_bytes((here.parents[2]/'frontend/lower_equipment.h').read_bytes())
+ (runtime/'retuned_shared_lower_equipment_runtime.h').write_bytes((here.parents[1]/'lower_equipment_runtime.h').read_bytes())
+ (runtime/'retuned_lower_equipment_runtime.h').write_bytes((here/'equipment_runtime.h').read_bytes())
  def edit(path,before,after):
   s=path.read_text()
   if after in s:return
@@ -20,15 +24,31 @@ def apply(root):
  probe=inc/'retuned_screen_probe.h'
  edit(probe,'#include "duo_game_display.h"','#include "duo_game_display.h"\n#include "android_display_state.h"')
  edit(probe,'inline bool ScreenProbeRequested(){return DuoProbeRequested()', 'inline bool ScreenProbeRequested(){return AndroidDualProbeRequested() || DuoProbeRequested()')
- edit(probe,'inline bool ScreenProbeEnabled(){return DuoProbeRequested()', 'inline bool ScreenProbeEnabled(){return (AndroidDualProbeRequested() && ProbeGuestDualActive.load()) || DuoProbeRequested()')
- edit(probe,'inline GameScreenLayout ScreenProbeLayout(float width,float height) {','inline GameScreenLayout ScreenProbeLayout(float width,float height) {\n if(AndroidDualProbeRequested())return {{0,0,width,height},FitScreen({0,0,width,height},320.f/240.f)};')
+ edit(probe,'inline bool ScreenProbeEnabled(){return (DuoProbeRequested() && DuoDisplay.Available())', 'inline bool ScreenProbeEnabled(){return (AndroidDualProbeRequested() && ProbeGuestDualActive.load()) || (DuoProbeRequested() && DuoDisplay.Available())')
+ old=' if(AndroidDualProbeRequested())return {{0,0,width,height},FitScreen({0,0,width,height},320.f/240.f)};'
+ text=probe.read_text();text=text.replace(old,'')
+ text=text.replace('auto lower=FitScreen({0,0,width,height},320.f/240.f);lower.Y=0;', 'auto lower=FitScreen({0,0,width,height},320.f/240.f);if(LowerEquipmentPanelEnabled.load())lower.Y=0;')
+ probe.write_text(text)
+ edit(probe,'inline GameScreenLayout ScreenProbeLayout(float width,float height) {','inline GameScreenLayout ScreenProbeLayout(float width,float height) {\n if(AndroidDualProbeRequested()){auto lower=FitScreen({0,0,width,height},320.f/240.f);if(LowerEquipmentPanelEnabled.load())lower.Y=0;return {{0,0,width,height},lower};}')
+ frame=runtime/'oot3d_native_a32_window_frame.cpp'
+ edit(frame,'#include "retuned_reframed_screen_probe.h"','#include "retuned_reframed_screen_probe.h"\n#ifdef __ANDROID__\n#include "retuned_lower_equipment_runtime.h"\n#endif')
+ edit(frame,'  const auto hidUpdate = hostServices.AdvanceHidToCurrentTick(','''#ifdef __ANDROID__
+  RetunedFrontend::UpdateLowerEquipment(process,gui->GetMenuOrMenubarVisible() || gui->GetAnyGuiWindowVisible() || RetunedFrontend::StartupVisible);
+#endif
+  const auto hidUpdate = hostServices.AdvanceHidToCurrentTick(''')
  bridge=runtime/'retuned_reframed_screen_probe.h'
  edit(bridge,'        // Private diagnostic control only.', '        if (AndroidDualProbeRequested()) requested = AndroidLowerAvailable.load() && AndroidDualSelected.load() ? GamePresentation::Dual : GamePresentation::Single;\n        // Private diagnostic control only.')
  edit(bridge,'        ProbeGuestDualActive = mBridge.Effective() == GamePresentation::Dual;',
       '        ProbeGuestDualActive = mBridge.Effective() == GamePresentation::Dual;\n        if(AndroidDualProbeRequested())AndroidGuestDualActive=ProbeGuestDualActive.load();')
  setup=runtime/'oot3d_native_a32_window_setup.cpp'
- edit(setup,'  context = Ship::Context::GetRawInstance();','  context = Ship::Context::GetRawInstance();\n  if(RetunedFrontend::AndroidDualProbeRequested())RetunedFrontend::AndroidDualSelected=context->GetConfig()->GetBool("Interface.DualScreen",true);')
+ edit(setup,'  context = Ship::Context::GetRawInstance();','  context = Ship::Context::GetRawInstance();\n  RetunedFrontend::LowerEquipmentPanelEnabled=context->GetConfig()->GetBool("Interface.DualEquipmentPanel",true);\n  if(RetunedFrontend::AndroidDualProbeRequested())RetunedFrontend::AndroidDualSelected=context->GetConfig()->GetBool("Interface.DualScreen",true);')
  graphics=root/'runtime/three_ds_recomp/src/fast/oot3d/graphics_settings_window.cpp'
+ text=graphics.read_text()
+ start=text.find('        if(RetunedFrontend::AndroidDualProbeRequested()) {\n            ImGui::SeparatorText("Display");')
+ if start>=0 and 'Bottom equipment panel' not in text:
+  end=text.index('        ImGui::SeparatorText("Menu");',start)
+  graphics.write_text(text[:start]+text[end:])
+
  edit(graphics,'#include <algorithm>','#include <algorithm>\n#include "fast/oot3d/android_display_state.h"')
  edit(graphics,'        ImGui::SeparatorText("Menu");','''        if(RetunedFrontend::AndroidDualProbeRequested()) {
             ImGui::SeparatorText("Display");
@@ -37,6 +57,15 @@ def apply(root):
                 RetunedFrontend::AndroidDualSelected=mode==1;
                 RetunedFrontend::AndroidLowerTouch=0;
                 config->SetBool("Interface.DualScreen",mode==1);config->Save();
+            }
+            if(mode==1) {
+                bool panel=RetunedFrontend::LowerEquipmentPanelEnabled.load();
+                if(ImGui::Checkbox("Bottom equipment panel",&panel)) {
+                    RetunedFrontend::LowerEquipmentPanelEnabled=panel;
+                    RetunedFrontend::AndroidLowerTouch=0;
+                    config->SetBool("Interface.DualEquipmentPanel",panel);config->Save();
+                }
+                ImGui::TextWrapped("Uses spare space below the 4:3 game picture. Best on taller secondary displays, like the AYN Thor.");
             }
             if(mode==1 && !RetunedFrontend::AndroidLowerAvailable.load())
                 ImGui::TextWrapped("Dual screen uses a connected second display. Using Single until it is available.");
@@ -120,6 +149,7 @@ def apply(root):
  (android/'android_secondary_swapchain.h').write_text('#include "fast/oot3d/android_secondary_swapchain.h"\n')
  java=root/'ports/android/app/src/main/java/org/triaevum/android'
  (java/'RetunedDualScreen.java').write_bytes((here/'RetunedDualScreen.java').read_bytes())
+ (java/'RetunedEquipmentStrip.java').write_bytes((here/'RetunedEquipmentStrip.java').read_bytes())
  activity=java/'RetunedGameActivity.java'
  edit(activity,'    private TouchOverlay touchOverlay;', '    private TouchOverlay touchOverlay;\n    private RetunedDualScreen dualScreen;')
  edit(activity,'        StartupDiagnostics.stage(this, "loading SDL and game libraries");','''        try {android.system.Os.setenv("RETUNED_SCREEN_PROBE","android-dual",true);android.system.Os.setenv("TRIAEVUM_VULKAN_PRESENT_DISPATCH","graphics",true);}catch(Exception e){throw new RuntimeException(e);}

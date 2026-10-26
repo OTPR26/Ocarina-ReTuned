@@ -25,8 +25,8 @@ extern "C" void RetunedTouchSetAxis(int axis,int value) {
  if(axis==0)NativeTouch.MoveX=v;if(axis==1)NativeTouch.MoveY=-v;
  if(axis==2)NativeTouch.LookX=v;if(axis==3)NativeTouch.LookY=-v;
  if(axis==4||axis==5) {
-  const int action=ExtraShoulderAction(TouchExtraShoulders.load(),axis==4?TouchZLAction.load():TouchZRAction.load());
-  if(action>=0)NativeTouch.SourceButton(100+axis,static_cast<TouchAction>(action),value>0);
+  const int action=TouchShoulderAction(axis,TouchManualJumpMode.load(),TouchHostMode.load()==0,TouchExtraShoulders.load(),axis==4?TouchZLAction.load():TouchZRAction.load());
+  NativeTouch.SourceButton(100+axis,action>=0?static_cast<TouchAction>(action):TouchAction::ItemII,action>=0&&value>0);
  }
 }
 extern "C" void RetunedTouchSetEnabled(int enabled) {
@@ -42,7 +42,7 @@ extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_button(
 extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_axis(JNIEnv*,jclass,jint axis,jint value) {RetunedTouchSetAxis(axis,value);}
 extern "C" JNIEXPORT jint JNICALL Java_org_triaevum_android_TouchOverlay_state(JNIEnv*,jclass) {
  using namespace RetunedFrontend;
- return (NativeFrontendEnabled?1:0)|(TouchHostMenu.load()?2:0)|(TouchVisibility.ControlsVisible()?4:0)|(TouchVisibility.ButtonVisible()?512:0)|(TouchFaceLayout.load()<<3)|(TouchHostMode.load()!=0?32:0)|(TouchFloating.load()?64:0)|(TouchExtraShoulders.load()?128:0)|(TouchHudActive.load()&&TouchHudLive.load()?256:0);
+ return (NativeFrontendEnabled?1:0)|(TouchHostMenu.load()?2:0)|(TouchVisibility.ControlsVisible()?4:0)|(TouchVisibility.ButtonVisible()?512:0)|((TouchHostMode.load()==0?TouchManualJumpMode.load():0)<<10)|(TouchFaceLayout.load()<<3)|(TouchHostMode.load()!=0?32:0)|(TouchFloating.load()?64:0)|(TouchExtraShoulders.load()?128:0)|(TouchHudActive.load()&&TouchHudLive.load()?256:0);
 }
 #endif
 

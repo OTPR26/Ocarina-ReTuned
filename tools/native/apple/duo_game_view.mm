@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Opt-in playable diagnostic. Not part of normal release staging.
+// Optional dual-screen layout; the observer gates it on device capabilities.
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import "duo_layout_observer.h"
+#import "duo_equipment_strip.h"
 #include <SDL.h>
 #include <SDL_syswm.h>
 #include "fast/oot3d/retuned_screen_probe.h"
@@ -11,7 +12,7 @@ static ScreenRect DuoRect(CGRect r) {return {float(r.origin.x),float(r.origin.y)
 @interface RetunedDuoGameView : NSObject
 @property(nonatomic,strong) RetunedDuoLayoutObserver* observer;
 @property(nonatomic,strong) CADisplayLink* refreshLink;
-@property(nonatomic,strong) UISegmentedControl* selector;
+@property(nonatomic,strong) RetunedDuoEquipmentStrip* strip;
 @property(nonatomic,weak) UIView* view;
 @end
 @implementation RetunedDuoGameView
@@ -19,11 +20,8 @@ static ScreenRect DuoRect(CGRect r) {return {float(r.origin.x),float(r.origin.y)
     self=[super init];
     if(!self)return nil;
     _view=view;
-    _selector=[[UISegmentedControl alloc] initWithItems:@[@"Single",@"Dual"]];
-    _selector.selectedSegmentIndex=0;
-    _selector.overrideUserInterfaceStyle=UIUserInterfaceStyleDark;
-    [_selector addTarget:self action:@selector(selectMode) forControlEvents:UIControlEventValueChanged];
-    [view addSubview:_selector];
+    _strip=[[RetunedDuoEquipmentStrip alloc] initWithFrame:CGRectZero];
+    [view addSubview:_strip];
     _observer=[[RetunedDuoLayoutObserver alloc] initWithView:view handler:^(RetunedDuoLayoutSnapshot* snapshot) {
         DuoDisplayGeometry geometry;
         geometry.Available=snapshot.phoneWithHinge;
@@ -41,12 +39,10 @@ static ScreenRect DuoRect(CGRect r) {return {float(r.origin.x),float(r.origin.y)
     [_refreshLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
     [self refresh];return self;
 }
-- (void)selectMode {DuoDisplay.Select(self.selector.selectedSegmentIndex==1?ScreenPreference::Dual:ScreenPreference::Single);}
 - (void)refresh {
     [self.observer refresh];
-    const CGRect safe=UIEdgeInsetsInsetRect(self.view.bounds,self.view.safeAreaInsets);
-    self.selector.frame=CGRectMake(CGRectGetMinX(safe)+8,CGRectGetMinY(safe)+8,180,30);
-    [self.view bringSubviewToFront:self.selector];
+    [self.strip refresh];
+    [self.view bringSubviewToFront:self.strip];
 }
 @end
 static RetunedDuoGameView* sDuoGameView;

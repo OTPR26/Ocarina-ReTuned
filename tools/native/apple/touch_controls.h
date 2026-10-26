@@ -14,6 +14,8 @@ void RetunedIOS_SetFaceButtonLayout(int layout);
 void RetunedIOS_SetTouchLeftStickFloating(int floating);
 void RetunedIOS_SetTouchControlsMenuVisible(int visible);
 
+void RetunedIOS_SetManualJump(int mode);
+
 #ifdef __cplusplus
 }
 #endif

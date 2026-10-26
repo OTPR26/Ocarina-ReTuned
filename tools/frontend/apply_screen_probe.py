@@ -9,7 +9,7 @@ def apply(engine):
  include=engine/'runtime/three_ds_recomp/include/fast/oot3d'
  for name in ('screen_probe.h',):
   (include/('retuned_'+name)).write_text((source/name).read_text())
- for name in ('screen_layout.h','screen_presentation_bridge.h','screen_mode_policy.h','duo_game_display.h'):
+ for name in ('screen_layout.h','screen_presentation_bridge.h','screen_mode_policy.h','duo_game_display.h','lower_equipment.h','lower_equipment_state.h'):
   (include/name).write_bytes((source/name).read_bytes())
  (include/'retuned_screen_layout.h').write_text('#pragma once\n#include "screen_layout.h"\n')
  backend=engine/'runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_pica_display.cpp'

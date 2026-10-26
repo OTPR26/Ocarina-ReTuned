@@ -25,10 +25,8 @@ def apply(engine):
          'RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);\n'
          '  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed)\n'
          '    RetunedFrontend::NativeScreenProbe.Initialize(launch.A32ProcessManifestPath);')
-    edit(runtime / 'oot3d_native_a32_window_frame.cpp',
-         '  if(RetunedFrontend::NativeFrontendEnabled && RetunedFrontend::StartupVisible) {',
-         '  if (RetunedFrontend::ProbeGuestBridgeBound.load()) RetunedFrontend::StartupVisible = false;\n'
-         '  if(RetunedFrontend::NativeFrontendEnabled && RetunedFrontend::StartupVisible) {')
+    frame = runtime / 'oot3d_native_a32_window_frame.cpp'
+    frame.write_text(frame.read_text().replace('  if (RetunedFrontend::ProbeGuestBridgeBound.load()) RetunedFrontend::StartupVisible = false;\n', ''))
     edit(runtime / 'oot3d_native_a32_window_frame.cpp',
          '  const auto hidUpdate = hostServices.AdvanceHidToCurrentTick(',
          '  if (RetunedFrontend::NativeScreenProbe.Apply(process, frameCount)) {\n'

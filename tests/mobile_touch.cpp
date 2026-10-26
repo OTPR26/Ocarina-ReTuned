@@ -3,6 +3,22 @@
 #include <cassert>
 using namespace RetunedFrontend;
 int main(){
+ using namespace RetunedFrontend;
+ for(int mode=1;mode<=2;++mode){
+  assert(TouchShoulderAction(5,mode,true,false,-1)==static_cast<int>(TouchAction::ItemII));
+  assert(TouchShoulderAction(5,mode,true,true,0)==static_cast<int>(TouchAction::ItemII));
+  assert(TouchShoulderAction(5,mode,false,false,-1)==-1);
+  assert(TouchShoulderAction(4,mode,true,false,-1)==static_cast<int>(TouchAction::ItemI));
+  assert(TouchShoulderAction(4,mode,true,true,0)==0);
+ }
+ assert(TouchShoulderAction(5,0,true,false,-1)==-1);
+ assert(TouchShoulderAction(5,0,true,true,0)==0);
+ NativeTouchState releaseState;
+ releaseState.SourceButton(105,TouchAction::ItemII,true);
+ releaseState.Sample(true);
+ releaseState.SourceButton(105,TouchAction::ItemII,false);
+ assert(releaseState.Sample(true).Buttons==0);
+
  NativeTouchState native;
  native.Button(TouchAction::A,true);native.Button(TouchAction::A,false);
  assert(native.Sample(true).Buttons&(uint32_t{1}<<unsigned(TouchAction::A)));

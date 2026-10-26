@@ -98,7 +98,7 @@ class SwitchSetup(RomSetup):
             installation / 'libretuned_switch_title.a', binary)])
         nacp = installation / 'OcarinaReTuned.nacp'
         self.run([self.sdk / ('tools/bin/nacptool' + self.suffix), '--create',
-            'Ocarina ReTuned', 'OTPR26', '0.1.0-switch', nacp])
+            'Ocarina ReTuned', 'OTPR26', '0.5.0', nacp])
         nro = installation / 'Ocarina-ReTuned.nro'
         self.run([self.sdk / ('tools/bin/elf2nro' + self.suffix), binary, nro,
             '--nacp=' + str(nacp), '--icon=' + str(self.link_kit / 'icon.jpg')])

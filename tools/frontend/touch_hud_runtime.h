@@ -16,19 +16,27 @@ struct TouchHudBridge {
  std::array<float,24> ActionPositions{};
  std::array<float,16> ActionUVs{};
  std::array<float,32> ActionColors{};
+ uint32_t JumpBumperFirst=0,JumpBumperCount=0;
  bool Ready()const{return Upload&&PrepareAction&&Positions&&PauseLayout&&OcarinaLayout&&ActionSource&&UVs;}
  bool Gameplay(Oot3dNativeGame::NativeA32Memory& memory)const {
   uint8_t pause=1,instrument=1;
   return Ready()&&TouchHudActive.load()&&memory.Read8(PauseLayout,&pause)&&memory.Read8(OcarinaLayout,&instrument)&&!pause&&!instrument;
  }
  void PlaceItems(Oot3dNativeGame::NativeA32Memory& memory) {
+  HaveItems=false;
   if(!Gameplay(memory))return;
   std::array<float,33*12> positions{};
   if(!memory.ReadBytes(Positions,std::span(reinterpret_cast<uint8_t*>(positions.data()),sizeof(positions))))return;
-  if(!PlaceTouchHud(positions,SnapshotTouchHud(),TouchHudAspect.load()))return;
+  if(!PlaceTouchHud(positions,SnapshotTouchHud(),TouchHudAspect.load(),TouchManualJumpMode.load()))return;
   ItemPositions=positions;HaveItems=true;
   for(unsigned q:{5u,6u,7u,8u,9u,10u,11u,12u,23u,28u,29u})for(unsigned v=0;v<4;++v){positions[q*12+v*3]=0;positions[q*12+v*3+1]=0;}
   memory.WriteBytes(Positions,std::span(reinterpret_cast<const uint8_t*>(positions.data()),sizeof(positions)));
+  // Native touch buttons supply their own bases. Hide the optional shoulder
+  // geometry as well, so it cannot remain at the physical-controller anchor.
+  if(JumpBumperFirst==33&&(JumpBumperCount==48||JumpBumperCount==64)) {
+   const std::array<float,64*12> hidden{};
+   memory.WriteBytes(Positions+JumpBumperFirst*12*sizeof(float),std::span(reinterpret_cast<const uint8_t*>(hidden.data()),JumpBumperCount*12*sizeof(float)));
+  }
  }
  std::vector<oot3d::ui::UiPrimitive> Overlay(Oot3dNativeGame::NativeA32Memory& memory,const oot3d::ui::UiTextureIdentity& atlas,const oot3d::ui::UiTextureIdentity* actionAtlas=nullptr)const {
   std::vector<oot3d::ui::UiPrimitive> result;
@@ -86,6 +94,10 @@ inline std::vector<uint32_t> InitializeTouchHudBridge(const std::filesystem::pat
  if(!root.contains("reframed_frontend")||!root["reframed_frontend"].contains("touch_hud"))return {};
  const auto& b=root["reframed_frontend"]["touch_hud"];
  NativeTouchHud={b.at("upload_positions"),b.at("prepare_action"),b.at("positions"),b.at("pause_layout"),b.at("ocarina_layout"),b.at("action_source"),b.value("uvs",0u),b.value("action_owner",0u)};
+ if(b.contains("manual_jump_bumper")) {
+  NativeTouchHud.JumpBumperFirst=b.at("manual_jump_bumper").value("first_quad",0u);
+  NativeTouchHud.JumpBumperCount=b.at("manual_jump_bumper").value("quad_count",0u);
+ }
  if(NativeTouchHud.Ready())return {NativeTouchHud.Upload,NativeTouchHud.PrepareAction};
 #endif
  return {};

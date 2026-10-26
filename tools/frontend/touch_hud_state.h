@@ -4,6 +4,7 @@
 #include <mutex>
 #include <atomic>
 namespace RetunedFrontend {
+inline std::atomic<int> TouchManualJumpMode{0};
 inline std::mutex TouchHudMutex;
 inline TouchHudAnchors TouchHudLayout;
 inline std::atomic<bool> TouchHudRequested{true},TouchHudActive{false};
@@ -14,7 +15,7 @@ inline void SetTouchHudDisplay(float width,float height) {
  if(std::isfinite(width)&&std::isfinite(height)&&width>0&&height>0)TouchHudAspect=width/height;
 }
 inline void SetTouchHudAnchor(int slot,float x,float y) {
- if(slot<0||slot>=8)return;
+ if(slot<0||slot>=9)return;
  std::lock_guard lock(TouchHudMutex);TouchHudLayout[slot]={x,y,true};
 }
 inline TouchHudAnchors SnapshotTouchHud(){std::lock_guard lock(TouchHudMutex);return TouchHudLayout;}

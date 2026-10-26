@@ -17,10 +17,10 @@ class ReframedScreenProbe {
  public:
     void Initialize(const std::filesystem::path& manifest) {
         if (!ScreenProbeRequested()) return;
-        ProbeGuestBridgeBound = true;
         std::ifstream file(manifest);
         nlohmann::json root;
         file >> root;
+        if (!root.contains("reframed_frontend") || !root.at("reframed_frontend").contains("presentation")) return;
         const auto& bridge = root.at("reframed_frontend").at("presentation");
         if (bridge.at("modes") != nlohmann::json::array({"single", "dual"}))
             throw std::runtime_error("Unsupported ReFramed presentation modes");
@@ -28,7 +28,8 @@ class ReframedScreenProbe {
         mBridge.Bind(bridge.at("schema"), functions.at("ScreenPresentation_GetMode"),
                      functions.at("ScreenPresentation_TrySetMode"));
         if (!mBridge.Supported())
-            throw std::runtime_error("The screen probe requires a compatible prepared game");
+            throw std::runtime_error("Unsupported prepared-game presentation capability");
+        ProbeGuestBridgeBound = true;
     }
     bool Apply(Oot3dNativeGame::NativeA32Process& process, uint64_t frame) {
         if (!mBridge.Supported()) return false;

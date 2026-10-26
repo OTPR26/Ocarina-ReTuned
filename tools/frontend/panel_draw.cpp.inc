@@ -113,7 +113,7 @@ void GraphicsSettingsPanel::Draw() {
       case SettingsPage::QualityOfLife:
         ImGui::SeparatorText("Link movement");drawTabs("Quality of life");break;
       case SettingsPage::About:
-        ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.1.0 Preview");
+        ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.5.0 Preview");
         ImGui::Spacing();ImGui::TextWrapped("Ocarina of Time 3D with the Reframed single-screen HUD.");
         ImGui::SeparatorText("Contributors");
         ImGui::TextWrapped("Upstream engine credits: TriAevum by coccofresco. Uses libultraship, SDL, Dear ImGui and MoltenVK on Apple devices. Interface fonts: Liberation Sans (SIL Open Font License).");

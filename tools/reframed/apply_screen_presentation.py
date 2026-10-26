@@ -1,7 +1,6 @@
-"""Install the private, opt-in ReFramed live-presentation experiment.
+"""Install the ReFramed Single/Dual presentation capability for native preparation.
 
-Not used by release kit staging. Menu-transition and device validation must
-finish before enabling this capability in user-facing packages.
+The mod source must match the canonical EUR-addressed image.
 """
 from pathlib import Path
 import argparse
@@ -125,6 +124,12 @@ unsigned ScreenPresentation_CanSwitch(void) {
             raise ValueError('Dual assignment HUD context changed: ' + before)
         text = text.replace(before, after)
     hud.write_text(text)
+    from apply_heart_sampling import apply as apply_heart_sampling
+    apply_heart_sampling(root)
+    from apply_dual_gear_preview import apply as apply_dual_gear_preview
+    apply_dual_gear_preview(root)
+    from apply_visions_layout import apply as apply_visions_layout
+    apply_visions_layout(root)
 
     # The native sidebar has a dedicated four-glyph renderer (X, Y, I, II).
     # Suppress only that draw in Dual, as ReMasked does for native item labels.

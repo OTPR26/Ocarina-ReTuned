@@ -2,6 +2,20 @@
 from pathlib import Path
 from apply_native_port import edit
 
+def apply_gameplay_menu_scope(engine):
+    """Cancel stale window-switch overlays before gameplay UI frames."""
+    root=Path(engine)/'runtime/three_ds_recomp'
+    (root/'include/fast/oot3d/retuned_menu_navigation.h').write_bytes(
+        (Path(__file__).parent/'menu_navigation.h').read_bytes())
+    gui=root/'src/fast/Fast3dGui.cpp'
+    text=gui.read_text()
+    text=text.replace('        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;\n        RetunedFrontend::DrawStartup',
+                      '        RetunedFrontend::SetMenuNavigationActive(GetAnyGuiWindowVisible() || RetunedFrontend::StartupVisible);\n        RetunedFrontend::DrawStartup')
+    gui.write_text(text)
+    core=root/'src/ship/window/gui/Gui.cpp'
+    edit(core,'#include "ship/window/gui/Gui.h"','#include "ship/window/gui/Gui.h"\n#include "fast/oot3d/retuned_frontend_state.h"\n#include "fast/oot3d/retuned_menu_navigation.h"')
+    edit(core,'    ImGui::NewFrame();','    if(RetunedFrontend::NativeFrontendEnabled)RetunedFrontend::SetMenuNavigationActive(GetAnyGuiWindowVisible() || RetunedFrontend::StartupVisible);\n    ImGui::NewFrame();')
+
 def apply(engine):
     from apply_gui_textures import apply as apply_gui_textures
     apply_gui_textures(engine)
@@ -46,6 +60,7 @@ def apply(engine):
     if 'RetunedFrontend::DrawStartup(*this,' not in gui.read_text():
         edit(gui,'void Fast3dGui::DrawMenu() {\n    Ship::Gui::DrawMenu();',
              'void Fast3dGui::DrawMenu() {\n    Ship::Gui::DrawMenu();\n    if(RetunedFrontend::NativeFrontendEnabled) {\n        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;\n        RetunedFrontend::DrawStartup(*this,GetAnyGuiWindowVisible());\n        RetunedFrontend::DrawTouch(GetAnyGuiWindowVisible());\n    }')
+    apply_gameplay_menu_scope(engine)
     edit(gui,'void Fast3dGui::DrawGame() {','void Fast3dGui::DrawGame() {\n    if(RetunedFrontend::NativeFrontendEnabled && RetunedFrontend::StartupVisible)return;')
     edit(gui,'    mImpl = windowImpl;', '    mImpl = windowImpl;\n#ifdef ENABLE_OOT3D_VULKAN\n    if (mImpl.Backend == WindowBackend::FAST3D_SDL_OOT3D_VULKAN) {\n        auto* window=static_cast<SDL_Window*>(mImpl.Vulkan.Window);\n        int width=0,height=0,pixelWidth=0,pixelHeight=0;\n        SDL_GetWindowSize(window,&width,&height);\n        SDL_Vulkan_GetDrawableSize(window,&pixelWidth,&pixelHeight);\n        RetunedFrontend::SetInterfacePixelRatio(static_cast<float>(width),static_cast<float>(pixelWidth));\n    }\n#endif')
     edit(gui,'#include "fast/Fast3dGui.h"','#include "fast/Fast3dGui.h"\n#include <SDL_vulkan.h>')

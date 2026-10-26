@@ -97,7 +97,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
         self.controllerAxis = -1;
         self.controlShape = shape;
         self.multipleTouchEnabled = YES;
-        self.backgroundColor = AndroidControlFill();
+        self.backgroundColor = UIColor.clearColor;
         self.layer.borderColor = AndroidControlStroke().CGColor;
         self.layer.borderWidth = 0;
         self.artwork=[CAShapeLayer layer];
@@ -175,7 +175,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
         [path closePath];
     }
     self.artwork.path=path.CGPath;
-    self.artwork.fillColor=(self.hudIcon?UIColor.clearColor:(self.inputPressed?AndroidControlPressedFill():AndroidControlFill())).CGColor;
+    self.artwork.fillColor=(self.controlShape==RetunedButtonShapeRectangle?(self.inputPressed?AndroidControlPressedFill():AndroidControlFill()):UIColor.clearColor).CGColor;
     self.artwork.strokeColor=AndroidControlStroke().CGColor;
     self.artwork.lineWidth=2.5;
 }
@@ -185,7 +185,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
         return;
     }
     self.inputPressed = YES;
-    self.artwork.fillColor=(self.hudIcon?UIColor.clearColor:AndroidControlPressedFill()).CGColor;
+    self.artwork.fillColor=(self.controlShape==RetunedButtonShapeRectangle?AndroidControlPressedFill():UIColor.clearColor).CGColor;
     if (self.controllerButton >= 0) {
         SetVirtualButton(self.controllerButton, true);
     } else if (self.controllerAxis >= 0) {
@@ -198,7 +198,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
         return;
     }
     self.inputPressed = NO;
-    self.artwork.fillColor=(self.hudIcon?UIColor.clearColor:AndroidControlFill()).CGColor;
+    self.artwork.fillColor=(self.controlShape==RetunedButtonShapeRectangle?AndroidControlFill():UIColor.clearColor).CGColor;
     if (self.controllerButton >= 0) {
         SetVirtualButton(self.controllerButton, false);
     } else if (self.controllerAxis >= 0) {
@@ -239,7 +239,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 
         self.base = [[UIView alloc] initWithFrame:CGRectZero];
         self.base.userInteractionEnabled = NO;
-        self.base.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.188];
+        self.base.backgroundColor = UIColor.clearColor;
         self.base.layer.borderColor = AndroidControlStroke().CGColor;
         self.base.layer.borderWidth = 2.0;
         self.base.hidden = YES;
@@ -247,7 +247,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 
         self.knob = [[UIView alloc] initWithFrame:CGRectZero];
         self.knob.userInteractionEnabled = NO;
-        self.knob.backgroundColor = AndroidControlFill();
+        self.knob.backgroundColor = UIColor.clearColor;
         self.knob.layer.borderColor = AndroidControlStroke().CGColor;
         self.knob.layer.borderWidth = 2.5;
         [self.base addSubview:self.knob];
@@ -359,7 +359,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
         CGContextAddPath(context,path);
         CGContextSetFillColorWithColor(context,(i==0?AndroidControlFill():AndroidControlStroke()).CGColor);
         CGContextSetStrokeColorWithColor(context,AndroidControlStroke().CGColor);
-        CGContextDrawPath(context,i==0?(self.hudIcons?kCGPathStroke:kCGPathFillStroke):kCGPathFill);
+        CGContextDrawPath(context,i==0?(kCGPathStroke):kCGPathFill);
         CGPathRelease(path);
     }
     CGContextRestoreGState(context);
@@ -391,6 +391,8 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 @property(nonatomic) BOOL menuVisible;
 @property(nonatomic) CGFloat controlScale;
 @property(nonatomic) BOOL extraShoulders;
+@property(nonatomic) NSInteger manualJump;
+@property(nonatomic) BOOL hudIcons;
 @property(nonatomic) NSInteger faceButtonLayout;
 
 - (void)cancelAllInputs;
@@ -551,8 +553,8 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
     for (UIView* view in self.controlGroup.subviews) {
         view.hidden = hideGameplayControls;
     }
-    self.buttonZL.hidden=hideGameplayControls || !self.extraShoulders;
-    self.buttonZR.hidden=hideGameplayControls || !self.extraShoulders;
+    self.buttonZL.hidden=hideGameplayControls || !(self.extraShoulders || self.manualJump!=0);
+    self.buttonZR.hidden=hideGameplayControls || !(self.extraShoulders || self.manualJump!=0);
     self.buttonBack.hidden = hideGameplayControls;
     self.visibilityButton.hidden = !self.controlsEnabled;
 }
@@ -580,18 +582,18 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
     CGFloat top = safe.top + 16.0 * scale;
     CGFloat bottom = safe.bottom + 16.0 * scale;
 
-    CGFloat shoulderWidth = 84.0 * scale;
-    CGFloat shoulderHeight = 46.0 * scale;
+    CGFloat shoulderWidth = 63.0 * scale;
+    CGFloat shoulderHeight = 34.5 * scale;
     CGFloat shoulderGap = 10.0 * scale;
     self.buttonZL.frame = CGRectMake(left, top, shoulderWidth, shoulderHeight);
     self.buttonL.frame =
-        CGRectMake(left, (self.extraShoulders?CGRectGetMaxY(self.buttonZL.frame) + shoulderGap:top),
+        CGRectMake(left, ((self.extraShoulders || self.manualJump!=0)?CGRectGetMaxY(self.buttonZL.frame) + shoulderGap:top),
                    shoulderWidth, shoulderHeight);
     self.buttonZR.frame =
         CGRectMake(width - right - shoulderWidth, top, shoulderWidth, shoulderHeight);
     self.buttonR.frame =
         CGRectMake(width - right - shoulderWidth,
-                   (self.extraShoulders?CGRectGetMaxY(self.buttonZR.frame) + shoulderGap:top),
+                   ((self.extraShoulders || self.manualJump!=0)?CGRectGetMaxY(self.buttonZR.frame) + shoulderGap:top),
                    shoulderWidth, shoulderHeight);
 
     CGFloat stickSize = 150.0 * scale;
@@ -676,6 +678,17 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 
     [self.controlGroup sendSubviewToBack:self.rightStick];
     [self.controlGroup sendSubviewToBack:self.leftStick];
+    [self.buttonX setTitle:@"X" forState:UIControlStateNormal];
+    self.buttonX.accessibilityLabel=self.manualJump==2?@"Jump":@"X";
+    for(RetunedTouchButton* shoulder in @[self.buttonL,self.buttonR,self.buttonZL,self.buttonZR])
+        [shoulder setTitle:@"" forState:UIControlStateNormal];
+    self.buttonZR.accessibilityLabel=self.manualJump==1?@"Jump":@"ZR item";
+    for(RetunedTouchButton* button in @[self.buttonA,self.buttonB,self.buttonX,self.buttonY,self.buttonZR]){
+        button.hudIcon=self.hudIcons && (button==self.buttonZR?self.manualJump==2:!(button==self.buttonX && self.manualJump==2));
+        [button setNeedsLayout];
+    }
+    const CGPoint zr=[self.buttonZR.superview convertPoint:self.buttonZR.center toView:self];
+    RetunedTouchSetHudAnchor(8,zr.x/width,zr.y/height);
     RetunedTouchSetHudDisplay(width,height);
     for(unsigned slot=0;slot<8;++slot) {
         UIView* view=slot<4?@[self.buttonA,self.buttonB,self.buttonX,self.buttonY][slot]:self.cButtons[slot-4];
@@ -800,7 +813,7 @@ void RetunedIOS_SetTouchOpacity(float opacity) {
         for(RetunedTouchStick* stick in @[sTouchOverlay.leftStick,sTouchOverlay.rightStick]) {
             stick.base.layer.borderColor=AndroidControlStroke().CGColor;
             stick.knob.layer.borderColor=AndroidControlStroke().CGColor;
-            stick.knob.backgroundColor=AndroidControlFill();
+            stick.knob.backgroundColor=UIColor.clearColor;
         }
         [sTouchOverlay.cCross setNeedsDisplay];
     });
@@ -827,10 +840,22 @@ void RetunedIOS_SetExtraShoulders(int enabled) {
 void RetunedIOS_SetTouchHudIcons(int enabled) {
     dispatch_async(dispatch_get_main_queue(), ^{
         if(!sTouchOverlay)return;
+        sTouchOverlay.hudIcons=enabled!=0;
+        [sTouchOverlay setNeedsLayout];
         sTouchOverlay.cCross.hudIcons=enabled!=0;
         [sTouchOverlay.cCross setNeedsDisplay];
         for(RetunedTouchButton* button in @[sTouchOverlay.buttonA,sTouchOverlay.buttonB,sTouchOverlay.buttonX,sTouchOverlay.buttonY]){
             button.hudIcon=enabled!=0;[button setNeedsLayout];
         }
+    });
+}
+
+void RetunedIOS_SetManualJump(int mode) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if(!sTouchOverlay)return;
+        [sTouchOverlay cancelAllInputs];
+        sTouchOverlay.manualJump=std::clamp(mode,0,2);
+        [sTouchOverlay setNeedsLayout];
+        [sTouchOverlay applyVisibility];
     });
 }

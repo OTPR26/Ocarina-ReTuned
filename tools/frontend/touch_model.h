@@ -16,6 +16,13 @@ inline int ExtraShoulderAction(bool enabled,int action) {
  default:return -1;
  }
 }
+inline int TouchShoulderAction(int axis,int jumpMode,bool gameplay,bool enabled,int assigned) {
+ if(gameplay && jumpMode>0 && jumpMode<=2) {
+  if(axis==5)return static_cast<int>(TouchAction::ItemII);
+  if(axis==4 && assigned<0)return static_cast<int>(TouchAction::ItemI);
+ }
+ return ExtraShoulderAction(enabled,assigned);
+}
 struct TouchControl { TouchAction Action; const char* Label; float X,Y,Radius; };
 inline constexpr std::array<TouchControl,16> TouchLayout{{
  {TouchAction::A,"A",.91f,.70f,.056f},{TouchAction::B,"B",.82f,.81f,.056f},

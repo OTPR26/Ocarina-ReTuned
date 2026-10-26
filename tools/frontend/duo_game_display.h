@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 #include "screen_mode_policy.h"
+#include "lower_equipment_state.h"
 #include <mutex>
 #include <vector>
 #include <utility>
@@ -26,6 +27,19 @@ class DuoGameDisplay {
         if (preference == ScreenPreference::Single || preference == ScreenPreference::Dual)
             mPreference = preference;
     }
+    bool Available() const {
+        std::lock_guard lock(mMutex);
+        return mGeometry.Available;
+    }
+    ScreenPreference Preference() const {
+        std::lock_guard lock(mMutex);
+        return mPreference;
+    }
+    ScreenRect LowerPanelBounds(float width,float height,bool guestDual) const {
+        std::lock_guard lock(mMutex);
+        if (!guestDual || !CanShowLower() || !ValidScreenRect(mGeometry.Bounds)) return {};
+        return Scale(LowerPane(),width/mGeometry.Bounds.Width,height/mGeometry.Bounds.Height);
+    }
     GamePresentation Requested(bool compatible) {
         std::lock_guard lock(mMutex);
         return mPolicy.Resolve(mPreference, {ScreenPlatform::IPhoneDuo, compatible,
@@ -45,6 +59,12 @@ class DuoGameDisplay {
         return MapLowerScreenTouch(LayoutLocked(width,height,guestDual),x,y);
     }
  private:
+    ScreenRect LowerPane() const {
+        const auto s=mGeometry.Safe,d=mGeometry.Division;
+        if (d.Width>=s.Width-.5f)
+            return {s.X,d.Y+d.Height,s.Width,s.Y+s.Height-d.Y-d.Height};
+        return {d.X+d.Width,s.Y,s.X+s.Width-d.X-d.Width,s.Height};
+    }
     bool CanShowLower() const {
         if (!mGeometry.Available || mGeometry.Closed) return false;
         const auto layout = LayoutDividedGameScreens(mGeometry.Safe, mGeometry.Division,
@@ -59,6 +79,8 @@ class DuoGameDisplay {
             !std::isfinite(height) || width<=0 || height<=0) return {};
         const auto mode = guestDual && CanShowLower() ? GamePresentation::Dual : GamePresentation::Single;
         auto layout = LayoutDividedGameScreens(mGeometry.Safe,mGeometry.Division,mode);
+        if (mode==GamePresentation::Dual && LowerEquipmentPanelEnabled.load())
+            layout.Lower.Y=LowerPane().Y;
         const float sx=width/mGeometry.Bounds.Width, sy=height/mGeometry.Bounds.Height;
         layout.Top=Scale(layout.Top,sx,sy);
         if (layout.Lower.Width>0) layout.Lower=Scale(layout.Lower,sx,sy);

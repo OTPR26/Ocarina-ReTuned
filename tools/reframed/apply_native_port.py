@@ -73,12 +73,45 @@ def apply_translation_support(engine):
          query + '\nsize_t NativeA32Memory::RegionCount() const {')
 
 
+def apply_worker_exit(engine):
+    """A completed worker is not a completed process while other threads wait."""
+    root = Path(engine) / 'tools/oot3d/native_game_runtime'
+    path = root / 'oot3d_native_a32_process.cpp'
+    source = path.read_text()
+    before = '''                if (AllThreadsTerminated()) {
+                    result.Kind = NativeA32ProcessRunKind::Terminated;
+                }
+                return result;'''
+    after = '''                if (AllThreadsTerminated()) {
+                    result.Kind = NativeA32ProcessRunKind::Terminated;
+                } else if (result.Kind == NativeA32ProcessRunKind::Terminated) {
+                    // The last runnable movie worker can exit while the game
+                    // waits for its completion event. Keep the process alive.
+                    result.Kind = NativeA32ProcessRunKind::Waiting;
+                }
+                return result;'''
+    if after not in source:
+        if source.count(before) != 2:
+            raise ValueError('Worker-exit scheduler context changed')
+        path.write_text(source.replace(before, after))
+    elif source.count(after) != 2 or before in source:
+        raise ValueError('Incomplete worker-exit scheduler patch')
+    tests = root / 'oot3d_native_a32_process_tests.cpp'
+    test_source = Path(__file__).with_name('worker_exit_tests.cpp.inc').read_text()
+    if 'void TestWorkerExitWhilePrimaryWaits()' not in tests.read_text():
+        edit(tests, 'void TestPrioritySchedulerAndTls(bool testScheduler = true) {',
+             test_source + '\nvoid TestPrioritySchedulerAndTls(bool testScheduler = true) {')
+        edit(tests, '        TestPrioritySchedulerAndTls();',
+             '        TestPrioritySchedulerAndTls();\n        TestWorkerExitWhilePrimaryWaits();')
+
+
 def apply(engine):
     actual = subprocess.check_output(['git', '-C', str(engine), 'rev-parse', 'HEAD'], text=True).strip()
     if actual != '17218b0cfdb944645bb5cde5249f313dca7e53ce':
         raise ValueError('Unexpected native runtime revision')
     root = Path(engine) / 'tools/oot3d/native_a32_runtime'
     apply_translation_support(engine)
+    apply_worker_exit(engine)
 
     profile = Path(engine) / 'tools/oot3d/ui_topscreen/oot3d_top_screen_mod_profile.h'
     edit(profile, '  Oot3d,\n  TopScreen,', '  Oot3d,\n  TopScreen,\n  Reframed,')

@@ -5,7 +5,7 @@
         <layer-list>
             <item>
                 <shape android:shape="rectangle">
-                    <solid android:color="#10FFFFFF" /> <!-- Darker color when pressed -->
+                    <solid android:color="#00FFFFFF" /> <!-- Darker color when pressed -->
                     <stroke
                         android:width="2dp"
                         android:color="#25FFFFFF" />
@@ -27,7 +27,7 @@
         <layer-list>
             <item>
                 <shape android:shape="rectangle">
-                    <solid android:color="#20FFFFFF" /> <!-- Default color -->
+                    <solid android:color="#00FFFFFF" /> <!-- Default color -->
                     <stroke
                         android:width="2dp"
                         android:color="#25FFFFFF" />

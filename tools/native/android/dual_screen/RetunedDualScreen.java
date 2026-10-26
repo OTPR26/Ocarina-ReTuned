@@ -29,11 +29,12 @@ final class RetunedDualScreen implements DisplayManager.DisplayListener {
  private static final class Lower extends Presentation implements SurfaceHolder.Callback {
   private SurfaceView view;
   Lower(Activity a,Display d){super(a,d);}
-  protected void onCreate(Bundle b){super.onCreate(b);view=new SurfaceView(getContext());setContentView(view);
+  protected void onCreate(Bundle b){super.onCreate(b);view=new SurfaceView(getContext());
+   FrameLayout frame=new FrameLayout(getContext());frame.addView(view);frame.addView(new RetunedEquipmentStrip(getContext()));setContentView(frame);
    getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
    view.getHolder().addCallback(this);view.setOnTouchListener((v,e)->{int action=e.getActionMasked();boolean down=action!=MotionEvent.ACTION_UP&&action!=MotionEvent.ACTION_CANCEL;
     float w=view.getWidth(),h=view.getHeight(),fitW=Math.min(w,h*4f/3f),fitH=fitW*3f/4f;
-    float x=e.getX()-(w-fitW)/2,y=e.getY()-(h-fitH)/2;
+    float x=e.getX()-(w-fitW)/2,y=e.getY()-(RetunedEquipmentStrip.panelEnabled()?0:(h-fitH)/2);
     boolean inside=fitW>0&&fitH>0&&x>=0&&y>=0&&x<fitW&&y<fitH;
     touch(inside?(int)(x/fitW*320):0,inside?(int)(y/fitH*240):0,down&&inside);return true;});
   }

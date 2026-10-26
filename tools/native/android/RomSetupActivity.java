@@ -44,6 +44,21 @@ public class RomSetupActivity extends Activity {
         } catch (Exception error) { return false; }
     }
 
+    private boolean hasCurrentFeatures() {
+        try {
+            File root = getExternalFilesDir(null);
+            JSONObject profile = new JSONObject(new String(java.nio.file.Files.readAllBytes(new File(root, "native-launch.json").toPath()), StandardCharsets.UTF_8));
+            JSONArray args = profile.getJSONArray("arguments");
+            for (int i = 0; i + 1 < args.length(); i++) {
+                if (!"--a32-process-manifest".equals(args.getString(i))) continue;
+                JSONObject manifest = new JSONObject(new String(java.nio.file.Files.readAllBytes(new File(args.getString(i + 1)).toPath()), StandardCharsets.UTF_8));
+                JSONObject frontend = manifest.getJSONObject("reframed_frontend");
+                return frontend.getJSONObject("functions").has("ManualJump_Set") && frontend.has("presentation");
+            }
+        } catch (Exception ignored) { }
+        return false;
+    }
+
     private int dp(float value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private TextView text(String value, int size, boolean heading) {
         TextView view = new TextView(this); view.setText(value); view.setTextColor(Color.rgb(239, 243, 250));
@@ -66,7 +81,8 @@ public class RomSetupActivity extends Activity {
         super.onCreate(state);
         if (StartupDiagnostics.recover(this)) return;
         StartupDiagnostics.stage(this, "launcher / checking prepared ROM");
-        if (ready(this)) { launchGame(); return; }
+        boolean updating = ready(this);
+        if (updating && hasCurrentFeatures()) { launchGame(); return; }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         try {
@@ -81,8 +97,9 @@ public class RomSetupActivity extends Activity {
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true); root.addView(scroll, new LinearLayout.LayoutParams(0, -1, .60f));
         LinearLayout panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL); panel.setPadding(dp(20), 0, 0, 0); scroll.addView(panel);
         add(panel, text("Ocarina ReTuned", 34, true), 0);
-        add(panel, text("First-time setup", 22, false), 12);
+        add(panel, text(updating ? "Update game preparation" : "First-time setup", 22, false), 12);
         message = text("Choose your clean, decrypted Ocarina of Time 3D USA ROM (.3ds or .cci). Preparation runs entirely on this device. First-time setup can take some time.", 18, false); add(panel, message, 12);
+        if (updating) message.setText("Prepare your ROM again to enable dual-screen mode and manual jump. Your saves, textures, and settings are preserved. You can also continue with your existing prepared game.");
         spinner = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal); spinner.setIndeterminate(true); spinner.setVisibility(View.GONE); add(panel, spinner, 14);
         choose = button("Choose ROM"); choose.setOnClickListener(view -> {
             Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);
@@ -90,7 +107,7 @@ public class RomSetupActivity extends Activity {
             try { startActivityForResult(picker, PICK_ROM); }
             catch (ActivityNotFoundException error) { message.setText("No file picker is available on this device."); }
         }); add(panel, choose, 18);
-        start = button("Continue to startup"); start.setVisibility(View.GONE); start.setOnClickListener(view -> launchGame()); add(panel, start, 12);
+        start = button("Continue to startup"); start.setVisibility(updating ? View.VISIBLE : View.GONE); start.setOnClickListener(view -> launchGame()); add(panel, start, 12);
         cancel = button("Cancel setup"); cancel.setVisibility(View.GONE); cancel.setOnClickListener(view -> requestCancel()); add(panel, cancel, 12);
         Button saves = button("Manage save files"); saves.setOnClickListener(view -> { if(!busy)SaveFiles.open(this); }); add(panel, saves, 12);
         add(panel, text("Your original ROM, saves and controller settings will not be replaced.", 15, false), 18);
