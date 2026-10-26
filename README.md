@@ -91,6 +91,7 @@ Keep a separate backup of saves before installing a Preview or changing signing 
 
 ## What's next
 
+- Add a custom-texture folder picker on Windows, Mac, and Linux ([#4](https://github.com/OTPR26/Ocarina-ReTuned/issues/4)).
 - Customizable touch-control placement.
 - Investigate Android startup crashes ([#1](https://github.com/OTPR26/Ocarina-ReTuned/issues/1), [#3](https://github.com/OTPR26/Ocarina-ReTuned/issues/3)): add finer startup checkpoints and privacy-safe native crash reports to distinguish runtime, Vulkan-driver, and memory-allocation failures.
 - Full PAK loader support, similar to ReMasked.
