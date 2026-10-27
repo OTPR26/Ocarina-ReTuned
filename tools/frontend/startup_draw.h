@@ -30,7 +30,7 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
  const auto* viewport=ImGui::GetMainViewport();
  const auto previous=ImGui::GetStyle();const float oldScale=ImGui::GetIO().FontGlobalScale;
  const float startupScale=MobileSettingsPlatform()?MenuScale(viewport->WorkSize.y)/std::max(MenuSize,.1f):MenuScale(viewport->WorkSize.y);
- BlueStyle(ImGui::GetStyle());ImGui::GetIO().FontGlobalScale=InterfaceFontScale(startupScale);
+ BlueStyle(ImGui::GetStyle());ImGui::GetIO().FontGlobalScale=InterfaceFontScale(startupScale,StartupBodySize);
  ImGui::GetStyle().ScaleAllSizes(startupScale);
  // Refresh ImGui's cached font metrics after changing the interface scale.
  ImGui::PushFont(ImGui::GetFont());
@@ -38,34 +38,30 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
  constexpr auto flags=ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoDocking|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse;
  if(ImGui::Begin("Ocarina ReTuned / Startup",nullptr,flags)) {
   const float f=ImGui::GetFontSize(),w=ImGui::GetWindowWidth(),h=ImGui::GetWindowHeight();
-  const float scale=startupScale,margin=40.f*scale;
+  const float scale=startupScale,margin=std::min(40.f*scale,w*.05f);
   auto* draw=ImGui::GetWindowDrawList();
   const ImVec2 origin=ImGui::GetWindowPos();
   if(StartupArt) {
-   const float size=.75f*std::min(h*.78f,w*.54f);
+   const float size=.375f*std::min(h*.78f,w*.54f);
    const ImVec2 p{origin.x+w*.30f-size*.5f,origin.y+h*.55f-size*.5f};
    draw->AddImage(StartupArt,p,{p.x+size,p.y+size});
   }
-  if(InterfaceBoldFont)ImGui::PushFont(InterfaceBoldFont);
-#ifdef __ANDROID__
-  constexpr float maximumTitleScale=1.7f;
-#else
-  constexpr float maximumTitleScale=2.2f;
-#endif
+  if(InterfaceDisplayFont)ImGui::PushFont(InterfaceDisplayFont);
+  constexpr float maximumTitleScale=StartupButtonSize/StartupBodySize;
   const float titleScale=std::min(maximumTitleScale,(w-margin*2)/ImGui::CalcTextSize("Ocarina ReTuned").x);
   ImGui::SetWindowFontScale(titleScale);
   ImGui::SetCursorPos({w-margin-ImGui::CalcTextSize("Ocarina ReTuned").x,30.f*scale});
   ImGui::TextUnformatted("Ocarina ReTuned");
   ImGui::SetWindowFontScale(1.f);
-  if(InterfaceBoldFont)ImGui::PopFont();
+  if(InterfaceDisplayFont)ImGui::PopFont();
   const char* subtitle="Ocarina of Time 3D";
   ImGui::SetCursorPos({w-margin-ImGui::CalcTextSize(subtitle).x,30.f*scale+f*titleScale+8.f*scale});
   ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark),"%s",subtitle);
-  const auto menu=StartupLayout(w,h,scale,f,MobileSettingsPlatform(),GameFilesReady);
+  if(InterfaceHeadingFont)ImGui::PushFont(InterfaceHeadingFont);
+  const auto menu=StartupLayout(w,h,scale,f,MobileSettingsPlatform(),GameFilesReady,ImGui::CalcTextSize("Start game").x);
   ImGui::PushStyleColor(ImGuiCol_Button,ImVec4(0,0,0,0));
   ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign,ImVec2(1.f,.5f));
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,ImVec2(12.f*scale,8.f*scale));
-  if(InterfaceBoldFont)ImGui::PushFont(InterfaceBoldFont);
   ImGui::SetWindowFontScale(menu.TextScale);
   auto menuButton=[&](const char* label,int row){
    ImGui::SetCursorPos({w-margin-menu.Width,menu.Top+row*(menu.Height+menu.Gap)});
@@ -78,14 +74,14 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
   if(menuButton("Settings",1))Fast::Oot3d::RequestUnifiedSettings();
   if(menuButton("About",2))AboutVisible=true;
   ImGui::SetWindowFontScale(1.f);
-  if(InterfaceBoldFont)ImGui::PopFont();
+  if(InterfaceHeadingFont)ImGui::PopFont();
   ImGui::PopStyleVar(2);ImGui::PopStyleColor();
   ImGui::SetCursorPos({28.f*scale,h-44.f*scale});
-  ImGui::SetWindowFontScale(.7f);ImGui::TextDisabled("OCARINA RETUNED  -  v0.5.0 Preview");ImGui::SetWindowFontScale(1.f);
+  ImGui::SetWindowFontScale(.7f);ImGui::TextDisabled("OCARINA RETUNED  -  v0.5.5 Preview");ImGui::SetWindowFontScale(1.f);
   if(AboutVisible){
    ImGui::SetNextWindowSize({std::min(w*.8f,f*28),0},ImGuiCond_Always);
    if(ImGui::BeginPopupModal("About Ocarina ReTuned",&AboutVisible,ImGuiWindowFlags_AlwaysAutoResize)){
-    ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.5.0 Preview");ImGui::Spacing();
+    ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.5.5 Preview");ImGui::Spacing();
     ImGui::TextWrapped("Ocarina of Time 3D with the Reframed single-screen HUD.");
     ImGui::Spacing();if(ImGui::Button("Close")||ImGui::IsKeyPressed(ImGuiKey_Escape,false)||ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight,false)){AboutVisible=false;ImGui::CloseCurrentPopup();}
     ImGui::EndPopup();

@@ -27,6 +27,9 @@ import time
 import uuid
 import zipfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from preparation_cache import LocalCache, fingerprint
+
 PROJECT = Path(__file__).resolve().parents[2]
 RUNTIME_REVISION = '17218b0cfdb944645bb5cde5249f313dca7e53ce'
 CANONICAL_CODE = '16a6b0aa4c4784680220a6f780f7f8a73cfb205557aa9f9f0e705179e0613220'
@@ -219,7 +222,10 @@ def activate(root, stage, installation_id, make_profile, profile_root=None):
 class RomSetup:
     def __init__(self, *, engine, ips, elf, host, readelf='arm-none-eabi-readelf',
                  cmake='cmake', cmake_args=(), jobs=2, progress=None, cancel=None, profile_root=None,
-                 windows_tools=None, ui_resources=None, hd_font_coverage=None, dialogue_font=None):
+                 windows_tools=None, ui_resources=None, hd_font_coverage=None, dialogue_font=None, preparation_identity=None):
+        if preparation_identity is not None and (len(preparation_identity) != 64 or any(c not in "0123456789abcdef" for c in preparation_identity)):
+            raise SetupError("Invalid preparation identity")
+        self.preparation_identity = preparation_identity
         self.engine = Path(engine).resolve()
         self.ips, self.elf, self.host = map(lambda p: Path(p).resolve(), (ips, elf, host))
         self.ui_resources = Path(ui_resources).resolve() if ui_resources is not None else self.ips.with_name('native-ui.zip')
@@ -316,10 +322,12 @@ class RomSetup:
     def prepare(self, rom, data_root):
         self.checkpoint('checking', 'Checking the ROM and local preparation tools…')
         self.preflight()
-        rom = Path(rom).expanduser().resolve()
-        if not rom.is_file():
+        rom = Path(rom).expanduser().resolve() if rom is not None else None
+        if rom is not None and not rom.is_file():
             raise SetupError('Choose a decrypted Ocarina of Time 3D USA cartridge dump (.3ds or .cci).')
         with installation_transaction(data_root) as (root, work):
+            self.cache = LocalCache(root / 'preparation-cache', limit=768 * 1024 * 1024)
+            self.input_cache = LocalCache(root / 'verified-inputs', limit=512 * 1024 * 1024)
             with (root / 'setup.log').open('w', encoding='utf-8') as log:
                 self.log = log
                 return self._prepare(rom, root, work)
@@ -332,17 +340,28 @@ class RomSetup:
         # locating a developer's private game files.
         sys.path[:0] = [str(a32), str(release), str(PROJECT / 'tools/reframed')]
         inputs = work / 'inputs'
-        self.checkpoint('extracting', 'Extracting and verifying your ROM…')
-        extract = load_module('_retuned_prepare_inputs', PROJECT / 'tools/native/prepare_inputs.py')
-        extract.prepare(engine, rom, inputs)
-        self.checkpoint('normalizing', 'Preparing compatible game resources…')
-        adapter = load_module('_retuned_copy_adapter', release / 'input_copy_adapter.py')
-        adapter.normalize_file(inputs / 'code.bin', work / 'canonical-code.bin', json.loads(
-            (release / 'input_coverage/recipes/adapters/oot3d-usa-ef210566-copies.json').read_text()))
-        region = load_module('_retuned_region', release / 'oot3d_region_assets.py')
-        region.normalize_romfs(inputs / 'romfs.bin', work / 'romfs.bin')
-        if digest(work / 'canonical-code.bin') != CANONICAL_CODE or digest(work / 'romfs.bin') != CANONICAL_ROMFS:
-            raise SetupError('The ROM could not be normalized to the supported version.')
+        input_pins = json.loads((PROJECT / 'resources/native-inputs.json').read_text())
+        input_key = fingerprint({'format': 'verified-inputs-v1', 'code': CANONICAL_CODE,
+                                 'romfs': CANONICAL_ROMFS, 'pins': input_pins})
+        expected_inputs = {'canonical-code.bin': CANONICAL_CODE, 'romfs.bin': CANONICAL_ROMFS,
+                           'inputs/exheader.bin': input_pins['inputs'][0]['exheader']['sha256']}
+        if rom is None:
+            self.checkpoint('extracting', 'Checking the verified game inputs already on this device…')
+            if not self.input_cache.restore(input_key, work, expected_inputs):
+                raise SetupError('Verified game inputs are unavailable or damaged. Choose your ROM once to refresh them; your existing game and saves are unchanged.')
+        else:
+            self.checkpoint('extracting', 'Extracting and verifying your ROM…')
+            extract = load_module('_retuned_prepare_inputs', PROJECT / 'tools/native/prepare_inputs.py')
+            extract.prepare(engine, rom, inputs)
+            self.checkpoint('normalizing', 'Preparing compatible game resources…')
+            adapter = load_module('_retuned_copy_adapter', release / 'input_copy_adapter.py')
+            adapter.normalize_file(inputs / 'code.bin', work / 'canonical-code.bin', json.loads(
+                (release / 'input_coverage/recipes/adapters/oot3d-usa-ef210566-copies.json').read_text()))
+            region = load_module('_retuned_region', release / 'oot3d_region_assets.py')
+            region.normalize_romfs(inputs / 'romfs.bin', work / 'romfs.bin')
+            if digest(work / 'canonical-code.bin') != CANONICAL_CODE or digest(work / 'romfs.bin') != CANONICAL_ROMFS:
+                raise SetupError('The ROM could not be normalized to the supported version.')
+            self.input_cache.store(input_key, {name: work / name for name in expected_inputs})
         self.checkpoint('assets', 'Installing the bundled HUD and menu resources…')
         ui_assets = load_module('_retuned_ui_assets', PROJECT / 'tools/native/prepare_ui_assets.py')
         asset_receipt = ui_assets.prepare(work / 'romfs.bin', work / 'native-romfs.bin',
@@ -360,32 +379,44 @@ class RomSetup:
         patcher.prepare(argparse.Namespace(code=work / 'canonical-code.bin', ips=self.ips, elf=self.elf,
             inventory=work / 'inventory.csv', manifest=work / 'base-manifest.json', readelf=self.readelf,
             output=image, native_frontend=True, save_context=0x587958))
-        self.checkpoint('translating', 'Translating your game locally. This may take several minutes…')
-        self.run([sys.executable, a32 / 'whole_aot_program.py', '--code', image / 'code.bin',
-            '--inventory', image / 'inventory.csv', '--boundary-audit',
-            a32 / 'upstream/analysis/codebin_callable_boundary_residue_audit_166.csv',
-            '--observed-sites', image / 'observed-sites.json', '--include-instructions',
-            '--executable-size', str(next(s['file_size'] for s in json.loads((image / 'process-manifest.json').read_text())['process']['segments'] if s['name'] == 'text')),
-            '--output', work / 'aot-program.json'])
-        program = json.loads((work / 'aot-program.json').read_text())
-        if any(program['counts'].get(name, 0) for name in ('unclaimed_blocks', 'unresolved_static_edges')):
-            raise SetupError('Translation did not cover the complete game; setup was not activated.')
-        external = json.loads((a32 / 'whole_aot_functions.json').read_text())['external_functions']
-        excluded = {f['entry'] for f in external}
-        functions = [f for f in program['functions'] if f['entry'] not in excluded]
-        write_json(work / 'selection.json', {'format': 'oot3d_whole_aot_function_selection_v1',
-            'selection_mode': 'all_lowerable', 'functions': [{'entry': f['entry'], 'name': f['name'],
-            'reason': 'closed ReTuned native translation'} for f in functions],
-            'external_functions': external, 'performance_exclusions': [], 'selection_conflicts': [], 'closure_groups': []})
-        del program, functions
-        gc.collect()
         generated = work / 'title-source'
-        self.run([sys.executable, PROJECT / 'tools/native/generate_title_sources.py', '--engine', engine,
-            '--program', work / 'aot-program.json',
-            '--selection', work / 'selection.json', '--code', image / 'code.bin', '--output', generated,
-            '--observed-sites', image / 'observed-sites.json',
-            '--shards', str(getattr(self, 'title_shards', 64)),
-            '--shard-strategy', getattr(self, 'title_shard_strategy', 'stable')])
+        translation_inputs = {p.relative_to(a32).as_posix(): digest(p) for p in a32.rglob('*')
+            if p.is_file() and p.suffix in ('.py', '.json', '.csv') and '__pycache__' not in p.parts}
+        source_key = fingerprint({'format': 'retuned-title-sources-v1', 'runtime': RUNTIME_REVISION,
+            'tools': translation_inputs, 'generator': digest(PROJECT / 'tools/native/generate_title_sources.py'),
+            'shards': getattr(self, 'title_shards', 64), 'strategy': getattr(self, 'title_shard_strategy', 'stable'),
+            'image': {name: digest(image / name) for name in ('code.bin', 'inventory.csv', 'observed-sites.json')}})
+        if self.cache.restore(source_key, generated):
+            self.checkpoint('generating', 'Reusing verified native game code from this device…')
+        else:
+            if generated.exists():
+                shutil.rmtree(generated)
+            self.checkpoint('translating', 'Translating your game locally. This may take several minutes…')
+            self.run([sys.executable, a32 / 'whole_aot_program.py', '--code', image / 'code.bin',
+                '--inventory', image / 'inventory.csv', '--boundary-audit',
+                a32 / 'upstream/analysis/codebin_callable_boundary_residue_audit_166.csv',
+                '--observed-sites', image / 'observed-sites.json', '--include-instructions',
+                '--executable-size', str(next(s['file_size'] for s in json.loads((image / 'process-manifest.json').read_text())['process']['segments'] if s['name'] == 'text')),
+                '--output', work / 'aot-program.json'])
+            program = json.loads((work / 'aot-program.json').read_text())
+            if any(program['counts'].get(name, 0) for name in ('unclaimed_blocks', 'unresolved_static_edges')):
+                raise SetupError('Translation did not cover the complete game; setup was not activated.')
+            external = json.loads((a32 / 'whole_aot_functions.json').read_text())['external_functions']
+            excluded = {f['entry'] for f in external}
+            functions = [f for f in program['functions'] if f['entry'] not in excluded]
+            write_json(work / 'selection.json', {'format': 'oot3d_whole_aot_function_selection_v1',
+                'selection_mode': 'all_lowerable', 'functions': [{'entry': f['entry'], 'name': f['name'],
+                'reason': 'closed ReTuned native translation'} for f in functions],
+                'external_functions': external, 'performance_exclusions': [], 'selection_conflicts': [], 'closure_groups': []})
+            del program, functions
+            gc.collect()
+            self.run([sys.executable, PROJECT / 'tools/native/generate_title_sources.py', '--engine', engine,
+                '--program', work / 'aot-program.json',
+                '--selection', work / 'selection.json', '--code', image / 'code.bin', '--output', generated,
+                '--observed-sites', image / 'observed-sites.json',
+                '--shards', str(getattr(self, 'title_shards', 64)),
+                '--shard-strategy', getattr(self, 'title_shard_strategy', 'stable')])
+            self.cache.store(source_key, {p.name: p for p in generated.iterdir() if p.suffix in ('.cpp', '.h')})
         sources = {p.name: digest(p) for p in generated.iterdir() if p.suffix in ('.cpp', '.h')}
         write_json(generated / 'TITLE_SOURCE_MANIFEST.json', {
             'format': 'triaevum_translated_title_source_v1', 'private_local_artifact': True,
@@ -427,6 +458,7 @@ class RomSetup:
                 'pack_sha256': digest(stage / 'font_coverage.zip')}
         write_json(stage / 'ui-assets-receipt.json', asset_receipt)
         write_json(stage / 'setup-receipt.json', {'format': 'retuned_local_setup_v1',
+            'preparation_identity': self.preparation_identity,
             'runtime_revision': RUNTIME_REVISION, 'platform': platform.system(), 'architecture': platform.machine(),
             'private_local_artifact': True, 'redistributable': False,
             'files': {p.relative_to(stage).as_posix(): digest(p) for p in stage.rglob('*') if p.is_file()}})
@@ -440,6 +472,60 @@ class RomSetup:
     def compile_title(self, work, generated):
         engine = self.engine
         build = work / 'build'
+        self.module_cache_key = None
+        cache = getattr(self, 'cache', None)
+        if cache is not None:
+            compiler = self.environment.get('CXX', 'cl' if os.name == 'nt' and self.windows_tools is None else 'c++')
+            if self.windows_tools is not None:
+                manifest = json.loads((self.windows_tools / 'toolchain-manifest.json').read_text())
+                target = WINDOWS_COMPILER_TARGETS[manifest['abi']]
+                compiler = str(self.windows_tools / 'llvm/bin' / (target + '-w64-mingw32-clang++.exe'))
+            for argument in self.cmake_args:
+                name, _, value = argument.partition('=')
+                if name.split(':')[0] == '-DCMAKE_CXX_COMPILER':
+                    compiler = value
+            executable = shutil.which(compiler, path=self.environment.get('PATH'))
+            sources = {}
+            for directory in (engine / 'tools/oot3d/native_game_runtime', engine / 'tools/oot3d/native_a32_runtime'):
+                for path in directory.rglob('*'):
+                    if path.is_file() and path.suffix in ('.h', '.hpp', '.cpp', '.inc') :
+                        sources[path.relative_to(engine).as_posix()] = digest(path)
+            try:
+                version = subprocess.check_output([compiler, '--version'], env=self.environment,
+                    stderr=subprocess.STDOUT, timeout=15).decode(errors='replace')
+            except (OSError, subprocess.SubprocessError):
+                version = None
+            sdk_version = None
+            if sys.platform == 'darwin':
+                try:
+                    sdk_version = subprocess.check_output(['xcrun', '--show-sdk-version'],
+                        env=self.environment, timeout=15).decode().strip()
+                except (OSError, subprocess.SubprocessError):
+                    version = None
+            for argument in self.cmake_args:
+                if argument.startswith('-DRETUNED_JSON_INCLUDE_DIR='):
+                    directory = Path(argument.split('=', 1)[1])
+                    sources.update({'json/' + p.relative_to(directory).as_posix(): digest(p)
+                        for p in directory.rglob('*.hpp') if p.is_file()})
+            for path in (engine / 'tools/triaevum_release/cmake').glob('*.cmake'):
+                sources[path.relative_to(engine).as_posix()] = digest(path)
+            self.module_cache_key = fingerprint({'format': 'retuned-desktop-module-v1',
+                'compiler_version': version, 'sdk_version': sdk_version,
+                'platform': platform.system(), 'machine': platform.machine(),
+                'compiler': digest(executable) if executable else compiler,
+                'windows_tools': digest(self.windows_tools / 'toolchain-manifest.json') if self.windows_tools else None,
+                'environment': {name: self.environment.get(name) for name in
+                    ('CXX', 'CC', 'CXXFLAGS', 'LDFLAGS', 'SDKROOT', 'MACOSX_DEPLOYMENT_TARGET')},
+                'cmake_args': self.cmake_args, 'runtime_sources': sources,
+                'cmake': digest(PROJECT / 'tools/native/title/CMakeLists.txt'),
+                'generated': {p.name: digest(p) for p in generated.iterdir() if p.suffix in ('.cpp', '.h')}})
+            extension = '.dylib' if sys.platform == 'darwin' else '.dll' if os.name == 'nt' else '.so'
+            library = build / ('triaevum_title_aot' + extension)
+            if version is None or not any(a.startswith('-DRETUNED_JSON_INCLUDE_DIR=') for a in self.cmake_args):
+                self.module_cache_key = None
+            if self.module_cache_key is not None and cache.restore(self.module_cache_key, build, required={library.name}):
+                self.checkpoint('compiling', 'Reusing the verified native game module on this device…')
+                return library
         args = [self.cmake, '-S', PROJECT / 'tools/native/title', '-B', build, '-G', 'Ninja',
             '-DCMAKE_BUILD_TYPE=Release', '-DRETUNED_RUNTIME_SOURCE=' + str(engine),
             '-DTRIAEVUM_TRANSLATED_TITLE_DIR=' + str(generated)]
@@ -453,6 +539,8 @@ class RomSetup:
 
     def verify_title(self, library):
         self.run([self.host, '--verify-title-plugin', library])
+        if getattr(self, 'module_cache_key', None) is not None:
+            self.cache.store(self.module_cache_key, {library.name: library})
 
 
 def launch_profile(root, installation):
@@ -509,6 +597,8 @@ def load_kit(path, host=None):
         tools = {'windows_tools': root, 'cmake': root / 'cmake/bin/cmake.exe'}
         cmake_args.append('-DCMAKE_TOOLCHAIN_FILE=' + str(root / 'windows-toolchain.cmake'))
     optional = {name: asset(name) for name in ('ui_resources', 'hd_font_coverage', 'dialogue_font') if name in kit}
+    if kit.get('preparation_identity') is not None:
+        optional['preparation_identity'] = kit['preparation_identity']
     return {**tools, **optional, 'engine': asset('engine'), 'ips': asset('ips'), 'elf': asset('elf'),
         'host': Path(host).resolve() if host is not None else asset('host'),
         'readelf': asset('readelf') if 'readelf' in kit else 'unused',
@@ -532,6 +622,7 @@ def main():
     for field in ('rom', 'data-root'):
         parser.add_argument('--' + field, type=Path)
     parser.add_argument('--kit', type=Path)
+    parser.add_argument('--reuse-inputs', action='store_true', help='Update using previously verified local game inputs without selecting a ROM')
     parser.add_argument('--check-kit', action='store_true', help='Verify local preparation tools without reading a ROM or changing game data')
     for field in ('engine', 'ips', 'elf', 'host'):
         parser.add_argument('--' + field, type=Path)
@@ -541,9 +632,33 @@ def main():
     parser.add_argument('--progress-file', type=Path)
     parser.add_argument('--cancel-file', type=Path)
     args = parser.parse_args()
-    if not args.check_kit and (args.rom is None or args.data_root is None):
-        parser.error('--rom and --data-root are required for preparation')
+    if not args.check_kit and (args.data_root is None or (args.rom is None and not args.reuse_inputs)):
+        parser.error('--data-root and either --rom or --reuse-inputs are required')
+    if args.rom is not None and args.reuse_inputs:
+        parser.error('Choose either --rom or --reuse-inputs')
+    started = time.time()
+    stage_started = started
+    active_stage = None
+    timing_path = args.data_root / 'preparation-times.json' if args.data_root else None
+    try:
+        durations = json.loads(timing_path.read_text()) if timing_path else {}
+    except (OSError, ValueError):
+        durations = {}
     def progress(value):
+        nonlocal stage_started, active_stage
+        now = time.time()
+        stage = value.get('stage')
+        if stage != active_stage:
+            if active_stage and stage not in ('error', 'cancelled'):
+                durations[active_stage] = round((now - stage_started) * 1000)
+            stage_started, active_stage = now, stage
+        value = dict(value, started_at=round(started*1000), updated_at=round(now*1000),
+                     stage_started_at=round(stage_started*1000), previous_duration=durations.get(stage, -1))
+        if stage == 'complete' and timing_path:
+            try:
+                write_json(timing_path, durations)
+            except OSError:
+                pass
         print(json.dumps(value), flush=True)
         if args.progress_file:
             temporary = args.progress_file.with_suffix('.partial')

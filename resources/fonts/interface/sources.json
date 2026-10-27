@@ -1,0 +1,42 @@
+{
+  "reference": "https://github.com/TwilitRealm/dusklight",
+  "revision": "77705f8bb95ef7b7dca4675b149c4bcb6a48da34",
+  "files": {
+    "FiraSans-Regular.ttf": {
+      "url": "https://raw.githubusercontent.com/TwilitRealm/dusklight/77705f8bb95ef7b7dca4675b149c4bcb6a48da34/res/FiraSans-Regular.ttf",
+      "sha256": "3dabf3d48bf4599f95cffd92f99ea426a014d5311f52a5eb5ec3af265e97cd97"
+    },
+    "FiraSans-Bold.ttf": {
+      "url": "https://raw.githubusercontent.com/TwilitRealm/dusklight/77705f8bb95ef7b7dca4675b149c4bcb6a48da34/res/FiraSans-Bold.ttf",
+      "sha256": "74b477a3e2b7c745e6dac8c01764c8fd82e53763b47ef1eccd24dce36d2ff71f"
+    },
+    "FiraSans-OFL.txt": {
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/firasans/OFL.txt",
+      "sha256": "8f24842e9174beda18a556c2ae7d54f5dc444340c19a3a9ef77e23bca366adbd"
+    },
+    "FiraSansCondensed-Regular.ttf": {
+      "url": "https://raw.githubusercontent.com/TwilitRealm/dusklight/77705f8bb95ef7b7dca4675b149c4bcb6a48da34/res/FiraSansCondensed-Regular.ttf",
+      "sha256": "c5d088a35d3b957663a215d9bdda786d2ca6709ae756c97086c4178889f97b67"
+    },
+    "FiraSansCondensed-Bold.ttf": {
+      "url": "https://raw.githubusercontent.com/TwilitRealm/dusklight/77705f8bb95ef7b7dca4675b149c4bcb6a48da34/res/FiraSansCondensed-Bold.ttf",
+      "sha256": "382ee5d7a8f4d969c2c64d973fccda4f8a4a47da038cdd0c6eea477e0e5dd24a"
+    },
+    "FiraSansCondensed-OFL.txt": {
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/firasanscondensed/OFL.txt",
+      "sha256": "8f24842e9174beda18a556c2ae7d54f5dc444340c19a3a9ef77e23bca366adbd"
+    },
+    "AlegreyaSC-Regular.ttf": {
+      "url": "https://raw.githubusercontent.com/TwilitRealm/dusklight/77705f8bb95ef7b7dca4675b149c4bcb6a48da34/res/AlegreyaSC-Regular.ttf",
+      "sha256": "4b93934f4cf51aedc23bbadc4028811b6fd16d97cd7425c902015ae77bfe55ab"
+    },
+    "AlegreyaSC-Bold.ttf": {
+      "url": "https://raw.githubusercontent.com/TwilitRealm/dusklight/77705f8bb95ef7b7dca4675b149c4bcb6a48da34/res/AlegreyaSC-Bold.ttf",
+      "sha256": "f0edaf1f289b7eb1b94ba9290146d57e5b413364bcf723cd0196779faa557afa"
+    },
+    "AlegreyaSC-OFL.txt": {
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/alegreyasc/OFL.txt",
+      "sha256": "f6f60d5d4cf4f4b1fc4e41353c897a2f5a16e6396c0cd8fa8bdfd2f4586a9a68"
+    }
+  }
+}

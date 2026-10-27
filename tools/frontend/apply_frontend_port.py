@@ -53,7 +53,8 @@ def apply(engine):
     registration='  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed)\n    for (const auto* page : {"Camera", "Reframed controls", "HUD", "Quality of life"})\n      applicationSettingsTabs.push_back(std::make_shared<RetunedFrontend::Panel>(page));\n'
     assert marker in text
     setup.write_text(text.replace(marker,registration+marker,1))
-    edit(setup,'  context = Ship::Context::GetRawInstance();','  context = Ship::Context::GetRawInstance();\n  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed) RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);')
+    if 'RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);' not in setup.read_text():
+        edit(setup,'  context = Ship::Context::GetRawInstance();','  context = Ship::Context::GetRawInstance();\n  if (launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed) RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);')
     frame=runtime/'oot3d_native_a32_window_frame.cpp'
     edit(frame,'#include "oot3d_native_a32_window_session.h"','#include "oot3d_native_a32_window_session.h"\n#include "retuned_reframed_settings.h"')
     edit(frame,'  const auto hidUpdate = hostServices.AdvanceHidToCurrentTick(',
@@ -81,17 +82,25 @@ def apply(engine):
         if '#include "fast/oot3d/retuned_blue_style.h"' not in text:
             text='#include "fast/oot3d/retuned_blue_style.h"\n'+text
         styled.write_text(text.replace('ImGui::Checkbox(', 'RetunedFrontend::Toggle('))
-    font=(source.parents[1]/'resources/fonts/InterfaceSans-Regular.ttf').read_bytes()
-    bold=(source.parents[1]/'resources/fonts/InterfaceSans-Bold.ttf').read_bytes()
+    fonts=source.parents[1]/'resources/fonts/interface'
+    faces={'InterfaceFont':'FiraSans-Regular.ttf','InterfaceBold':'FiraSans-Bold.ttf',
+           'InterfaceHeading':'FiraSansCondensed-Regular.ttf','InterfaceHeadingBold':'FiraSansCondensed-Bold.ttf',
+           'InterfaceDisplay':'AlegreyaSC-Regular.ttf'}
     font_header=include/'retuned_interface_font.h'
-    font_header.write_text('#pragma once\nnamespace RetunedFrontend { inline unsigned char InterfaceFont[] = {\n'+
-        ','.join(str(byte) for byte in font)+'\n}; inline unsigned char InterfaceBold[] = {\n'+','.join(str(byte) for byte in bold)+'\n}; }\n')
+    font_header.write_text('#pragma once\nnamespace RetunedFrontend {\n'+''.join(
+        'inline unsigned char '+symbol+'[] = {'+','.join(str(byte) for byte in (fonts/name).read_bytes())+'};\n'
+        for symbol,name in faces.items())+'}\n')
     gui_core=engine/'runtime/three_ds_recomp/src/ship/window/gui/Gui.cpp'
     edit(gui_core,'#include "ship/window/gui/Gui.h"','#include "ship/window/gui/Gui.h"\n#include "fast/oot3d/retuned_interface_font.h"\n#include "fast/oot3d/retuned_interface_metrics.h"')
     edit(gui_core,'    mImGuiIo->Fonts->AddFontDefault();',
          '    ImFontConfig interfaceFont; interfaceFont.FontDataOwnedByAtlas=false;\n    interfaceFont.OversampleH=2; interfaceFont.OversampleV=2;\n    mImGuiIo->Fonts->AddFontFromMemoryTTF(RetunedFrontend::InterfaceFont,sizeof(RetunedFrontend::InterfaceFont),RetunedFrontend::InterfaceFontPixels(),&interfaceFont);\n    mImGuiIo->FontGlobalScale=RetunedFrontend::InterfaceFontScale();')
     edit(gui_core,'                                                          &iconsConfig, sIconsRanges);',
          '                                                          &iconsConfig, sIconsRanges);\n    RetunedFrontend::InterfaceBoldFont=mImGuiIo->Fonts->AddFontFromMemoryTTF(RetunedFrontend::InterfaceBold,sizeof(RetunedFrontend::InterfaceBold),RetunedFrontend::InterfaceFontPixels(),&interfaceFont);')
+    extra_fonts='\n'.join('    RetunedFrontend::'+pointer+'=mImGuiIo->Fonts->AddFontFromMemoryTTF(RetunedFrontend::'+symbol+',sizeof(RetunedFrontend::'+symbol+'),RetunedFrontend::InterfaceFontPixels(),&interfaceFont);'
+        for pointer,symbol in (('InterfaceHeadingFont','InterfaceHeading'),('InterfaceHeadingBoldFont','InterfaceHeadingBold'),('InterfaceDisplayFont','InterfaceDisplay')))
+    if 'RetunedFrontend::InterfaceHeadingFont=' not in gui_core.read_text():
+        line='    RetunedFrontend::InterfaceBoldFont=mImGuiIo->Fonts->AddFontFromMemoryTTF(RetunedFrontend::InterfaceBold,sizeof(RetunedFrontend::InterfaceBold),RetunedFrontend::InterfaceFontPixels(),&interfaceFont);'
+        edit(gui_core,line,line+'\n'+extra_fonts)
     edit(gui_core,'    float baseFontSize = 13.0f;','    float baseFontSize = RetunedFrontend::InterfaceFontPixels();')
     (include/'retuned_texture_aliases.h').write_text((source/'texture_aliases.h').read_text())
     (runtime/'retuned_load_texture_aliases.h').write_text((source/'load_texture_aliases.h').read_text())
@@ -106,7 +115,8 @@ def apply(engine):
          '            index = IndexTexturePack(loadDirectory, pack, unsupported, materials, &error);\n            {std::scoped_lock lock(mMutex);ApplyTextureHashAliases(index,mHashAliases,pack.UseNewHash);}')
     edit(texture_cpp,'void AzaharTexturePackRuntime::Reload() {',
          'void AzaharTexturePackRuntime::SetHashAliases(std::vector<TextureHashAlias> aliases) { mImpl->SetHashAliases(std::move(aliases)); }\n\nvoid AzaharTexturePackRuntime::Reload() {')
-    edit(setup,'#include "retuned_reframed_settings.h"','#include "retuned_reframed_settings.h"\n#include "retuned_load_texture_aliases.h"')
+    if '#include "retuned_load_texture_aliases.h"' not in setup.read_text():
+        setup.write_text('#include "retuned_load_texture_aliases.h"\n'+setup.read_text())
     edit(setup,'  hostConfig.WritableHidSharedMemory = launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed;',
          '  if(launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed)RetunedFrontend::LoadTextureAliases(launch.A32ProcessManifestPath);\n  hostConfig.WritableHidSharedMemory = launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed;')
     (include/'retuned_tab_hints.h').write_text((source/'tab_hints.h').read_text())
@@ -118,7 +128,8 @@ def apply(engine):
              'void Fast3dGui::DrawMenu() {\n    Ship::Gui::DrawMenu();\n    if(!GetAnyGuiWindowVisible())RetunedFrontend::DrawTabHints();')
     host=runtime/'oot3d_native_a32_ctr_host.cpp'
     edit(runtime/'oot3d_native_a32_ctr_host.h','    std::function<void()> OpenFrontendSettings;','    std::function<void()> OpenFrontendSettings;\n    std::function<void()> PublishPauseTabHints;')
-    edit(setup,'#include "retuned_load_texture_aliases.h"','#include "retuned_load_texture_aliases.h"\n#include "fast/oot3d/retuned_tab_hints.h"')
+    if '#include "fast/oot3d/retuned_tab_hints.h"' not in setup.read_text():
+        setup.write_text('#include "fast/oot3d/retuned_tab_hints.h"\n'+setup.read_text())
     edit(setup,'  hostConfig.OpenFrontendSettings = [] { Fast::Oot3d::RequestUnifiedSettings(); };','  hostConfig.OpenFrontendSettings = [] { Fast::Oot3d::RequestUnifiedSettings(); };\n  hostConfig.PublishPauseTabHints = [] { RetunedFrontend::PublishTabHints(); };')
     edit(host,'    case 0x7E: {','    case 0x7D: {\n        if(mConfig.PublishPauseTabHints)mConfig.PublishPauseTabHints();state.r[0]=kResultSuccess;\n        event.Name="ShowPauseTabHints";event.Handled=true;mSvcEvents.push_back(std::move(event));\n        return {NativeA32HostAction::Resume};\n    }\n    case 0x7E: {')
     edit(runtime/'oot3d_native_a32_window_session.h','  bool quickSaveKeyWasDown', '  bool reframedSettingsHeld=false;\n  bool quickSaveKeyWasDown')

@@ -72,6 +72,7 @@ def linux_launcher():
     return '''#!/bin/sh
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+export PATH="$root/setup/build-tools/cmake/bin:$root/setup/build-tools/ninja:$PATH"
 export LD_LIBRARY_PATH="$root${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export PIPEWIRE_CONFIG_DIR="${PIPEWIRE_CONFIG_DIR:-$root/share/pipewire}"
 export PIPEWIRE_MODULE_DIR="${PIPEWIRE_MODULE_DIR:-$root/pipewire-0.3}"
@@ -265,6 +266,7 @@ def stage(platform, engine, build, output, windows_triplet='x64-windows-static')
             shutil.copytree(engine / 'LICENSES', notices / 'runtime-notices')
         copy_runtime_donor_notices(engine, notices)
         shutil.copy2(Path(__file__).resolve().parents[2] / 'resources/fonts/LICENSE.txt', notices / 'interface-font-OFL.txt')
+        shutil.copytree(Path(__file__).resolve().parents[2]/'resources/fonts/interface',notices/'interface-fonts',dirs_exist_ok=True,ignore=shutil.ignore_patterns('*.ttf'))
         if platform == 'linux':
             linux_dependency_notices(dependency_sources, notices)
         else:

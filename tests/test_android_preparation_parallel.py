@@ -91,6 +91,8 @@ class AndroidParallelPreparation(unittest.TestCase):
             for i, (thread, event) in enumerate(events):
                 self.assertIs(thread, threading.current_thread())
                 self.assertIn(f'{i} of 8', event['message'])
+                self.assertEqual(event['completed'], i)
+                self.assertEqual(event['total'], 8)
 
     @patch.object(android, 'memory_snapshot', return_value=(16*1024**3, 11*1024**3))
     @patch.object(android.os, 'cpu_count', return_value=8)
@@ -154,3 +156,52 @@ class AndroidCompilerProcesses(unittest.TestCase):
             for pid_file in pids:
                 with self.assertRaises(ProcessLookupError):
                     os.kill(int(pid_file.read_text()), 0)
+
+class AndroidPreparationCache(unittest.TestCase):
+    fixture = AndroidParallelPreparation.fixture
+    """Exercise invalidation through the compiler path, not cache helpers alone."""
+    def test_reuses_units_and_rebuilds_only_changed_or_damaged_objects(self):
+        import shutil
+        from preparation_cache import LocalCache
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            worker, generated, _ = self.fixture(root)
+            worker.cache = LocalCache(root / 'cache')
+            for p in (worker.compiler, worker.linker, worker.runtime_library):
+                p.write_text('tool-version-one')
+            worker.sdk.mkdir()
+            (worker.sdk / 'sdk.json').write_text('{"version":1}')
+            plugin = worker.sdk / 'engine/tools/oot3d/native_game_runtime/triaevum_title_whole_aot_plugin.cpp'
+            plugin.parent.mkdir(parents=True)
+            plugin.write_text('plugin')
+            worker.compile_title(root, generated)
+            self.assertEqual(len(worker.launched), 8)
+            worker.launched.clear()
+            shutil.rmtree(root / 'build')
+            worker.compile_title(root, generated)
+            self.assertEqual(worker.launched, [])
+            self.assertEqual(worker.compilation_statistics['reused_units'], 8)
+            shutil.rmtree(root / 'build')
+            (generated / 'unit-3.cpp').write_text('changed')
+            worker.compile_title(root, generated)
+            self.assertEqual(worker.launched, ['3.o'])
+            worker.launched.clear()
+            shutil.rmtree(root / 'build')
+            # A generated header change invalidates every object.
+            (generated / 'common.h').write_text('new ABI')
+            worker.compile_title(root, generated)
+            self.assertEqual(len(worker.launched), 8)
+            worker.launched.clear()
+            shutil.rmtree(root / 'build')
+            old_keys = {p.name for p in (root / 'cache').iterdir()}
+            (worker.sdk / 'sdk.json').write_text('{"version":2}')
+            worker.compile_title(root, generated)
+            self.assertEqual(len(worker.launched), 8)
+            worker.launched.clear()
+            shutil.rmtree(root / 'build')
+            new_entries = [p for p in (root / 'cache').iterdir() if p.name not in old_keys]
+            self.assertEqual(len(new_entries), 8)
+            (new_entries[0] / 'unit.o').write_bytes(b'damaged')
+            worker.compile_title(root, generated)
+            self.assertEqual(len(worker.launched), 1)
+            self.assertEqual(worker.compilation_statistics['reused_units'] + len(worker.launched), 8)

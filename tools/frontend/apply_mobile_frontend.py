@@ -38,7 +38,7 @@ def apply(engine):
         marker='target_sources(oot3d_native_game PRIVATE "${CMAKE_CURRENT_LIST_DIR}/touch_input.cpp")'
         if marker not in cmake.read_text():cmake.write_text(cmake.read_text()+'\n'+marker+'\n')
 
-    for name in ('texture_folder.h','settings_pages.h','frontend_state.h','interface_metrics.h','responsive_layout.h','touch_model.h','touch_visibility.h','touch_hud_model.h','touch_hud_state.h','touch_overlay.h','startup_draw.h','startup_layout.h','menu_navigation.h','television_remote.h','settings_navigation.h','menu_gamepads.h'):
+    for name in ('desktop_folder_model.h','desktop_texture_picker.h','texture_folder.h','settings_pages.h','frontend_state.h','interface_metrics.h','responsive_layout.h','touch_model.h','touch_visibility.h','touch_hud_model.h','touch_hud_state.h','touch_overlay.h','startup_draw.h','startup_layout.h','menu_navigation.h','television_remote.h','settings_navigation.h','menu_gamepads.h'):
         (include/('retuned_'+name)).write_text((source/name).read_text().replace('#include "interface_metrics.h"','#include "retuned_interface_metrics.h"').replace('#include "touch_hud_model.h"','#include "retuned_touch_hud_model.h"'))
     for path in (engine/'runtime/three_ds_recomp/src/fast/Fast3dGui.cpp',engine/'runtime/three_ds_recomp/src/fast/oot3d/graphics_settings_window.cpp'):
         text=path.read_text();marker='#include "fast/oot3d/retuned_settings_navigation.h"'
@@ -73,8 +73,9 @@ def apply(engine):
     edit(core,'    float baseFontSize = 40.0f;','    float baseFontSize = RetunedFrontend::InterfaceFontPixels();')
     setup=runtime/'oot3d_native_a32_window_setup.cpp'
     edit(setup,'#include "retuned_reframed_settings.h"','#include "retuned_reframed_settings.h"\n#include "fast/oot3d/retuned_touch_overlay.h"')
-    edit(setup,'RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);',
-         'RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);\n  if(launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed) {\n    RetunedFrontend::NativeFrontendEnabled=true;\n    RetunedFrontend::StartupVisible=launch.LoadStatePath.empty();\n    RetunedFrontend::InitializeTouch();\n  }')
+    if 'RetunedFrontend::InitializeTouch();' not in setup.read_text():
+        edit(setup,'RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);',
+             'RetunedFrontend::Current().Initialize(launch.A32ProcessManifestPath);\n  if(launch.UiProfile == Oot3dNativeGame::Oot3dUiProfile::Reframed) {\n    RetunedFrontend::NativeFrontendEnabled=true;\n    RetunedFrontend::StartupVisible=launch.LoadStatePath.empty();\n    RetunedFrontend::InitializeTouch();\n  }')
     edit(setup,'    RetunedFrontend::NativeFrontendEnabled=true;',
          '    RetunedFrontend::GameFilesReady=true;\n    RetunedFrontend::NativeFrontendEnabled=true;')
     frame=runtime/'oot3d_native_a32_window_frame.cpp'

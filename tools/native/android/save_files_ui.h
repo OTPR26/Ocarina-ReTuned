@@ -13,6 +13,22 @@ inline void OpenAndroidSaveFiles(const char* action){
  if(env->ExceptionCheck()){env->ExceptionClear();SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"Could not open save-file manager");}
  env->DeleteLocalRef(value);env->DeleteLocalRef(type);env->DeleteLocalRef(activity);
 }
+inline void DrawAndroidRomPreparation(){
+ ImGui::SeparatorText("Game preparation");
+ ImGui::TextWrapped("Prepare your ROM again to apply the latest game fixes and features. Your saves, settings, and textures are preserved.");
+ ImGui::BeginDisabled(!StartupVisible);
+ if(ImGui::Button("Update game preparation")){
+  auto* env=static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());auto activity=static_cast<jobject>(SDL_AndroidGetActivity());
+  if(env&&activity){
+   auto type=env->GetObjectClass(activity);auto method=env->GetMethodID(type,"retunedOpenRomPreparation","()V");
+   if(method)env->CallVoidMethod(activity,method);
+   if(env->ExceptionCheck()){env->ExceptionClear();SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"Could not open ROM preparation");}
+   env->DeleteLocalRef(type);env->DeleteLocalRef(activity);
+  }
+ }
+ ImGui::EndDisabled();
+ if(!StartupVisible)ImGui::TextWrapped("Save your game and reopen the app, then choose this option before starting gameplay.");
+}
 inline void DrawAndroidSaveFiles(){
  ImGui::TextWrapped("Transfer ordinary Citra/Azahar game saves or select a folder for Syncthing. Save states are separate.");
  auto* env=static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());auto activity=static_cast<jobject>(SDL_AndroidGetActivity());

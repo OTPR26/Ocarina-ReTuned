@@ -5,7 +5,7 @@ import sys
 
 
 def prepare(kit_path, native_directory, rom_path, internal_root, userdata_root,
-            cancel_path, callback):
+            cancel_path, preparation_identity, callback):
     sys.dont_write_bytecode = True
     kit = Path(kit_path)
     os.environ['LIBCAPSTONE_PATH'] = native_directory
@@ -15,7 +15,8 @@ def prepare(kit_path, native_directory, rom_path, internal_root, userdata_root,
     from rom_setup import FileCancellation, SetupCancelled
 
     def progress(event):
-        callback.progress(event['stage'], event['message'])
+        callback.progressDetailed(event['stage'], event['message'],
+                                  event.get('completed', -1), event.get('total', -1))
 
     try:
         worker = AndroidRomSetup(engine=kit / 'engine', ips=kit / 'hud.ips',
@@ -24,8 +25,8 @@ def prepare(kit_path, native_directory, rom_path, internal_root, userdata_root,
             linker=Path(native_directory) / 'libretuned_lld.so',
             runtime_library=Path(native_directory) / 'libc++_shared.so',
             progress=progress, cancel=FileCancellation(cancel_path),
-            profile_root=userdata_root)
-        worker.prepare(rom_path, internal_root)
+            profile_root=userdata_root, preparation_identity=preparation_identity)
+        worker.prepare(rom_path or None, internal_root)
         return True
     except SetupCancelled:
         callback.progress('cancelled', 'Setup cancelled. Your ROM and saves are unchanged.')

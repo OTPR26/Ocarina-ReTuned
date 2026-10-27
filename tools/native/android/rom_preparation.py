@@ -17,7 +17,8 @@ import time
 
 # The bundled project has the same layout as the desktop preparation kit.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from rom_setup import RomSetup, SetupError, digest, load_module, verify_preparation_source, write_json
+from preparation_cache import fingerprint
+from rom_setup import RomSetup, SetupCancelled, SetupError, digest, load_module, verify_preparation_source, write_json
 
 
 MIB = 1024 * 1024
@@ -77,11 +78,19 @@ class AndroidRomSetup(RomSetup):
         self.stage_timings = []
         self.compilation_statistics = {}
 
-    def checkpoint(self, stage, message):
+    def checkpoint(self, stage, message, completed=None, total=None):
         if getattr(self, '_collect_timings', False) and stage != self._timed_stage:
             self.finish_stage()
             self._timed_stage, self._stage_started = stage, time.monotonic()
-        return super().checkpoint(stage, message)
+        if completed is None:
+            super().checkpoint(stage, message)
+        else:
+            self.report_units(stage, message, completed, total)
+
+    def report_units(self, stage, message, completed, total):
+        if self.cancel.is_set():
+            raise SetupCancelled('Setup cancelled. Your ROM and saves are unchanged.')
+        self.progress({'stage': stage, 'message': message, 'completed': completed, 'total': total})
 
     def finish_stage(self):
         if self._timed_stage is not None:
@@ -174,16 +183,46 @@ class AndroidRomSetup(RomSetup):
         # its quoted includes meet generated units using the SDK copy.
         sources.append(self.asset('engine/tools/oot3d/native_game_runtime/triaevum_title_whole_aot_plugin.cpp'))
         objects = [build / (str(number) + '.o') for number in range(len(sources))]
+        cache = getattr(self, 'cache', None)
+        compiler_identity = None
+        if cache is not None:
+            compiler_identity = fingerprint({'format': 'retuned-android-objects-v1',
+                'sdk': digest(self.sdk / 'sdk.json'), 'compiler': digest(self.compiler),
+                'include_directories': specification['include_directories'],
+                'defines': ['OOT3D_NATIVE_GENERATED_WHOLE_AOT=1'],
+                'headers': {p.name: digest(p) for p in generated.glob('*.h')},
+                'flags': ['aarch64-linux-android29', 'c++20', '-O1', '-g0', '-fPIC',
+                          '-fvisibility=hidden', '-fvisibility-inlines-hidden', '-ffp-contract=off', '-fexceptions']})
+
         total_memory, available = memory_snapshot()
         workers = compilation_workers(os.cpu_count(), total_memory, available, self.jobs)
         self.compilation_statistics = {'workers': workers, 'units': len(sources),
             'available_bytes': available, 'physical_bytes': total_memory,
-            'bytes_per_worker': COMPILER_MEMORY}
-        self.checkpoint('compiling', f'Building native game module: 0 of {len(sources)} ({workers} at a time)...')
+            'bytes_per_worker': COMPILER_MEMORY, 'reused_units': 0}
+        self.module_cache_key = None
+        if cache is not None:
+            self.module_cache_key = fingerprint({'format': 'retuned-android-module-v1',
+                'compiler': compiler_identity, 'linker': digest(self.linker), 'runtime': digest(self.runtime_library),
+                'sources': {p.name: digest(p) for p in sources}})
+            cached = build / 'cached-module'
+            if cache.restore(self.module_cache_key, cached, required={'triaevum_title_aot.so'}):
+                library = build / 'triaevum_title_aot.so'
+                (cached / library.name).replace(library)
+                cached.rmdir()
+                self.compilation_statistics['reused_units'] = len(sources)
+                self.checkpoint('compiling', 'Reusing the verified native game module on this device…', len(sources), len(sources))
+                return library
+        self.checkpoint('compiling', f'Building native game module: 0 of {len(sources)} ({workers} at a time)...', 0, len(sources))
         cancellation = CompilationCancellation(self.cancel)
         original_cancel, self.cancel = self.cancel, cancellation
         def compile_one(number):
             source, target = sources[number], objects[number]
+            key = fingerprint({'compiler': compiler_identity, 'name': source.name, 'source': digest(source)}) if cache is not None else None
+            restore = build / ('cached-' + str(number))
+            if cache is not None and cache.restore(key, restore, required={'unit.o'}):
+                (restore / 'unit.o').replace(target)
+                restore.rmdir()
+                return True
             command = [self.compiler, '--target=aarch64-linux-android29',
                 '--sysroot=' + str(self.asset(specification['sysroot'])),
                 '-resource-dir=' + str(self.asset(specification['resource_directory'])),
@@ -193,6 +232,9 @@ class AndroidRomSetup(RomSetup):
             for include in includes:
                 command += ['-I', include]
             self.run(command)
+            if cache is not None:
+                cache.store(key, {'unit.o': target})
+            return False
         try:
             # Only a bounded batch is submitted. Cancellation/failure kills and
             # joins active subprocesses before the setup transaction is removed.
@@ -208,9 +250,10 @@ class AndroidRomSetup(RomSetup):
                             next_source += 1
                         done, active = wait(active, return_when=FIRST_COMPLETED)
                         for future in done:
-                            future.result()
+                            if future.result():
+                                self.compilation_statistics['reused_units'] += 1
                             completed += 1
-                            self.checkpoint('compiling', f'Building native game module: {completed} of {len(sources)} ({workers} at a time)...')
+                            self.checkpoint('compiling', f'Building native game module: {completed} of {len(sources)} ({workers} at a time)...', completed, len(sources))
                 except BaseException:
                     cancellation.stop.set()
                     for future in active:
@@ -253,3 +296,5 @@ class AndroidRomSetup(RomSetup):
         # Keep this local module alive through activation; gameplay reuses the
         # same immutable file. The global host/plugin selection is not changed.
         self.verified_module = handle
+        if getattr(self, 'module_cache_key', None) is not None:
+            self.cache.store(self.module_cache_key, {library.name: library})

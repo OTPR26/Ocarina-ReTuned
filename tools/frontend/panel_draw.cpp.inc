@@ -30,7 +30,11 @@ void GraphicsSettingsPanel::Draw() {
     ImGui::BeginChild("##SettingsPage",ImVec2(0,0),true);
     RetunedFrontend::SettingsNav.PageBegun();
     for(const auto& category:RetunedFrontend::SettingsCategories)if(category.Page==page){
+        if(RetunedFrontend::InterfaceHeadingFont)ImGui::PushFont(RetunedFrontend::InterfaceHeadingFont);
+        ImGui::SetWindowFontScale(RetunedFrontend::InterfaceHeadingSize/RetunedFrontend::InterfaceBodySize);
         ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark),"%s",category.Label);
+        ImGui::SetWindowFontScale(1.f);
+        if(RetunedFrontend::InterfaceHeadingFont)ImGui::PopFont();
         ImGui::TextWrapped("%s",category.Description);
     }
     ImGui::Separator();ImGui::Spacing();
@@ -39,6 +43,17 @@ void GraphicsSettingsPanel::Draw() {
     switch(page){
       case SettingsPage::General: {
         drawTabs("Language");ImGui::Spacing();
+#ifdef __ANDROID__
+        RetunedFrontend::DrawAndroidRomPreparation();
+#endif
+        if(RetunedFrontend::RequestGamePreparation){
+            ImGui::SeparatorText("Game preparation");
+            ImGui::TextWrapped("Update the prepared game using your ROM or verified local inputs. Saves, settings, and textures are preserved.");
+            ImGui::BeginDisabled(!RetunedFrontend::StartupVisible);
+            if(ImGui::Button("Update game preparation"))RetunedFrontend::RequestGamePreparation();
+            ImGui::EndDisabled();
+            if(!RetunedFrontend::StartupVisible)ImGui::TextWrapped("Save your game and reopen the app, then choose this option before starting gameplay.");
+        }
 #ifdef __APPLE__
         ImGui::SeparatorText("iCloud saves");
         bool cloudEnabled=RetunedSaveSyncEnabled();
@@ -113,10 +128,10 @@ void GraphicsSettingsPanel::Draw() {
       case SettingsPage::QualityOfLife:
         ImGui::SeparatorText("Link movement");drawTabs("Quality of life");break;
       case SettingsPage::About:
-        ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.5.0 Preview");
+        ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.5.5 Preview");
         ImGui::Spacing();ImGui::TextWrapped("Ocarina of Time 3D with the Reframed single-screen HUD.");
         ImGui::SeparatorText("Contributors");
-        ImGui::TextWrapped("Upstream engine credits: TriAevum by coccofresco. Uses libultraship, SDL, Dear ImGui and MoltenVK on Apple devices. Interface fonts: Liberation Sans (SIL Open Font License).");
+        ImGui::TextWrapped("Upstream engine credits: TriAevum by coccofresco. Uses libultraship, SDL, Dear ImGui and MoltenVK on Apple devices. Interface fonts: Fira Sans, Fira Sans Condensed, and Alegreya SC (SIL Open Font License).");
         break;
       case SettingsPage::SaveStates:drawTabs("Save states");break;
       case SettingsPage::SaveFiles:

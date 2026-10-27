@@ -8,13 +8,23 @@ def apply(engine):
     source = Path(__file__).parent
     destination = engine / 'ports/retuned-setup'
     destination.mkdir(parents=True, exist_ok=True)
-    for name in ('first_run.cpp', 'first_run.h', 'rom_picker.h', 'setup.cmake'):
+    for name in ('first_run.cpp', 'first_run.h', 'rom_picker.h', 'preparation_version.h', 'setup.cmake'):
         (destination / name).write_text((source / name).read_text())
     entry = engine / 'tools/oot3d/native_game_runtime/oot3d_native_game.cpp'
     text = entry.read_text()
     include = '#if defined(RETUNED_DESKTOP_SETUP)\n#include "first_run.h"\n#endif\n'
     if include not in text:
         text = include + text
+    wrapper = """
+#if defined(RETUNED_DESKTOP_SETUP)
+int main(int argc,char** argv) {
+    return RetunedFinishPreparationRequest(RetunedApplicationMain(argc,argv));
+}
+#endif
+"""
+    text = text.replace(wrapper, '')
+    text = text.replace('#if defined(RETUNED_DESKTOP_SETUP)\nint RetunedApplicationMain(int argc, char** argv) {\n#else\nint main(int argc, char** argv) {\n#endif\n', 'int main(int argc, char** argv) {\n')
+    text = text.replace('int RetunedApplicationMain(int argc, char** argv) {', 'int main(int argc, char** argv) {')
     marker = 'int main(int argc, char** argv) {\n'
     addition = '''#if defined(RETUNED_DESKTOP_SETUP)
     std::filesystem::path setupProfile;
@@ -30,6 +40,8 @@ def apply(engine):
     start = text.index(marker)
     position = text.index('    try {\n', start) + len('    try {\n')
     text = text[:position] + addition + text[position:]
+    text = text.replace(marker, '#if defined(RETUNED_DESKTOP_SETUP)\nint RetunedApplicationMain(int argc, char** argv) {\n#else\n' + marker + '#endif\n', 1)
+    text += wrapper
     entry.write_text(text)
     game = engine / 'CMake/oot3d/game.cmake'
     include = 'include("${CMAKE_CURRENT_SOURCE_DIR}/ports/retuned-setup/setup.cmake")'

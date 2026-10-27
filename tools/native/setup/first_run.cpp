@@ -1,5 +1,6 @@
 #include "first_run.h"
 #include "rom_picker.h"
+#include "preparation_version.h"
 #include <SDL.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
@@ -7,8 +8,10 @@
 #include <nlohmann/json.hpp>
 #include "fast/oot3d/retuned_interface_font.h"
 #include "fast/oot3d/retuned_artwork.h"
+#include "fast/oot3d/retuned_frontend_state.h"
 #include <stb_image.h>
 #include <atomic>
+#include <chrono>
 #include <algorithm>
 #include <cstdlib>
 #include <cstdio>
@@ -36,9 +39,12 @@ extern char** environ;
 namespace {
 using Path = std::filesystem::path;
 using Json = nlohmann::json;
+Path preparationProfile;
+bool preparationRequested=false;
 std::string Text(const Path& path) { auto s=path.u8string();return {s.begin(),s.end()}; }
 Path FromText(const std::string& s) {return Path(std::u8string(s.begin(),s.end()));}
 Json Read(const Path& p) {std::ifstream f(p);return Json::parse(f);}
+using RetunedSetup::PreparedIdentityMatches;
 Path DefaultRoot() {
 #if defined(_WIN32)
     const char* base=std::getenv("LOCALAPPDATA");
@@ -172,10 +178,17 @@ struct RomBrowser {
 }
 
 bool RetunedFirstRun(int argc,char** argv,Path& profile) {
-    if(argc==1)profile=DefaultRoot()/"native-launch.json";
+    const bool requested=argc==4&&std::string(argv[1])=="--prepare-game"&&std::string(argv[2])=="--launch-profile";
+    if(requested)profile=FromText(argv[3]);
+    else if(argc==1)profile=DefaultRoot()/"native-launch.json";
     else if(argc==3&&std::string(argv[1])=="--launch-profile")profile=FromText(argv[2]);
     else return true;
-    bool existingReady=false;
+    preparationProfile=std::filesystem::absolute(profile);
+    RetunedFrontend::RequestGamePreparation=[] {
+        preparationRequested=true;
+        SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);
+    };
+    bool existingReady=false,existingCompatible=false;
     if(std::filesystem::is_regular_file(profile)) {
         try {
             const auto arguments=Read(profile).at("arguments").get<std::vector<std::string>>();
@@ -189,7 +202,7 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
                 auto found=std::find(arguments.begin(),arguments.end(),"--a32-process-manifest");
                 const auto manifest=Read(FromText(*++found));
                 const auto& frontend=manifest.at("reframed_frontend");
-                if(frontend.at("functions").contains("ManualJump_Set") && frontend.contains("presentation"))return true;
+                existingCompatible=frontend.at("functions").contains("ManualJump_Set") && frontend.contains("presentation");
             }
         }catch(...){}
     }
@@ -208,11 +221,20 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
     }
     std::string status="Choose your decrypted Ocarina of Time 3D USA ROM (.3ds or .cci).";
     const bool hasKit=std::filesystem::is_regular_file(kit);
+    std::string requiredIdentity;
+    if(hasKit){try{requiredIdentity=Read(kit).value("preparation_identity",std::string{});}catch(...){requiredIdentity="invalid";}}
+    const bool requiredUpdate=!requiredIdentity.empty()&&(!existingReady||!PreparedIdentityMatches(profile,requiredIdentity));
+    if(!requested && existingReady && (requiredIdentity.empty()?existingCompatible:!requiredUpdate))return true;
+    bool reusableInputs=false;
+    if(std::filesystem::is_directory(root/"verified-inputs")) {
+        for(const auto& entry:std::filesystem::directory_iterator(root/"verified-inputs"))
+            if(entry.is_directory()&&std::filesystem::is_regular_file(entry.path()/"receipt.json")){reusableInputs=true;break;}
+    }
     bool bundledWindowsTools=false;
 #if defined(_WIN32)
     if(hasKit){try{bundledWindowsTools=Read(kit).contains("windows_tools");}catch(...){}}
 #endif
-    if(existingReady)status="Prepare your ROM again to enable the new game features. Saves, textures, and settings are preserved.";
+    if(existingReady)status=reusableInputs?"Updating the prepared game from verified local inputs…":"This upgrade needs your ROM once. Saves, textures, and settings are preserved.";
     if(!hasKit)status="The ROM preparation tools are missing from this preview. Install the preparation kit before continuing.";
     if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_GAMECONTROLLER)!=0)throw std::runtime_error(SDL_GetError());
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
@@ -244,18 +266,39 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
         glGenTextures(1,&art);glBindTexture(GL_TEXTURE_2D,art);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,artWidth,artHeight,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);stbi_image_free(pixels);
     }
     std::atomic<bool> running=false,finished=false;std::atomic<int> result=1;std::thread worker;
+    auto preparationStarted=std::chrono::steady_clock::now();
+    int preparationStep=1;
+    long long previousDuration=-1,stageStartedAt=0;
     bool close=false,success=false;std::string selected;char pathText[8192]{};Path progress=root/"setup-progress.json", cancel=root/"setup-cancel";
 #if !defined(_WIN32) && !defined(__APPLE__)
     RomBrowser romBrowser;
 #endif
     SDL_GameController* controller=nullptr;
     for(int i=0;i<SDL_NumJoysticks();++i)if(SDL_IsGameController(i)){controller=SDL_GameControllerOpen(i);if(controller)break;}
+    auto beginPreparation=[&](bool reuse){
+        try {
+            const auto metadata=Read(kit);const auto base=std::filesystem::absolute(kit).parent_path();
+            const auto resolve=[&](const char* name){return Text(base/FromText(metadata.at(name).get<std::string>()));};
+            auto arguments=std::vector<std::string>{resolve("python"),resolve("script"),"--kit",Text(std::filesystem::absolute(kit)),"--host",Text(ExecutablePath()),"--data-root",Text(root),"--progress-file",Text(progress),"--cancel-file",Text(cancel)};
+            if(reuse)arguments.push_back("--reuse-inputs");else {arguments.push_back("--rom");arguments.push_back(pathText);}
+            std::filesystem::create_directories(root);std::filesystem::remove(progress);std::filesystem::remove(cancel);running=true;preparationStep=1;preparationStarted=std::chrono::steady_clock::now();status="Starting local preparation...";
+            worker=std::thread([&,arguments]{result=Run(arguments);finished=true;});
+        }catch(const std::exception& e){status=e.what();}
+    };
+    if(!requested&&requiredUpdate&&reusableInputs&&hasKit)beginPreparation(true);
     while(!close) {
         SDL_Event event;while(SDL_PollEvent(&event)){ImGui_ImplSDL2_ProcessEvent(&event);
             if(event.type==SDL_QUIT&&!running)close=true;
             if(event.type==SDL_DROPFILE){if(!running){selected=event.drop.file;std::snprintf(pathText,sizeof(pathText),"%s",selected.c_str());}SDL_free(event.drop.file);}}
-        if(running){try {status=Read(progress).at("message").get<std::string>();}catch(...){} }
-        if(finished.exchange(false)){running=false;if(worker.joinable())worker.join();success=result==0&&std::filesystem::is_regular_file(profile);if(success)close=true;else if(status.empty())status="Setup did not finish. Your existing files are unchanged.";}
+        if(running){try {
+            const auto update=Read(progress);status=update.at("message").get<std::string>();
+            const auto stage=update.value("stage",std::string{});
+            previousDuration=update.value("previous_duration",-1LL);stageStartedAt=update.value("stage_started_at",0LL);
+            const char* stages[]={"checking","extracting","normalizing","assets","patching","translating","compiling","verifying","activating"};
+            for(int i=0;i<9;++i)if(stage==stages[i])preparationStep=i+1;
+            if(stage=="generating")preparationStep=6;
+        }catch(...){} }
+        if(finished.exchange(false)){running=false;if(worker.joinable())worker.join();success=result==0&&std::filesystem::is_regular_file(profile)&&(requiredIdentity.empty()||PreparedIdentityMatches(profile,requiredIdentity));if(success)close=true;else if(status.empty())status="Setup did not finish. Your existing files are unchanged.";}
         ImGui_ImplOpenGL3_NewFrame();ImGui_ImplSDL2_NewFrame();ImGui::NewFrame();
         ImGui::SetNextWindowPos({0,0});ImGui::SetNextWindowSize(io.DisplaySize);
         ImGui::Begin("Setup",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings);
@@ -263,7 +306,24 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
         if(art){ImGui::SetCursorPos({io.DisplaySize.x-180,35});ImGui::Image((ImTextureID)(intptr_t)art,{140,140});}
         ImGui::SetCursorPos({margin,120});ImGui::TextUnformatted(existingReady?"Update game preparation":"First-time setup");ImGui::Spacing();
         ImGui::SetCursorPosX(margin);ImGui::PushTextWrapPos(io.DisplaySize.x-margin);ImGui::TextUnformatted(status.c_str());ImGui::PopTextWrapPos();
-        ImGui::SetCursorPos({margin,240});ImGui::BeginDisabled(running||!hasKit);ImGui::SetNextItemWidth(io.DisplaySize.x-margin*2);ImGui::InputTextWithHint("##rom","ROM file - choose or drag it here",pathText,sizeof(pathText));
+        if(running){
+            ImGui::SetCursorPos({margin,185});
+            ImGui::ProgressBar(static_cast<float>(preparationStep-1)/9.f,{io.DisplaySize.x-margin*2,12},"");
+            const auto seconds=std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now()-preparationStarted).count();
+            ImGui::SetCursorPos({margin,210});
+            ImGui::Text("Step %d of 9  |  Elapsed %lld min %lld sec",preparationStep,static_cast<long long>(seconds/60),static_cast<long long>(seconds%60));
+            ImGui::SetCursorPos({margin,237});
+            const auto now=std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+            const auto remaining=previousDuration>0&&stageStartedAt>0?previousDuration-(now-stageStartedAt):-1;
+            if(remaining<0)ImGui::TextUnformatted("Calculating time estimate…");
+            else if(remaining<60000)ImGui::TextUnformatted("About a minute or less left in this step");
+            else {
+                const auto low=std::max(1LL,static_cast<long long>(remaining*.8/60000+.5));
+                const auto high=std::max(low+1,static_cast<long long>(remaining*1.25/60000+.5));
+                ImGui::Text("About %lld–%lld min left in this step",low,high);
+            }
+        }
+        ImGui::SetCursorPos({margin,280});ImGui::BeginDisabled(running||!hasKit);ImGui::SetNextItemWidth(io.DisplaySize.x-margin*2);ImGui::InputTextWithHint("##rom","ROM file - choose or drag it here",pathText,sizeof(pathText));
         ImGui::SetCursorPosX(margin);
         if(ImGui::Button("Choose ROM...")){
 #if !defined(_WIN32) && !defined(__APPLE__)
@@ -272,23 +332,18 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
             auto chosen=ChooseRom();if(!chosen.empty())std::snprintf(pathText,sizeof(pathText),"%s",chosen.c_str());
 #endif
         }
-        ImGui::SameLine();ImGui::BeginDisabled(!pathText[0]);if(ImGui::Button("Prepare game")){
-            try {
-                const auto metadata=Read(kit);const auto base=std::filesystem::absolute(kit).parent_path();
-                const auto resolve=[&](const char* name){return Text(base/FromText(metadata.at(name).get<std::string>()));};
-                auto arguments=std::vector<std::string>{resolve("python"),resolve("script"),"--kit",Text(std::filesystem::absolute(kit)),"--host",Text(ExecutablePath()),"--rom",pathText,"--data-root",Text(root),"--progress-file",Text(progress),"--cancel-file",Text(cancel)};
-                std::filesystem::create_directories(root);std::filesystem::remove(progress);std::filesystem::remove(cancel);running=true;status="Starting local preparation...";
-                worker=std::thread([&,arguments]{result=Run(arguments);finished=true;});
-            }catch(const std::exception& e){status=e.what();}
-        }ImGui::EndDisabled();ImGui::EndDisabled();
+        ImGui::SameLine();ImGui::BeginDisabled(!pathText[0]);if(ImGui::Button("Prepare game"))beginPreparation(false);
+        ImGui::EndDisabled();
+        if(reusableInputs){ImGui::SameLine();if(ImGui::Button("Update prepared game"))beginPreparation(true);}
+        ImGui::EndDisabled();
 #if !defined(_WIN32) && !defined(__APPLE__)
         auto chosen=romBrowser.Draw();if(!chosen.empty())std::snprintf(pathText,sizeof(pathText),"%s",chosen.c_str());
 #endif
         ImGui::SetCursorPos({margin,io.DisplaySize.y-115});ImGui::PushTextWrapPos(io.DisplaySize.x-margin);ImGui::TextDisabled("Preparation stays on your computer. Saves and controller settings are preserved.");ImGui::TextDisabled("%s",bundledWindowsTools?"The included tools prepare your game. This can take several minutes.":"The first build can take several minutes and requires local C++ build tools.");ImGui::PopTextWrapPos();
         ImGui::SetCursorPosX(margin);
-        if(running){if(ImGui::Button("Cancel setup")){std::ofstream request(cancel);request<<"cancel";status="Cancelling after the current preparation step...";}}
+        if(running){if(ImGui::Button("Cancel setup")){std::ofstream request(cancel);request<<"cancel";status="Cancelling after the current preparation stage...";}}
         else {
-            if(existingReady && ImGui::Button("Continue with existing game")){success=true;close=true;}
+            if(existingReady && !requiredUpdate && ImGui::Button("Continue with existing game")){success=true;close=true;}
             if(existingReady)ImGui::SameLine();
             if(ImGui::Button("Close"))close=true;
         }
@@ -298,4 +353,9 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
     if(worker.joinable())worker.join();std::filesystem::remove(cancel);if(controller)SDL_GameControllerClose(controller);
     if(art)glDeleteTextures(1,&art);
     ImGui_ImplOpenGL3_Shutdown();ImGui_ImplSDL2_Shutdown();ImGui::DestroyContext();SDL_GL_DeleteContext(context);SDL_DestroyWindow(window);SDL_Quit();return success;
+}
+
+int RetunedFinishPreparationRequest(int result) {
+    if(!preparationRequested)return result;
+    return Run({Text(ExecutablePath()),"--prepare-game","--launch-profile",Text(preparationProfile)});
 }

@@ -155,6 +155,13 @@ def apply(root):
  edit(activity,'        StartupDiagnostics.stage(this, "loading SDL and game libraries");','''        try {android.system.Os.setenv("RETUNED_SCREEN_PROBE","android-dual",true);android.system.Os.setenv("TRIAEVUM_VULKAN_PRESENT_DISPATCH","graphics",true);}catch(Exception e){throw new RuntimeException(e);}
         StartupDiagnostics.stage(this, "loading SDL and game libraries");''')
  edit(activity,'        retunedTextures=new TextureFolder(this);','        retunedTextures=new TextureFolder(this);\n        dualScreen=new RetunedDualScreen(this);')
- edit(activity,'    @Override protected void onPause()', '    @Override protected void onDestroy(){if(dualScreen!=null)dualScreen.close();super.onDestroy();}\n\n    @Override protected void onPause()')
+ text=activity.read_text()
+ if 'if(dualScreen!=null)dualScreen.close();' not in text:
+  if 'protected void onDestroy()' in text:
+   start=text.index('protected void onDestroy()')
+   position=text.index('{',start)+1
+   activity.write_text(text[:position]+'if(dualScreen!=null)dualScreen.close();'+text[position:])
+  else:
+   edit(activity,'    @Override protected void onPause()', '    @Override protected void onDestroy(){if(dualScreen!=null)dualScreen.close();super.onDestroy();}\n\n    @Override protected void onPause()')
 
 if __name__=='__main__':apply(Path(sys.argv[1]))

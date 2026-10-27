@@ -29,6 +29,8 @@ def apply(engine):
     runtime = graphics / 'graphics_settings_runtime.cpp'
     add_header(runtime)
     edit(runtime, 'parsed >= 0.5F', 'parsed >= RetunedFrontend::MinimumRenderScale')
+    edit(runtime, 'initial.InternalResolutionScale = defaults.InternalResolutionScale;',
+         'initial.InternalResolutionScale = RetunedFrontend::DefaultGameplayScale();')
     display = graphics / 'graphics_settings_display_panel.cpp'
     add_header(display)
     text = display.read_text()

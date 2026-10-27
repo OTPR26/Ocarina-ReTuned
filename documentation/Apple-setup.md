@@ -31,6 +31,8 @@ Run the script with `--help` to see all options. Preparation compiles the game f
 
 When updating, keep the same app identifier and compatible signing identity. Do not delete the installed app to troubleshoot, because that can remove local saves. The public downloads do not enable iCloud sync.
 
+On Apple TV, ordinary in-game saves also have a small local recovery copy outside the purgeable game cache. Missing save files are restored at launch without replacing existing progress. This does not cover save states or texture packs, and uninstalling the app removes the recovery copy.
+
 ## Startup messages
 
 - **APPLE-1:** No prepared game was found. Complete Mac preparation first.

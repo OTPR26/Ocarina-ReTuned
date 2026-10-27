@@ -3,6 +3,7 @@
 #if defined(__APPLE__)
 extern "C" {
 void RetunedSaveSyncConfigure(const char* saves);
+bool RetunedSaveSyncRecoverLocal(const char* saves);
 void RetunedSaveSyncTick(bool startup);
 void RetunedSaveSyncRequest();
 void RetunedSaveSyncCommitted();

@@ -26,16 +26,29 @@ def apply(engine):
     if style not in text:textures.write_text(style+'\n'+text)
     text=textures.read_text()
     if header_marker not in text:text=header_marker+'\n'+text
+    picker_marker='#include "fast/oot3d/retuned_desktop_texture_picker.h"'
+    if picker_marker not in text:text=picker_marker+'\n'+text
     start=text.index('bool DrawAzaharTexturePackPanel(')
     body=text.index('{',start)+1
-    end=text.index('    SynchronizeDirectoryInputs(settings, state);',body)
-    text=text[:body]+'\n'+Path(__file__).with_name('mobile_textures.cpp.inc').read_text()+text[end:]
+    end=text.index('\n    SynchronizeDirectoryInputs(settings, state);',body)+1
+    text=text[:body]+'\n'+Path(__file__).with_name('mobile_textures.cpp.inc').read_text()+'''#if !defined(__SWITCH__) && !defined(__IOS__) && !defined(__ANDROID__)
+    if(RetunedFrontend::DrawDesktopTexturePicker(settings.LoadDirectory)) {
+        settings.LoadCustomTextures=true;
+        SynchronizeDirectoryInputs(settings,state);
+        return true;
+    }
+#endif
+'''+text[end:]
     textures.write_text(text)
     loader=graphics/'azahar_texture_pack.cpp'
     text=loader.read_text()
     if header_marker not in text:loader.write_text(header_marker+'\n'+text)
     edit(loader,'std::vector<uint8_t> ReadBinaryFile(const std::filesystem::path& path) {',
          'std::vector<uint8_t> ReadBinaryFile(const std::filesystem::path& path) {\n    if(RetunedFrontend::TextureFolders.Read && RetunedFrontend::IsTextureDocument(path.string()))return RetunedFrontend::ReadTextureDocument(path.string());')
+    frame=engine/'runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_frame.cpp'
+    for field in ('LoadDirectory','DumpDirectory'):
+        old='graphicsSettings.TexturePacks.Azahar.'+field+','
+        edit(frame,old,'std::filesystem::u8path(graphicsSettings.TexturePacks.Azahar.'+field+'),')
     controls=runtime/'oot3d_native_controls_settings_panel.cpp';header(controls)
     edit(controls,'  void DrawDevices() {','''  void DrawDevices() {
     if(RetunedFrontend::MobileSettingsPlatform()) {

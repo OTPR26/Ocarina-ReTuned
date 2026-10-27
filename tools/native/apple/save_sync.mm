@@ -3,6 +3,7 @@
 #import <CloudKit/CloudKit.h>
 #import <CommonCrypto/CommonDigest.h>
 #import <Security/Security.h>
+#import <TargetConditionals.h>
 #include "save_sync.h"
 #include "save_sync_policy.h"
 #include <mutex>
@@ -82,6 +83,53 @@ NSDictionary* Validate(NSData* bytes) {
  }
  return result;
 }
+#if TARGET_OS_TV || defined(RETUNED_TV_SAVE_BACKUP_TEST)
+NSString* const TVBackupKey=@"RetunedTV.SaveBackup.v1";
+bool StoreTVBackup(NSUserDefaults* defaults, NSString* domain, NSData* current) {
+ NSDictionary* files=Validate(current);
+ if(!files || !domain.length)return false;
+ NSMutableDictionary* merged=[Validate([defaults dataForKey:TVBackupKey]) mutableCopy] ?: [NSMutableDictionary dictionary];
+ [merged addEntriesFromDictionary:files];
+ NSMutableDictionary* encoded=[NSMutableDictionary dictionary];
+ for(NSString* name in merged)encoded[name]=[merged[name] base64EncodedStringWithOptions:0];
+ NSData* snapshot=[NSJSONSerialization dataWithJSONObject:@{@"version":@1,@"files":encoded} options:NSJSONWritingSortedKeys error:nil];
+ if(!Validate(snapshot))return false;
+ if([snapshot isEqual:[defaults dataForKey:TVBackupKey]])return true;
+ // Leave headroom below tvOS's 512 KB preferences warning threshold.
+ NSMutableDictionary* database=[[defaults persistentDomainForName:domain] mutableCopy] ?: [NSMutableDictionary dictionary];
+ database[TVBackupKey]=snapshot;
+ NSData* sizeCheck=[NSPropertyListSerialization dataWithPropertyList:database format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
+ if(!sizeCheck || sizeCheck.length>384*1024)return false;
+ [defaults setObject:snapshot forKey:TVBackupKey];
+ return [defaults synchronize];
+}
+bool RestoreTVBackup(NSUserDefaults* defaults, NSString* directory) {
+ NSData* stored=[defaults dataForKey:TVBackupKey];
+ if(!stored)return true;
+ NSDictionary* files=Validate(stored);
+ if(!files)return Validate(Snapshot(directory)).count==7;
+ NSFileManager* fm=NSFileManager.defaultManager;
+ NSDictionary* attrs=[fm attributesOfItemAtPath:directory error:nil];
+ if(attrs && ![attrs[NSFileType] isEqual:NSFileTypeDirectory])return false;
+ // Validate all destinations before writing; existing progress always wins.
+ for(NSString* name in files) {
+  NSString* path=[directory stringByAppendingPathComponent:name];
+  NSDictionary* item=[fm attributesOfItemAtPath:path error:nil];
+  if(item && (![item[NSFileType] isEqual:NSFileTypeRegular] ||
+     [item[NSFileSize] unsignedLongLongValue] != [files[name] length]))return false;
+ }
+ if(![fm createDirectoryAtPath:directory withIntermediateDirectories:YES attributes:nil error:nil])return false;
+ for(NSString* name in files) {
+  NSString* path=[directory stringByAppendingPathComponent:name];
+  if(![fm fileExistsAtPath:path] && ![files[name] writeToFile:path options:NSDataWritingAtomic error:nil])return false;
+ }
+ return true;
+}
+void PreserveTVSave(NSData* snapshot) {
+ if(!StoreTVBackup(NSUserDefaults.standardUserDefaults,NSBundle.mainBundle.bundleIdentifier,snapshot))
+  NSLog(@"Ocarina ReTuned could not persist its local save recovery copy.");
+}
+#endif
 bool Restore(NSData* bytes) {
  NSDictionary* files=Validate(bytes);
  if(!files)return false;
@@ -195,8 +243,21 @@ extern "C" void RetunedSaveSyncConfigure(const char* saves) {
  });
  std::scoped_lock guard(lock);
  root=[NSString stringWithUTF8String:saves];
+#if TARGET_OS_TV
+ RestoreTVBackup(NSUserDefaults.standardUserDefaults,root);
+#endif
  enabled=![NSUserDefaults.standardUserDefaults boolForKey:@"RetunedSaveSync.Disabled"];
  generation++;busy=false;pending=nil;conflict=false;request=true;next={};latestLocal=Snapshot(root);
+#if TARGET_OS_TV
+ if(latestLocal.length)PreserveTVSave(latestLocal);
+#endif
+}
+extern "C" bool RetunedSaveSyncRecoverLocal(const char* saves) {
+#if TARGET_OS_TV
+ return RestoreTVBackup(NSUserDefaults.standardUserDefaults,[NSString stringWithUTF8String:saves]);
+#else
+ return true;
+#endif
 }
 extern "C" void RetunedSaveSyncTick(bool startup) {
  std::scoped_lock guard(lock);
@@ -210,6 +271,9 @@ extern "C" void RetunedSaveSyncTick(bool startup) {
    if(baselineKey)[NSUserDefaults.standardUserDefaults setObject:Hash(pending) forKey:baselineKey];
    status=@"Cloud saves restored. Previous local saves were backed up.";
    latestLocal=Snapshot(root);pending=nil;conflictRecord=nil;
+#if TARGET_OS_TV
+   PreserveTVSave(latestLocal);
+#endif
   } else status=@"Could not restore cloud saves. Local saves are unchanged.";
  }
  if(busy || pending || conflict)return;
@@ -225,6 +289,9 @@ extern "C" void RetunedSaveSyncTick(bool startup) {
 extern "C" void RetunedSaveSyncCommitted() {
  std::scoped_lock guard(lock);
  if(root) {NSData* saved=Snapshot(root);if(saved){latestLocal=saved;request=true;}}
+#if TARGET_OS_TV
+ if(latestLocal.length)PreserveTVSave(latestLocal);
+#endif
 }
 extern "C" void RetunedSaveSyncRequest(){std::scoped_lock guard(lock);request=true;}
 extern "C" bool RetunedSaveSyncEnabled(){std::scoped_lock guard(lock);return enabled;}

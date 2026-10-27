@@ -2,8 +2,10 @@
 #pragma once
 #include <atomic>
 #include <string>
+#include <functional>
 #include "retuned_settings_pages.h"
 namespace RetunedFrontend {
+inline std::function<void()> RequestGamePreparation;
 inline bool StartupVisible = true;
 inline bool SetupVisible = false;
 inline bool GameFilesReady = false;

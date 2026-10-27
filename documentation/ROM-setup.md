@@ -15,6 +15,19 @@ The Preview requires Android users to be able to choose and prepare their ROM
 on the device. A desktop companion is not a substitute for that requirement.
 iOS and tvOS require their locally generated module to be included before signing.
 
+## Preparation status and updates
+
+Android and desktop setup show the current stage, a milestone progress bar,
+elapsed time, and an estimate for the current stage when timing data is available.
+The nine stages have different costs; the bar is not a percentage of elapsed time.
+First-run estimates remain unavailable until enough local timing data exists.
+Cancellation preserves the previous prepared game and saves.
+
+Before starting gameplay, open Settings → General → Update game preparation to
+prepare again from your ROM or verified local inputs. The option is disabled
+while a game is running. iOS and tvOS preparation continues to use the Mac/Xcode
+flow described below; they do not prepare ROMs on the device.
+
 ## Inputs and output
 
 The currently verified input is a clean, decrypted USA Ocarina of Time 3D
@@ -67,8 +80,8 @@ screen; no developer-tool installation or Developer Command Prompt is intended.
 
 The portable Windows candidate is being validated and is not a release asset.
 Older Windows test kits still discover installed Visual Studio Build Tools.
-Linux currently requires CMake 3.30+, Ninja and a C++20 compiler with system
-headers. Real Windows bundled-tool preparation and gameplay have passed, including
+Linux packages include portable CMake and Ninja, with their original license notices.
+A compatible C++20 compiler and system headers are still required. Real Windows bundled-tool preparation and gameplay have passed, including
 controller input and persistent HUD/dialogue with the matching private UI pack.
 Real Bazzite/Linux ROM preparation, gameplay, controller input, HUD, HD dialogue
 and audio have also passed. Complete toolchain notices/provenance and final
@@ -181,3 +194,47 @@ Cloud save sync is offline in the account-free downloads. Self-signing alone
 does not enable it: a separately configured build using
 `RETUNED_ICLOUD_CONTAINER` and a compatible signing profile is required.
 Local preparation/signing uses the recipient's identity, never the publisher's.
+
+## Incremental preparation (in development)
+
+The new local cache keeps verified clean inputs, generated source, and compiled
+artifacts on the device. After one preparation with this version, Android's
+preparation screen offers **Update prepared game** without selecting the ROM
+again. Resource-only updates can reuse the native module; Android code changes
+reuse unchanged compilation units. First-time preparation still needs the full
+translation and compilation.
+
+Cache entries are checked before use. Changes to the compiler, SDK, generated
+headers, or source invalidate the affected entries, and every module passes ABI
+verification before activation. Missing or damaged entries rebuild from verified
+inputs. If those inputs are damaged, the user must select the ROM again. A failed
+update leaves the current installation and saves available.
+
+Verified inputs have a separate 512 MiB limit. Generated source and compiled
+artifacts share a 768 MiB limit, with older entries removed first. These files
+remain private game-derived data and must never be included in release packages.
+Packagers must include `tools/native/preparation_cache.py` beside `rom_setup.py`.
+
+### Automatic upgrade checks
+
+New Android builds and stamped desktop kits compare a content identity with the
+activated installation before loading the game. The identity covers preparation
+sources, game patches, bundled game resources, and relevant compiler inputs.
+APK version labels, interface fonts, and ZIP timestamps do not trigger preparation.
+
+A changed identity starts a cached update with progress, then continues to startup
+after verification and activation. An unchanged identity skips preparation. If no
+verified inputs are retained, the user is asked to select the ROM once. Failed or
+cancelled updates retain the previous installation; a required update must succeed
+before it is loaded. Reopening an active Android game resumes it and defers checks.
+
+Android Gradle builds stamp the final preparation inputs automatically before
+asset packaging. For manual staging, builders can run `preparation_identity.py --assets <retuned-assets> --compiler-directory <compiler-libs>
+--runtime-directory <native-runtime-libs>`; `prepare_android_app.py` also accepts
+`--preparation-native-stage`. Desktop builders use `preparation_identity.py --kit
+<setup/kit.json>`. The resulting identity is recorded in `setup-receipt.json` before
+atomic activation. Older unstamped desktop kits keep their legacy compatibility check.
+
+### Desktop texture folders
+
+In Settings → Graphics → Custom textures, choose **Choose texture folder**, browse to your extracted pack, and select **Select this folder**. The app enables custom textures, saves the folder, and searches its subfolders. No ROM preparation is needed when changing packs. Cancel leaves your current selection unchanged. The browser includes Home, parent-folder, drive, and typed-path navigation; use `/Volumes` on Mac or `/run/media`, `/media`, and `/mnt` on Linux for mounted drives.

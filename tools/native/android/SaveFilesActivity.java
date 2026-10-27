@@ -44,8 +44,8 @@ public final class SaveFilesActivity extends Activity {
         if(state==null&&getIntent().getBooleanExtra("launch-game",false))prepareAndLaunch();
         else if(state==null){String action=getIntent().getStringExtra("action");int index="import".equals(action)?0:"export".equals(action)?1:"folder".equals(action)?2:-1;if(index>=0)handler.post(()->buttons.get(index).performClick());}
     }
-    private TextView text(LinearLayout parent,String value,int size){TextView v=new TextView(this);v.setText(value);v.setTextSize(size);v.setTextColor(Color.WHITE);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=dp(14);parent.addView(v,p);return v;}
-    private void button(LinearLayout parent,String name,Runnable action){Button b=new Button(this);b.setText(name);b.setAllCaps(false);b.setTextColor(Color.WHITE);b.setTextSize(18);
+    private TextView text(LinearLayout parent,String value,int size){TextView v=new TextView(this);v.setText(value);if(size>=20)InterfaceTypography.heading(v);else InterfaceTypography.body(v);v.setTextColor(Color.WHITE);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=dp(14);parent.addView(v,p);return v;}
+    private void button(LinearLayout parent,String name,Runnable action){Button b=new Button(this);b.setText(name);b.setAllCaps(false);b.setTextColor(Color.WHITE);InterfaceTypography.button(b,false);
         android.graphics.drawable.GradientDrawable shape=new android.graphics.drawable.GradientDrawable();shape.setCornerRadius(dp(10));shape.setColor(new android.content.res.ColorStateList(new int[][]{{android.R.attr.state_pressed},{android.R.attr.state_focused},{}},new int[]{Color.rgb(35,83,137),Color.rgb(35,83,137),Color.rgb(17,38,66)}));b.setBackground(shape);
         b.setMinHeight(dp(52));b.setOnClickListener(v->action.run());LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=dp(8);parent.addView(b,p);buttons.add(b);}
     private void busy(boolean value){busy=value;for(Button b:buttons)b.setEnabled(!value);}
