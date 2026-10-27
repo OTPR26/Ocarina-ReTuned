@@ -62,6 +62,47 @@ class ReframedImageTests(unittest.TestCase):
             image.apply_file_selection_spacing(code, named)
         self.assertEqual(struct.unpack_from('<I', code, 0)[0], 0xE3E0100F)
 
+    def test_back_stays_relocated_through_every_file_state(self):
+        words = [0xE353000A, 0x9A000002, 0xE59D30CC, 0xE353002A,
+                 0x9A000001, 0xE3A03001, 0xEA000000, 0xE3A03000, 0xE5CD30CB]
+        code = bytearray(struct.pack('<9I', *words) * 2)
+        named = {'SingleScreen_AfterTopPass': (image.BASE, 36, 'FUNC', 1)}
+        def result(state):
+            # Execute the reviewed predicate's ARM cmp, bls, mov, and b subset.
+            pc, value, lower = 0, state, False
+            for _ in range(12):
+                word = struct.unpack_from('<I', code, pc)[0]
+                if word & 0xFFFFFF00 == 0xE3530000:
+                    lower = value <= (word & 255)
+                elif word == 0xE59D30CC:
+                    value = state
+                elif word & 0xFFFFFF00 == 0xE3A03000:
+                    value = word & 255
+                elif word == 0xE5CD30CB:
+                    return value
+                elif word & 0xFF000000 in (0x9A000000, 0xEA000000):
+                    if word >> 28 == 14 or lower:
+                        pc += 8 + ((word & 0xFFFFFF) << 2)
+                        continue
+                else:
+                    self.fail('Unexpected instruction')
+                pc += 4
+            self.fail('Predicate did not terminate')
+        self.assertEqual(result(10), 1)
+        self.assertEqual(result(11), 0)
+        self.assertEqual(result(42), 0)
+        self.assertEqual(result(43), 1)
+        image.apply_file_selection_back(code, named)
+        for state in range(256):
+            self.assertEqual(result(state), 1, state)
+        self.assertEqual(struct.unpack_from('<I', code, 36 + 28)[0], 0xE3A03000)
+        patched = bytes(code)
+        image.apply_file_selection_back(code, named)
+        self.assertEqual(bytes(code), patched)
+        code[0] = 0
+        with self.assertRaises(ValueError):
+            image.apply_file_selection_back(code, named)
+
     def test_touch_action_owner_requires_matching_adapter(self):
         code=bytearray(128)
         struct.pack_into('<II',code,8,0xE59F3030,0xE5933000)

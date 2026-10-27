@@ -1,0 +1,74 @@
+diff --git a/runtime/three_ds_recomp/include/fast/Fast3dWindow.h b/runtime/three_ds_recomp/include/fast/Fast3dWindow.h
+--- a/runtime/three_ds_recomp/include/fast/Fast3dWindow.h
++++ b/runtime/three_ds_recomp/include/fast/Fast3dWindow.h
+@@ -112,6 +112,7 @@ class Fast3dWindow : public Ship::Window {
+     std::shared_ptr<Interpreter> mInterpreter = nullptr;
+     std::shared_ptr<GfxDebugger> mGfxDebugger;
+     bool mOot3dVulkanEnabled = false;
++    bool mInitialized = false;
+     MouseCapturePolicy mMouseCapturePolicy;
+     static std::unordered_set<int32_t> sPressedKeys;
+ };
+diff --git a/runtime/three_ds_recomp/src/fast/Fast3dWindow.cpp b/runtime/three_ds_recomp/src/fast/Fast3dWindow.cpp
+--- a/runtime/three_ds_recomp/src/fast/Fast3dWindow.cpp
++++ b/runtime/three_ds_recomp/src/fast/Fast3dWindow.cpp
+@@ -62,7 +62,14 @@ Fast3dWindow::Fast3dWindow() : Fast3dWindow(std::vector<std::shared_ptr<Ship::Gu
+ Fast3dWindow::~Fast3dWindow() {
+     SPDLOG_DEBUG("destruct fast3dwindow");
+     sPressedKeys.clear();
+-    mInterpreter->Destroy();
++    if (mInitialized) {
++        mInterpreter->Destroy();
++    } else if (mWindowManagerApi != nullptr) {
++        // Init() threw before the interpreter owned the backends (for example
++        // SDL could not open a display): only the window backend may hold
++        // partially created resources, and its teardown is null-safe.
++        mWindowManagerApi->Destroy();
++    }
+     delete mRenderingApi;
+     delete mWindowManagerApi;
+ }
+@@ -125,6 +132,7 @@ void Fast3dWindow::Init() {
+ 
+     SetTextureFilter((FilteringMode)Ship::Context::GetRawInstance()->GetConsoleVariables()->GetInteger(
+         CVAR_TEXTURE_FILTER, FILTER_THREE_POINT));
++    mInitialized = true;
+ }
+ 
+ int32_t Fast3dWindow::GetTargetFps() {
+diff --git a/runtime/three_ds_recomp/src/ship/Context.cpp b/runtime/three_ds_recomp/src/ship/Context.cpp
+--- a/runtime/three_ds_recomp/src/ship/Context.cpp
++++ b/runtime/three_ds_recomp/src/ship/Context.cpp
+@@ -341,7 +341,15 @@ bool Context::InitWindow(std::shared_ptr<Window> window) {
+         return false;
+     }
+ 
+-    GetWindow()->Init();
++    try {
++        GetWindow()->Init();
++    } catch (...) {
++        // The window never became usable: do not keep it as the context's
++        // window, or the destructor would save its geometry and tear down
++        // backends that were never created.
++        mWindow = nullptr;
++        throw;
++    }
+ 
+     return true;
+ }
+diff --git a/runtime/three_ds_recomp/src/ship/window/gui/Gui.cpp b/runtime/three_ds_recomp/src/ship/window/gui/Gui.cpp
+--- a/runtime/three_ds_recomp/src/ship/window/gui/Gui.cpp
++++ b/runtime/three_ds_recomp/src/ship/window/gui/Gui.cpp
+@@ -113,6 +113,12 @@ void Gui::ImGuiWMInit() {
+ }
+ 
+ void Gui::ShutDownImGui(Ship::Window* window) {
++    // A window whose backend never came up (no display, SDL video init failure)
++    // is destroyed before Init() created the ImGui context; DestroyContext()
++    // dereferences the missing context, so there is nothing to shut down.
++    if (ImGui::GetCurrentContext() == nullptr) {
++        return;
++    }
+     ImGuiWMShutdown();
+     ImGuiBackendShutdown();
+     ImGui::DestroyContext();

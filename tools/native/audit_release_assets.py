@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject known private UI fixtures and game files in public release archives."""
+"""Check release archives for private payloads and preparation-tool integrity."""
 import argparse
 import hashlib
 import io
@@ -7,6 +7,40 @@ import json
 import tarfile
 from pathlib import Path, PurePosixPath
 import zipfile
+
+
+def preparation_findings(archive, parent):
+    findings = []
+    names = set(archive.namelist())
+    roots = {name.rsplit('/', 1)[0] for name in names
+             if name.endswith(('/retuned/preparation-kit.json', '/retuned/preparation-kit.zip'))}
+    for root in sorted(roots):
+        manifest = root + '/preparation-kit.json'
+        bundle = root + '/preparation-kit.zip'
+        path = parent + '/' + manifest
+        if not {manifest, bundle}.issubset(names):
+            findings.append({'path': path, 'issue': 'incomplete preparation assets'})
+            continue
+        if archive.getinfo(manifest).file_size > 16384 or archive.getinfo(bundle).file_size > 512 * 1024**2:
+            raise ValueError('Preparation assets exceed audit limits')
+        try:
+            metadata = json.loads(archive.read(manifest))
+            if metadata.get('format') != 'retuned_preparation_asset_v1':
+                raise ValueError('Unsupported preparation manifest')
+            declared = metadata['unpacked_bytes']
+            if type(declared) is not int or not 0 < declared <= 1024**3:
+                raise ValueError('Invalid preparation size')
+            data = archive.read(bundle)
+            if metadata.get('sha256') != hashlib.sha256(data).hexdigest():
+                findings.append({'path': path, 'issue': 'preparation archive checksum mismatch'})
+            with zipfile.ZipFile(io.BytesIO(data)) as tools:
+                actual = sum(entry.file_size for entry in tools.infolist() if not entry.is_dir())
+            if declared != actual:
+                findings.append({'path': path, 'issue': 'preparation archive size mismatch',
+                                 'declared_bytes': declared, 'actual_bytes': actual})
+        except (ValueError, KeyError, AttributeError, zipfile.BadZipFile):
+            findings.append({'path': path, 'issue': 'invalid preparation assets'})
+    return findings
 
 
 def audit(paths, contract=None):
@@ -54,6 +88,7 @@ def audit(paths, contract=None):
                         visit(archive.extractfile(entry).read(), name + '/' + entry.name, depth + 1)
             return
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            findings.extend(preparation_findings(archive, name))
             seen = set()
             for entry in archive.infolist():
                 path = PurePosixPath(entry.filename)
@@ -69,7 +104,7 @@ def audit(paths, contract=None):
         visit(source.read_bytes(), source.name, 0)
     return {'status': 'FAIL' if findings else 'PASS', 'files_checked': count,
             'findings': findings,
-            'scope': 'Known private fixtures and file types only; independent license, shader, signature and privacy checks remain required.'}
+            'scope': 'Known private fixtures, file types, and preparation manifest integrity; independent license, shader, signature and privacy checks remain required.'}
 
 
 if __name__ == '__main__':

@@ -64,3 +64,47 @@ class PreparationCacheTests(unittest.TestCase):
         self.assertFalse(self.cache.entry(self.key).exists())
         self.assertTrue(self.cache.restore(other, self.root / 'out'))
         self.assertTrue(self.source.exists())
+
+    def test_new_source_tree_cannot_evict_compiled_objects(self):
+        sources = cache_module.LocalCache(self.root / 'sources', limit=700000)
+        compiled = cache_module.LocalCache(self.root / 'objects', limit=500000)
+        source = self.root / 'generated.cpp'; source.write_bytes(b's' * 600000)
+        obj = self.root / 'unit.o'; obj.write_bytes(b'o' * 25000)
+        keys = [cache_module.fingerprint({'unit': n}) for n in range(10)]
+        old = cache_module.fingerprint('old source')
+        new = cache_module.fingerprint('new source')
+        self.assertTrue(sources.store(old, {'generated.cpp': source}))
+        for key in keys:
+            self.assertTrue(compiled.store(key, {'unit.o': obj}))
+        source.write_bytes(b't' * 600000)
+        self.assertTrue(sources.store(new, {'generated.cpp': source}))
+        self.assertFalse(sources.entry(old).exists())
+        for number, key in enumerate(keys):
+            self.assertTrue(compiled.restore(key, self.root / ('out' + str(number))))
+        self.assertTrue(sources.restore(new, self.root / 'new-source'))
+
+    def test_migration_discards_only_the_selected_cache_entry(self):
+        self.assertTrue(self.cache.store(self.key, {'unit.o': self.source}))
+        outside=self.root/'saves';outside.mkdir();(outside/'save').write_bytes(b'keep')
+        other=cache_module.fingerprint('symlink');self.cache.entry(other).symlink_to(outside,target_is_directory=True)
+        self.assertFalse(self.cache.discard(other))
+        self.assertTrue(self.cache.discard(self.key))
+        self.assertFalse(self.cache.entry(self.key).exists())
+        self.assertEqual((outside/'save').read_bytes(),b'keep')
+
+    def test_mixed_cache_reproduces_object_eviction_after_source_refresh(self):
+        import os
+        mixed = cache_module.LocalCache(self.root / 'mixed', limit=1300000)
+        source = self.root / 'generated.cpp'; source.write_bytes(b's' * 600000)
+        obj = self.root / 'unit.o'; obj.write_bytes(b'o' * 250000)
+        old, unit, new = map(cache_module.fingerprint, ('old', 'unit', 'new'))
+        self.assertTrue(mixed.store(old, {'generated.cpp': source}))
+        self.assertTrue(mixed.store(unit, {'unit.o': obj}))
+        # Restoring the old tree makes it newer than the compiled objects.
+        os.utime(mixed.entry(unit), (1, 1))
+        self.assertTrue(mixed.restore(old, self.root / 'generated'))
+        source.write_bytes(b't' * 600000)
+        self.assertTrue(mixed.store(new, {'generated.cpp': source}))
+        self.assertFalse(mixed.entry(unit).exists())
+        self.assertTrue(mixed.entry(old).exists())
+        self.assertTrue(mixed.entry(new).exists())

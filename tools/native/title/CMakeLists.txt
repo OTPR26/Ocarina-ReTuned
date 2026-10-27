@@ -13,6 +13,37 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
+    # The host and title exchange C++ memory objects, not just C ABI records.
+    include(CheckCXXSourceCompiles)
+    unset(RETUNED_LINUX_CXX_ABI_SUPPORTED CACHE)
+    check_cxx_source_compiles([=[
+        #include <string>
+        #include <functional>
+        #include <vector>
+        #if !defined(__GLIBCXX__) || !defined(_GLIBCXX_USE_CXX11_ABI) || _GLIBCXX_USE_CXX11_ABI != 1
+        #error The Linux host requires the libstdc++ C++11 ABI
+        #endif
+        #ifdef _GLIBCXX_DEBUG
+        #error Debug containers are incompatible with the Linux host
+        #endif
+        static_assert(sizeof(void*) == 8);
+        static_assert(sizeof(std::string) == 32);
+        static_assert(sizeof(std::function<void()>) == 32);
+        static_assert(sizeof(std::vector<unsigned char>) == 24);
+        int main() { return 0; }
+    ]=] RETUNED_LINUX_CXX_ABI_SUPPORTED)
+    if(NOT RETUNED_LINUX_CXX_ABI_SUPPORTED)
+        message(FATAL_ERROR
+            "Linux preparation requires GCC or Clang with libstdc++ and its C++11 ABI. "
+            "Zig's default libc++ is incompatible with this host. "
+            "Use your distribution's g++ or clang++ with libstdc++ development headers.")
+    endif()
+endif()
+option(RETUNED_CHECK_COMPILER_ONLY "Check the preparation compiler without game input" OFF)
+if(RETUNED_CHECK_COMPILER_ONLY)
+    return()
+endif()
 set(RETUNED_RUNTIME_SOURCE "" CACHE PATH "Pinned runtime source checkout")
 set(TRIAEVUM_TRANSLATED_TITLE_DIR "" CACHE PATH "Private, verified generated title source")
 if(NOT EXISTS "${RETUNED_RUNTIME_SOURCE}/tools/triaevum_release/cmake/TitleSupport.cmake")

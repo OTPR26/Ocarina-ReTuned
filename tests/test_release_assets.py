@@ -14,6 +14,32 @@ spec.loader.exec_module(release_assets)
 
 
 class ReleaseAssetAuditTests(unittest.TestCase):
+    def test_android_stale_tools_manifest_fails_release_audit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            contract = root / 'contract.json'
+            contract.write_text('{"resources":{}}')
+            tools = io.BytesIO()
+            with zipfile.ZipFile(tools, 'w') as archive:
+                archive.writestr('tool.py', b'original')
+            metadata = {'format': 'retuned_preparation_asset_v1',
+                        'sha256': hashlib.sha256(tools.getvalue()).hexdigest(), 'unpacked_bytes': 8}
+            with zipfile.ZipFile(tools, 'a') as archive:
+                archive.writestr('update.py', b'new tools')
+            package = root / 'preview.apk'
+            def write_manifest(value):
+                with zipfile.ZipFile(package, 'w') as archive:
+                    archive.writestr('assets/retuned/preparation-kit.json', json.dumps(value))
+                    archive.writestr('assets/retuned/preparation-kit.zip', tools.getvalue())
+            write_manifest(metadata)
+            result = release_assets.audit([package], contract)
+            self.assertEqual(result['status'], 'FAIL')
+            self.assertEqual({item['issue'] for item in result['findings']},
+                             {'preparation archive checksum mismatch', 'preparation archive size mismatch'})
+            metadata.update(sha256=hashlib.sha256(tools.getvalue()).hexdigest(), unpacked_bytes=17)
+            write_manifest(metadata)
+            self.assertEqual(release_assets.audit([package], contract)['status'], 'PASS')
+
     def test_linux_tar_cannot_hide_private_payload_or_archive_links(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

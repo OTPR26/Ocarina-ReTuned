@@ -61,6 +61,9 @@ class BundledUiTests(unittest.TestCase):
             return {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
         self.payload = {'romfs/a': b'intended UI', 'licenses/NOTICE.txt': b'attribution'}
         self.contract.write_text(json.dumps({'source_sha256': 'source fixture',
+            'texture_hash_aliases': [
+                {'native': 123, 'original': 456, 'modern': False},
+                {'native': 789, 'original': 1011, 'modern': True}],
             'resources': {'a': record(self.payload['romfs/a'])},
             'notices': {'licenses/NOTICE.txt': record(self.payload['licenses/NOTICE.txt'])}}))
         from unittest.mock import patch
@@ -86,6 +89,9 @@ class BundledUiTests(unittest.TestCase):
         self.assertEqual(source.read_bytes(), before)
         self.assertEqual((self.root / 'notices/NOTICE.txt').read_bytes(), b'attribution')
         self.assertEqual(receipt['resources']['a']['bytes'], 11)
+        self.assertEqual(receipt['texture_hash_aliases'], [
+            {'native': 123, 'original': 456, 'modern': False},
+            {'native': 789, 'original': 1011, 'modern': True}])
 
     def test_bad_or_incomplete_pack_never_changes_game_data(self):
         source = self.root / 'romfs'

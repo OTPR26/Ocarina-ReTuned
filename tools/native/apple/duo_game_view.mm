@@ -4,6 +4,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import "duo_layout_observer.h"
 #import "duo_equipment_strip.h"
+#include "touch_controls.h"
 #include <SDL.h>
 #include <SDL_syswm.h>
 #include "fast/oot3d/retuned_screen_probe.h"
@@ -41,6 +42,7 @@ static ScreenRect DuoRect(CGRect r) {return {float(r.origin.x),float(r.origin.y)
 }
 - (void)refresh {
     [self.observer refresh];
+    RetunedIOS_SetTouchDualLayout(ProbeGuestDualActive.load());
     [self.strip refresh];
     [self.view bringSubviewToFront:self.strip];
 }

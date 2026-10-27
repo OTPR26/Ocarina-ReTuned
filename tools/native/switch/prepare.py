@@ -11,6 +11,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from rom_setup import RomSetup, SetupError, digest, load_kit
+from player_models.export import add_arguments as add_model_arguments, prepared_models
 
 ROOT = Path(__file__).resolve().parent
 
@@ -98,7 +99,7 @@ class SwitchSetup(RomSetup):
             installation / 'libretuned_switch_title.a', binary)])
         nacp = installation / 'OcarinaReTuned.nacp'
         self.run([self.sdk / ('tools/bin/nacptool' + self.suffix), '--create',
-            'Ocarina ReTuned', 'OTPR26', '0.5.5', nacp])
+            'Ocarina ReTuned', 'OTPR26', '0.5.6', nacp])
         nro = installation / 'Ocarina-ReTuned.nro'
         self.run([self.sdk / ('tools/bin/elf2nro' + self.suffix), binary, nro,
             '--nacp=' + str(nacp), '--icon=' + str(self.link_kit / 'icon.jpg')])
@@ -151,6 +152,7 @@ def main():
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--mobile-textures', type=Path)
     parser.add_argument('--jobs', type=int, default=2)
+    add_model_arguments(parser)
     parser.add_argument('--nsp-packer', type=Path, help='Local hacBrewPack executable for optional private NSP creation')
     parser.add_argument('--nsp-keys', type=Path, help='Your own local keys; never copied into the prepared output')
     args = parser.parse_args()
@@ -164,9 +166,10 @@ def main():
     setup = SwitchSetup(sdk=args.sdk, link_kit=kit.parent / 'switch-host', json_include=kit.parent / 'headers',
         **options, jobs=args.jobs, progress=lambda e: print(e['message'], flush=True))
     installation = setup.prepare(args.rom, args.work_dir)
-    setup.export_sd(installation, args.output, args.mobile_textures,
-        args.nsp_packer.resolve() if args.nsp_packer else None,
-        args.nsp_keys.resolve() if args.nsp_keys else None)
+    with prepared_models(installation, child=args.child_model, adult=args.adult_model) as exported:
+        setup.export_sd(exported, args.output, args.mobile_textures,
+            args.nsp_packer.resolve() if args.nsp_packer else None,
+            args.nsp_keys.resolve() if args.nsp_keys else None)
     print('Use full-memory homebrew launching. Never redistribute the prepared game.')
 
 

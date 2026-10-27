@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <map>
 namespace RetunedFrontend {
-enum class TouchAction { A,B,X,Y,Target,Shield,ItemI,ItemII,Inventory,Settings,Up,Down,Left,Right,Move,Look,Count };
+enum class TouchAction { A,B,X,Y,Target,Shield,ItemI,ItemII,Inventory,Settings,Up,Down,Left,Right,Move,Look,Map,Count };
 inline int ExtraShoulderAction(bool enabled,int action) {
  if(!enabled)return -1;
  switch(static_cast<TouchAction>(action)) {

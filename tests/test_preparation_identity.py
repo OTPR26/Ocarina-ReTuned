@@ -1,5 +1,6 @@
 """Preparation upgrades follow relevant content, not version labels or ZIP timestamps."""
 from pathlib import Path
+import hashlib
 import sys
 import tempfile
 import json
@@ -7,10 +8,29 @@ import unittest
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools/native'))
-from preparation_identity import archive_identity, stamp_desktop, NATIVE_TOOLS
+from preparation_identity import archive_identity, stamp_android, stamp_desktop, NATIVE_TOOLS
 
 
 class PreparationIdentityTests(unittest.TestCase):
+    def test_android_stamp_refreshes_size_and_checksum_after_archive_changes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in NATIVE_TOOLS:
+                (root / name).write_bytes(b'compiler fixture')
+            manifest = root / 'preparation-kit.json'
+            manifest.write_text(json.dumps({'format': 'retuned_preparation_asset_v1',
+                                            'sha256': 'old', 'unpacked_bytes': 1}))
+            bundle = root / 'preparation-kit.zip'
+            with zipfile.ZipFile(bundle, 'w') as archive:
+                archive.writestr('tool.py', b'original')
+            first = stamp_android(root, root, root)
+            with zipfile.ZipFile(bundle, 'a') as archive:
+                archive.writestr('updated.py', b'new tools')
+            self.assertNotEqual(first, stamp_android(root, root, root))
+            metadata = json.loads(manifest.read_text())
+            self.assertEqual(metadata['unpacked_bytes'], 17)
+            self.assertEqual(metadata['sha256'], hashlib.sha256(bundle.read_bytes()).hexdigest())
+
     def test_repacked_inputs_match_but_game_and_compiler_changes_invalidate(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

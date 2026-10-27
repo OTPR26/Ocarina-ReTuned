@@ -77,11 +77,11 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
   if(InterfaceHeadingFont)ImGui::PopFont();
   ImGui::PopStyleVar(2);ImGui::PopStyleColor();
   ImGui::SetCursorPos({28.f*scale,h-44.f*scale});
-  ImGui::SetWindowFontScale(.7f);ImGui::TextDisabled("OCARINA RETUNED  -  v0.5.5 Preview");ImGui::SetWindowFontScale(1.f);
+  ImGui::SetWindowFontScale(.7f);ImGui::TextDisabled("OCARINA RETUNED  -  v0.5.6 Preview");ImGui::SetWindowFontScale(1.f);
   if(AboutVisible){
    ImGui::SetNextWindowSize({std::min(w*.8f,f*28),0},ImGuiCond_Always);
    if(ImGui::BeginPopupModal("About Ocarina ReTuned",&AboutVisible,ImGuiWindowFlags_AlwaysAutoResize)){
-    ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.5.5 Preview");ImGui::Spacing();
+    ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.5.6 Preview");ImGui::Spacing();
     ImGui::TextWrapped("Ocarina of Time 3D with the Reframed single-screen HUD.");
     ImGui::Spacing();if(ImGui::Button("Close")||ImGui::IsKeyPressed(ImGuiKey_Escape,false)||ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight,false)){AboutVisible=false;ImGui::CloseCurrentPopup();}
     ImGui::EndPopup();

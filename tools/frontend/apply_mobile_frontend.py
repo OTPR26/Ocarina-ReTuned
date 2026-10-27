@@ -16,7 +16,22 @@ def apply_gameplay_menu_scope(engine):
     edit(core,'#include "ship/window/gui/Gui.h"','#include "ship/window/gui/Gui.h"\n#include "fast/oot3d/retuned_frontend_state.h"\n#include "fast/oot3d/retuned_menu_navigation.h"')
     edit(core,'    ImGui::NewFrame();','    if(RetunedFrontend::NativeFrontendEnabled)RetunedFrontend::SetMenuNavigationActive(GetAnyGuiWindowVisible() || RetunedFrontend::StartupVisible);\n    ImGui::NewFrame();')
 
+def stage_touch_input(path, template):
+    """Replace our existing injection, including the version before Map existed."""
+    anchor='  auto frame = MapNativeControlInput(config, host, aimTransform,'
+    map_entry='{T::Map,NativeControlAction::Zl},'
+    text=path.read_text()
+    legacy=template.replace(map_entry,'')
+    text=text.replace(map_entry,'')
+    if 'const auto touch=RetunedFrontend::SampleTouch(guestRefreshWillConsume);' in text and legacy not in text:
+        raise ValueError('Touch input injection changed: '+str(path))
+    text=text.replace(legacy+'\n','')
+    if text.count(anchor)!=1:raise ValueError('Touch input anchor changed: '+str(path))
+    path.write_text(text.replace(anchor,template+'\n'+anchor))
+
 def apply(engine):
+    from panel_staging import refresh_mods_page
+    refresh_mods_page(engine)
     from apply_gui_textures import apply as apply_gui_textures
     apply_gui_textures(engine)
     from apply_mobile_lifecycle import apply as apply_lifecycle
@@ -98,7 +113,7 @@ def apply(engine):
     edit(frame,before,hold+before)
     inputs=runtime/'oot3d_native_a32_window_input.cpp'
     edit(inputs,'#include "oot3d_native_a32_window_shared.h"','#include "oot3d_native_a32_window_shared.h"\n#include "fast/oot3d/retuned_touch_overlay.h"')
-    edit(inputs,'  auto frame = MapNativeControlInput(config, host, aimTransform,',(source/'touch_input.cpp.inc').read_text()+'\n  auto frame = MapNativeControlInput(config, host, aimTransform,')
+    stage_touch_input(inputs,(source/'touch_input.cpp.inc').read_text())
     edit(inputs,'  ApplyNativeControlShortcutTouch(host, frame);','  if(RetunedFrontend::SampleTouch(false).Captured)frame.Hid.TouchPressed=false;\n  ApplyNativeControlShortcutTouch(host, frame);')
     edit(gui,'                    const int buttonIndex =\n                        Oot3dMouseButtonIndex(sdlEvent.button.button);',
          '                    if(sdlEvent.button.which==SDL_TOUCH_MOUSEID && RetunedFrontend::SampleTouch(false).Captured)break;\n                    const int buttonIndex =\n                        Oot3dMouseButtonIndex(sdlEvent.button.button);')

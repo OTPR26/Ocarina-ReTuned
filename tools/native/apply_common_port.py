@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Apply standard-library compatibility fixes shared by native targets."""
+"""Apply runtime safety and portability fixes shared by native targets."""
 from pathlib import Path
 from apply_neutral_shaders import apply as apply_neutral_shaders
 from apply_hd_font_sampling import apply as apply_hd_font_sampling
 from apply_font_choices import apply as apply_font_choices
 from apply_nri_lifetime import apply as apply_nri_lifetime
 from apply_spirv_embedding import apply as apply_spirv_embedding
+from apply_runtime_safety import apply as apply_runtime_safety
 
 
 def apply(root):
+    apply_runtime_safety(root)
     apply_nri_lifetime(root)
     apply_spirv_embedding(root)
     apply_neutral_shaders(root)

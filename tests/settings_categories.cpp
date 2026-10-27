@@ -6,7 +6,13 @@ int main(){
  using namespace RetunedFrontend;
  std::vector<std::string_view> mobile;
  for(const auto& category:SettingsCategories)if(CategoryVisible(category.Page,true,true))mobile.push_back(category.Label);
- const std::vector<std::string_view> expected{"General","Controls","Touch","Graphics","Audio","HUD","Quality of life","About"};
+ const std::vector<std::string_view> expected{"General","Controls","Touch","Graphics","Audio","HUD","Quality of life",
+ "Mods",
+ "About"
+#ifdef __ANDROID__
+ ,"Saves"
+#endif
+ };
  assert(mobile==expected);
  for(size_t i=0;i<SettingsCategories.size();++i)for(size_t j=i+1;j<SettingsCategories.size();++j){
   assert(SettingsCategories[i].Page!=SettingsCategories[j].Page);
@@ -14,7 +20,13 @@ int main(){
  }
  std::vector<std::string_view> television;
  for(const auto& category:SettingsCategories)if(CategoryVisible(category.Page,true,false))television.push_back(category.Label);
- assert((television==std::vector<std::string_view>{"General","Controls","Graphics","Audio","HUD","Quality of life","About"}));
+ assert((television==std::vector<std::string_view>{"General","Controls","Graphics","Audio","HUD","Quality of life",
+ "Mods",
+ "About"
+#ifdef __ANDROID__
+ ,"Saves"
+#endif
+ }));
  assert(!CategoryVisible(SettingsPage::Touch,true,false));
  assert(CategoryVisible(SettingsPage::SaveStates,false,false));
  assert(!CategoryVisible(SettingsPage::Advanced,true,true));

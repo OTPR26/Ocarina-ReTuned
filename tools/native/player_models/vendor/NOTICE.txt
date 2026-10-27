@@ -1,0 +1,5 @@
+F3DEX2 and N64 texture readers from AgitationSkeleton/soh_modloaderconverter_public.
+Revision: cd971b52cfbf2e90d9132cd7475b6a0cb85dd8ad
+License: MIT (included).
+Only gbi.py and n64texture.py are used. No model files, animation data or ROM
+assets are included. Local changes add parser resource limits.

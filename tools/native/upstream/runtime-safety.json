@@ -1,0 +1,19 @@
+{
+  "base": "17218b0cfdb944645bb5cde5249f313dca7e53ce",
+  "patches": {
+    "startup-cleanup.patch": {
+      "commit": "c9b6e0001a7851f57d11d4c58448534a398ca31a",
+      "source": "https://github.com/coccofresco/TriAevum/commit/c9b6e0001a7851f57d11d4c58448534a398ca31a"
+    },
+    "dsp-cache-requests.patch": {
+      "commit": "657e3d0f0c478385297351b1dcc1d1a78a7cdbf9",
+      "source": "https://github.com/coccofresco/TriAevum/commit/657e3d0f0c478385297351b1dcc1d1a78a7cdbf9"
+    }
+  },
+  "gpu_allocation_rollback": {
+    "commit": "8e84f51990a1bf9d72eca7307964ebc5eb986d96",
+    "source": "https://github.com/coccofresco/TriAevum/commit/8e84f51990a1bf9d72eca7307964ebc5eb986d96",
+    "adaptation": "Exception cleanup around existing creation in four grass-buffer owners; retained existing sizes and rendering policy. Upstream telemetry and unrelated placement auditing are not included."
+  },
+  "license": "Existing upstream GPL scope and notices apply."
+}

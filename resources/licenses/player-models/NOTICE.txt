@@ -1,0 +1,17 @@
+Player-model conversion uses NumPy 2.3.2 from Chaquopy's upstream Android wheel:
+https://chaquo.com/pypi-upstream/numpy/numpy-2.3.2-1-cp313-cp313-android_24_arm64_v8a.whl
+SHA-256: f7beb51f8d162c110ee8d4c9e275f490ce39dddba919643d949687bb4286bedd
+
+NumPy and its included components retain the accompanying license texts.
+Additional source notices are from the NumPy v2.3.2 tag:
+https://github.com/numpy/numpy/tree/v2.3.2
+
+The wheel bundles OpenBLAS and libc++. Their code sections match these original
+libraries; their original notices accompany this distribution:
+- chaquopy_openblas 0.2.20, Android ARM64, build5.
+  https://chaquo.com/pypi-13.1/chaquopy-openblas/
+- Android NDK 27.3.13750724, ARM64 libc++_shared.so.
+  https://developer.android.com/ndk/downloads/revision_history
+
+The F3DEX2 and N64 texture readers retain their MIT license and attribution in
+project/tools/native/player_models/vendor within the preparation tools.

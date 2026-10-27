@@ -314,6 +314,22 @@ class RomSetup:
         for tool in (self.cmake, 'ninja'):
             if shutil.which(tool, path=self.environment.get('PATH')) is None:
                 raise SetupError('Required local build tool is missing: ' + Path(tool).name)
+        if sys.platform.startswith('linux'):
+            self.verify_linux_compiler()
+
+    def verify_linux_compiler(self):
+        # Use CMake so compiler wrappers, toolchains, and flags match the title build.
+        with tempfile.TemporaryDirectory(prefix='retuned-compiler-check-') as temporary:
+            command = [self.cmake, '-S', PROJECT / 'tools/native/title', '-B', temporary,
+                '-G', 'Ninja', '-DCMAKE_BUILD_TYPE=Release', *self.cmake_args,
+                '-DRETUNED_CHECK_COMPILER_ONLY=ON']
+            try:
+                result = subprocess.run(list(map(str, command)), env=self.environment,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
+            except (OSError, subprocess.TimeoutExpired) as error:
+                raise SetupError('Could not check the Linux C++ compiler. Install your distribution\'s C++20 compiler and development headers.') from error
+            if result.returncode:
+                raise SetupError('Linux preparation requires GCC or Clang with libstdc++ and its C++11 ABI. Zig\'s default libc++ is incompatible. Select your distribution\'s g++ or clang++ and install its development headers.')
 
     def verify_host(self):
         subprocess.run([str(self.host), '--product-info'], check=True, env=self.environment,
@@ -327,6 +343,7 @@ class RomSetup:
             raise SetupError('Choose a decrypted Ocarina of Time 3D USA cartridge dump (.3ds or .cci).')
         with installation_transaction(data_root) as (root, work):
             self.cache = LocalCache(root / 'preparation-cache', limit=768 * 1024 * 1024)
+            self.source_cache = LocalCache(root / 'preparation-sources', limit=512 * 1024 * 1024)
             self.input_cache = LocalCache(root / 'verified-inputs', limit=512 * 1024 * 1024)
             with (root / 'setup.log').open('w', encoding='utf-8') as log:
                 self.log = log
@@ -367,9 +384,23 @@ class RomSetup:
         asset_receipt = ui_assets.prepare(work / 'romfs.bin', work / 'native-romfs.bin',
             resources=self.ui_resources, notices_directory=work / 'ui-notices')
         (work / 'native-romfs.bin').replace(work / 'romfs.bin')
+        selected_models = {}
+        available_models = {}
+        profile_root = Path(self.profile_root or root)
+        if (profile_root / 'native-launch.json').is_file():
+            from player_models.install import apply_to_preparation, profile_manifest, selection
+            _, _, previous_manifest = profile_manifest(profile_root)
+            available_models = selection(previous_manifest, 'available_player_models')
+            selected_models = apply_to_preparation(profile_root, work / 'romfs.bin',
+                                                   work / 'model-romfs.bin', previous_manifest)
+            if selected_models:
+                (work / 'model-romfs.bin').replace(work / 'romfs.bin')
         process_tool = load_module('_retuned_process_manifest', a32 / 'build_process_manifest.py')
-        write_json(work / 'base-manifest.json', process_tool.build_manifest(
-            inputs / 'exheader.bin', work / 'canonical-code.bin', work / 'romfs.bin'))
+        base_manifest = process_tool.build_manifest(
+            inputs / 'exheader.bin', work / 'canonical-code.bin', work / 'romfs.bin')
+        # The ReFramed atlas needs the original pack's texture identities.
+        base_manifest['texture_hash_aliases'] = asset_receipt['texture_hash_aliases']
+        write_json(work / 'base-manifest.json', base_manifest)
         inventory_tool = load_module('_retuned_inventory', a32 / 'generate_aot.py')
         inventory_tool.add_local_entry_intervals(a32 / 'upstream/analysis/codebin_function_inventory.csv',
             a32 / 'runtime_discovered_entries.csv', work / 'inventory.csv', 0x100000)
@@ -386,7 +417,16 @@ class RomSetup:
             'tools': translation_inputs, 'generator': digest(PROJECT / 'tools/native/generate_title_sources.py'),
             'shards': getattr(self, 'title_shards', 64), 'strategy': getattr(self, 'title_shard_strategy', 'stable'),
             'image': {name: digest(image / name) for name in ('code.bin', 'inventory.csv', 'observed-sites.json')}})
-        if self.cache.restore(source_key, generated):
+        # Source trees are large enough to evict reusable object files from a
+        # shared LRU. Keep one bounded source generation in a separate pool.
+        source_cache = getattr(self, 'source_cache', self.cache)
+        restored = source_cache.restore(source_key, generated)
+        if not restored and source_cache is not self.cache:
+            restored = self.cache.restore(source_key, generated)
+            if restored and source_cache.store(source_key, {
+                    p.relative_to(generated).as_posix(): p for p in generated.rglob('*') if p.is_file()}):
+                self.cache.discard(source_key)
+        if restored:
             self.checkpoint('generating', 'Reusing verified native game code from this device…')
         else:
             if generated.exists():
@@ -416,7 +456,7 @@ class RomSetup:
                 '--observed-sites', image / 'observed-sites.json',
                 '--shards', str(getattr(self, 'title_shards', 64)),
                 '--shard-strategy', getattr(self, 'title_shard_strategy', 'stable')])
-            self.cache.store(source_key, {p.name: p for p in generated.iterdir() if p.suffix in ('.cpp', '.h')})
+            source_cache.store(source_key, {p.name: p for p in generated.iterdir() if p.suffix in ('.cpp', '.h')})
         sources = {p.name: digest(p) for p in generated.iterdir() if p.suffix in ('.cpp', '.h')}
         write_json(generated / 'TITLE_SOURCE_MANIFEST.json', {
             'format': 'triaevum_translated_title_source_v1', 'private_local_artifact': True,
@@ -433,6 +473,10 @@ class RomSetup:
         installation_id = uuid.uuid4().hex
         final = root / 'installations' / installation_id
         manifest = json.loads((image / 'process-manifest.json').read_text())
+        if selected_models:
+            manifest['player_models'] = selected_models
+        if available_models:
+            manifest['available_player_models'] = available_models
         manifest['source'].update(code_bin_path=str(final / 'code.bin'),
             exheader_path=str(final / 'exheader.bin'), romfs_image_path=str(final / 'romfs.bin'))
         write_json(stage / 'process-manifest.json', manifest)

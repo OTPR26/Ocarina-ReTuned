@@ -127,8 +127,24 @@ void GraphicsSettingsPanel::Draw() {
       }
       case SettingsPage::QualityOfLife:
         ImGui::SeparatorText("Link movement");drawTabs("Quality of life");break;
+      case SettingsPage::Mods:
+#ifdef __ANDROID__
+        RetunedFrontend::DrawAndroidMods();
+#else
+        ImGui::SeparatorText("Player appearance");
+        if(RetunedFrontend::RequestPlayerModels) {
+          ImGui::TextWrapped("Import a player-model PAK for child or adult Link, or restore Original Link.");
+          ImGui::BeginDisabled(!RetunedFrontend::StartupVisible);
+          if(ImGui::Button("PAK Importer"))RetunedFrontend::RequestPlayerModels();
+          ImGui::EndDisabled();
+          if(!RetunedFrontend::StartupVisible)ImGui::TextWrapped("Save your game and reopen the app to change models before gameplay.");
+        } else {
+          ImGui::TextWrapped("Choose child and adult player-model PAKs in desktop game preparation, then install or copy the prepared game to this device.");
+        }
+#endif
+        break;
       case SettingsPage::About:
-        ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.5.5 Preview");
+        ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.5.6 Preview");
         ImGui::Spacing();ImGui::TextWrapped("Ocarina of Time 3D with the Reframed single-screen HUD.");
         ImGui::SeparatorText("Contributors");
         ImGui::TextWrapped("Upstream engine credits: TriAevum by coccofresco. Uses libultraship, SDL, Dear ImGui and MoltenVK on Apple devices. Interface fonts: Fira Sans, Fira Sans Condensed, and Alegreya SC (SIL Open Font License).");

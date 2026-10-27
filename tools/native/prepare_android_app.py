@@ -23,6 +23,7 @@ def prepare(engine, private_kit=None, preparation_native_stage=None):
     notices=root/'app/src/main/assets/licenses'
     notices.mkdir(parents=True,exist_ok=True)
     shutil.copy2(Path(__file__).parents[2]/'resources/fonts/LICENSE.txt',notices/'interface-font-OFL.txt')
+    shutil.copytree(Path(__file__).parents[2]/'resources/licenses/player-models', notices/'player-models', dirs_exist_ok=True)
     shutil.copytree(Path(__file__).resolve().parents[2]/'resources/fonts/interface',notices/'interface-fonts',dirs_exist_ok=True,ignore=shutil.ignore_patterns('*.ttf'))
     shutil.copytree(Path(__file__).parents[2]/'resources/icons/android',root/'app/src/main/res',dirs_exist_ok=True)
     replace(root/'app/src/main/AndroidManifest.xml', 'android:allowBackup="false"',
@@ -31,12 +32,12 @@ def prepare(engine, private_kit=None, preparation_native_stage=None):
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
     text = gradle.read_text()
-    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1'):
-        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.5.5"')
-    if 'versionName = "0.5.5"' not in text:
+    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5'):
+        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.5.6"')
+    if 'versionName = "0.5.6"' not in text:
         raise ValueError('Android Preview version context changed')
-    text = re.sub(r'\bversionCode = [123456789]\b', 'versionCode = 9', text)
-    if 'versionCode = 9' not in text: raise ValueError('Android version code context changed')
+    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 10', text)
+    if 'versionCode = 10' not in text: raise ValueError('Android version code context changed')
     gradle.write_text(text)
     shutil.copy2(Path(__file__).with_name('preparation_identity.py'), root/'preparation_identity.py')
     identity_task = '''
@@ -69,7 +70,7 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     gameplay = activity.with_name('RetunedGameActivity.java')
     if gameplay.exists():
         activity.write_text(gameplay.read_text().replace('class RetunedGameActivity extends SDLActivity', 'class TriAevumActivity extends SDLActivity'))
-    for name in ('TouchOverlay.java','TextureFolder.java','InterfaceTypography.java'):
+    for name in ('TouchOverlay.java','TouchLayout.java','TextureFolder.java','InterfaceTypography.java'):
         shutil.copy2(Path(__file__).parent/'android'/name,activity.parent/name)
     if 'private TextureFolder retunedTextures;' not in activity.read_text():
         replace(activity,'public final class TriAevumActivity extends SDLActivity {',
@@ -80,6 +81,12 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     if 'private TouchOverlay touchOverlay;' not in activity.read_text():
         replace(activity,'public final class TriAevumActivity extends SDLActivity {',
                 'public final class TriAevumActivity extends SDLActivity {\n    private TouchOverlay touchOverlay;')
+    if 'public void retunedEditTouchLayout()' not in activity.read_text():
+        replace(activity,'    private TouchOverlay touchOverlay;',
+                '    private TouchOverlay touchOverlay;\n    public void retunedEditTouchLayout(){runOnUiThread(()->{if(touchOverlay!=null)touchOverlay.startEditing();});}')
+    if 'touchOverlay.cancelEditing()' not in activity.read_text():
+        replace(activity,'    private TouchOverlay touchOverlay;',
+                '    private TouchOverlay touchOverlay;\n    @Override public void onBackPressed(){if(touchOverlay==null||!touchOverlay.cancelEditing())super.onBackPressed();}')
     if 'touchOverlay=new TouchOverlay(this);' not in activity.read_text():
         replace(activity,'        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);',
                 '        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n        touchOverlay=new TouchOverlay(this);\n        addContentView(touchOverlay,new android.view.ViewGroup.LayoutParams(-1,-1));')
@@ -87,6 +94,7 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
         replace(activity,'    @Override protected String[] getLibraries() {',
                 '    @Override protected void onPause() { if(touchOverlay!=null)touchOverlay.cancelInputs();super.onPause(); }\n\n    @Override protected String[] getLibraries() {')
 
+    activity.write_text(activity.read_text().replace('if(touchOverlay!=null)touchOverlay.cancelInputs();super.onPause();', 'if(touchOverlay!=null)touchOverlay.suspendEditing();super.onPause();'))
     replace(activity,'int maximumShortEdge = 720;','int maximumShortEdge = 0;')
     replace(activity,'maximumShortEdge = 720;','maximumShortEdge = 0;')
     replace(activity,'using 720p surface limit','using native output resolution')
@@ -103,7 +111,7 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
 
 
     # The Java bootstrap can run before SDL/title loading on a clean install.
-    for name in ('RomSetupActivity.java', 'RomPreparationActivity.java', 'RomPreparationService.java', 'PreparationProgress.java', 'GameSession.java', 'PreparationUpdate.java', 'PreparationKit.java', 'SaveFilesCore.java', 'SaveDocumentStore.java', 'SaveFiles.java', 'SaveFilesActivity.java', 'StartupReport.java', 'StartupDiagnostics.java', 'StartupDiagnosticsActivity.java'):
+    for name in ('RomSetupActivity.java', 'RomPreparationActivity.java', 'RomPreparationService.java', 'PreparationSession.java', 'PreparationProgress.java', 'GameSession.java', 'PreparationUpdate.java', 'PreparationKit.java', 'SaveFilesCore.java', 'SaveDocumentStore.java', 'SaveFiles.java', 'SaveFilesActivity.java', 'PlayerModelsActivity.java', 'StartupReport.java', 'NativeCrashReport.java', 'StartupDiagnostics.java', 'StartupDiagnosticsActivity.java'):
         shutil.copy2(Path(__file__).parent/'android'/name, activity.parent/name)
     manifest = root/'app/src/main/AndroidManifest.xml'
     text = manifest.read_text()
@@ -119,6 +127,11 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     document = ET.parse(manifest)
     application = document.getroot().find('application')
     application.set(attribute('name'), '.StartupDiagnostics')
+    if not any(node.get(attribute('name')) == '.PlayerModelsActivity' for node in application.findall('activity')):
+        ET.SubElement(application, 'activity', {attribute('name'): '.PlayerModelsActivity',
+            attribute('exported'): 'false', attribute('process'): ':models',
+            attribute('screenOrientation'): 'sensorLandscape',
+            attribute('configChanges'): 'orientation|screenSize|keyboardHidden'})
     if not any(node.get(attribute('name')) == '.StartupDiagnosticsActivity' for node in application.findall('activity')):
         ET.SubElement(application, 'activity', {attribute('name'): '.StartupDiagnosticsActivity', attribute('exported'): 'false'})
     launcher = next(node for node in application.findall('activity') if node.find('intent-filter') is not None)
@@ -144,10 +157,17 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     text = text[:start] + (Path(__file__).parent/'android/game_arguments.java.inc').read_text().rstrip() + text[end:]
     gameplay.write_text(text.replace('class TriAevumActivity extends SDLActivity', 'class RetunedGameActivity extends SDLActivity'))
     text=gameplay.read_text()
+    if 'void retunedStartupStage(int stage)' not in text:
+        text = text.replace('    private TextureFolder retunedTextures;',
+            '    public void retunedStartupStage(int stage){StartupDiagnostics.nativeStage(this,stage);}\n    private TextureFolder retunedTextures;')
+    if 'void retunedStartupGraphics(int api' not in text:
+        text = text.replace('    private TextureFolder retunedTextures;',
+            '    public void retunedStartupGraphics(int api,int vendor,int driver){StartupDiagnostics.graphics(this,api,vendor,driver);}\n    private TextureFolder retunedTextures;')
     for signature, method in (
         ('void retunedSaveCommitted()', '    public void retunedSaveCommitted(){SaveFiles.committed(this);}'),
         ('void retunedOpenSaveFiles(', '    public void retunedOpenSaveFiles(String action){SaveFiles.open(this,action);}'),
         ('void retunedOpenRomPreparation()', '    private boolean retunedOpeningPreparation;\n    public void retunedOpenRomPreparation(){runOnUiThread(()->{retunedOpeningPreparation=true;startActivity(new android.content.Intent(this,RomPreparationActivity.class).putExtra("reprepare-rom",true));finish();});}'),
+        ('void retunedOpenPlayerModels()', '    public void retunedOpenPlayerModels(){runOnUiThread(()->{retunedOpeningPreparation=true;startActivity(new android.content.Intent(this,PlayerModelsActivity.class));finish();});}'),
         ('String retunedSaveFilesStatus()', '    public String retunedSaveFilesStatus(){return SaveFiles.status();}')):
         if signature not in text:text=text.replace('    private TextureFolder retunedTextures;', method+'\n    private TextureFolder retunedTextures;')
     text = text.replace('    public void retunedOpenRomPreparation(){runOnUiThread(()->{startActivity(new android.content.Intent(this,TriAevumActivity.class).putExtra("reprepare-rom",true));finish();});}',
@@ -174,6 +194,8 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     if 'GameSession.attach(this);' not in text:
         text = text.replace('        StartupDiagnostics.stage(this, "SDL activity created");',
             '        StartupDiagnostics.stage(this, "SDL activity created");\n        GameSession.attach(this);')
+    text=text.replace('new android.content.Intent(this,PlayerModelsActivity.class).putExtra("choose-pak",true)',
+        'new android.content.Intent(this,PlayerModelsActivity.class)')
     gameplay.write_text(text)
     activity.write_text('package org.triaevum.android;\n/** Stable launcher component preserves existing home-screen shortcuts. */\npublic final class TriAevumActivity extends RomSetupActivity {}\n')
     asset = root/'app/src/main/assets/retuned'
@@ -184,11 +206,23 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     python = root/'app/src/main/python'
     python.mkdir(parents=True, exist_ok=True)
     shutil.copy2(Path(__file__).parent/'android/retuned_setup_entry.py', python/'retuned_setup_entry.py')
+    shutil.copy2(Path(__file__).parent/'android/retuned_models_entry.py', python/'retuned_models_entry.py')
     top = root/'build.gradle.kts'
     replace(top, 'plugins {', 'plugins {\n    id("com.chaquo.python") version "17.1.0" apply false')
     replace(gradle, 'plugins { id("com.android.application") }', 'plugins { id("com.android.application"); id("com.chaquo.python") }')
     if 'chaquopy {' not in gradle.read_text():
         gradle.write_text(gradle.read_text() + '\nchaquopy { defaultConfig { version = "3.12" } }\n')
+
+    numpy_url = ('https://chaquo.com/pypi-upstream/numpy/'
+        'numpy-2.3.2-1-cp313-cp313-android_24_arm64_v8a.whl'
+        '#sha256=f7beb51f8d162c110ee8d4c9e275f490ce39dddba919643d949687bb4286bedd')
+    python_config = 'chaquopy { defaultConfig { version = "3.13"; pip { install("' + numpy_url + '") } } }'
+    text = gradle.read_text()
+    previous = 'chaquopy { defaultConfig { version = "3.12" } }'
+    if previous in text:
+        gradle.write_text(text.replace(previous, python_config))
+    elif python_config not in text:
+        raise ValueError('Android model-import dependency context changed')
 
     if private_kit is not None:
         private_kit = Path(private_kit).resolve()
@@ -206,6 +240,9 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     if preparation_native_stage is not None:
         from preparation_identity import stamp_android
         stamp_android(asset, root/'app/src/main/jniLibs/arm64-v8a', Path(preparation_native_stage)/'arm64-v8a')
+
+    from apply_android_startup import apply as apply_startup
+    apply_startup(engine)
 
 
 

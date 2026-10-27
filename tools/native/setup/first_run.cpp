@@ -40,7 +40,9 @@ namespace {
 using Path = std::filesystem::path;
 using Json = nlohmann::json;
 Path preparationProfile;
+Path preparationKit;
 bool preparationRequested=false;
+bool playerModelsRequested=false;
 std::string Text(const Path& path) { auto s=path.u8string();return {s.begin(),s.end()}; }
 Path FromText(const std::string& s) {return Path(std::u8string(s.begin(),s.end()));}
 Json Read(const Path& p) {std::ifstream f(p);return Json::parse(f);}
@@ -85,16 +87,18 @@ std::wstring Quote(const std::wstring& value) {
     out.append(slashes*2,L'\\');return out+L'"';
 }
 #endif
-int Run(const std::vector<std::string>& arguments) {
+int Run(const std::vector<std::string>& arguments,bool wait=true) {
 #if defined(_WIN32)
     std::wstring command;
     for(auto& a:arguments){if(!command.empty())command+=L' ';command+=Quote(FromText(a).wstring());}
     STARTUPINFOW startup{};startup.cb=sizeof(startup);PROCESS_INFORMATION process{};
     if(!CreateProcessW(nullptr,command.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&startup,&process))return -1;
-    WaitForSingleObject(process.hProcess,INFINITE);DWORD result=1;GetExitCodeProcess(process.hProcess,&result);
+    DWORD result=0;
+    if(wait){WaitForSingleObject(process.hProcess,INFINITE);result=1;GetExitCodeProcess(process.hProcess,&result);}
     CloseHandle(process.hThread);CloseHandle(process.hProcess);return static_cast<int>(result);
 #else
     std::vector<char*> argv;for(auto& a:arguments)argv.push_back(const_cast<char*>(a.c_str()));argv.push_back(nullptr);
+    if(!wait){execvp(argv[0],argv.data());return errno;}
     pid_t pid;int result=posix_spawnp(&pid,argv[0],nullptr,nullptr,argv.data(),environ);if(result)return result;
     int status=0;while(waitpid(pid,&status,0)<0){if(errno!=EINTR)return -1;}
     return WIFEXITED(status)?WEXITSTATUS(status):-1;
@@ -188,6 +192,10 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
         preparationRequested=true;
         SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);
     };
+    RetunedFrontend::RequestPlayerModels=[] {
+        playerModelsRequested=true;
+        SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);
+    };
     bool existingReady=false,existingCompatible=false;
     if(std::filesystem::is_regular_file(profile)) {
         try {
@@ -221,6 +229,7 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
     }
     std::string status="Choose your decrypted Ocarina of Time 3D USA ROM (.3ds or .cci).";
     const bool hasKit=std::filesystem::is_regular_file(kit);
+    preparationKit=std::filesystem::absolute(kit);
     std::string requiredIdentity;
     if(hasKit){try{requiredIdentity=Read(kit).value("preparation_identity",std::string{});}catch(...){requiredIdentity="invalid";}}
     const bool requiredUpdate=!requiredIdentity.empty()&&(!existingReady||!PreparedIdentityMatches(profile,requiredIdentity));
@@ -356,6 +365,22 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
 }
 
 int RetunedFinishPreparationRequest(int result) {
+    if(playerModelsRequested) {
+        try {
+            const auto kit=Read(preparationKit);
+            const Path base=preparationKit.parent_path();
+            const auto python=(base/FromText(kit.at("python").get<std::string>())).lexically_normal();
+            const auto script=base/"project/tools/native/manage_player_models.py";
+            if(!std::filesystem::is_regular_file(python)||!std::filesystem::is_regular_file(script))
+                throw std::runtime_error("Player-model tools are missing. Reinstall the complete Preview package.");
+            const int status=Run({Text(python),"-B",Text(script),"--data",Text(preparationProfile.parent_path())});
+            if(status)SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Ocarina ReTuned",
+                "The player-model manager could not start. Check that the complete Preview package is installed.",nullptr);
+        } catch(const std::exception& error) {
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Ocarina ReTuned",error.what(),nullptr);
+        }
+        return Run({Text(ExecutablePath()),"--launch-profile",Text(preparationProfile)},false);
+    }
     if(!preparationRequested)return result;
-    return Run({Text(ExecutablePath()),"--prepare-game","--launch-profile",Text(preparationProfile)});
+    return Run({Text(ExecutablePath()),"--prepare-game","--launch-profile",Text(preparationProfile)},false);
 }

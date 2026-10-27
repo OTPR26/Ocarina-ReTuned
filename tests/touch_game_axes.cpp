@@ -25,5 +25,11 @@ int main(){
  auto host=inject();assert(host.LeftStickY>0); // Native physical-input contract: up is positive.
  model.Motion(1,.16f,.80f);RetunedFrontend::current=model.Sample(true);assert(inject().LeftStickY<0);
  RetunedFrontend::current.LookY=.75f;assert(inject().RightStickY>0);
+ RetunedFrontend::current={};
+ RetunedFrontend::current.Buttons=RetunedFrontend::TouchModel::Bit(RetunedFrontend::TouchAction::Map);
+ auto map=inject();assert(map.Actions[static_cast<size_t>(NativeControlAction::Zl)]);
+ assert(!map.Actions[static_cast<size_t>(NativeControlAction::Zr)]);
+ assert(!map.Actions[static_cast<size_t>(NativeControlAction::X)]);
+ assert(!inject(true).Actions[static_cast<size_t>(NativeControlAction::Zl)]);
  assert(inject(true).LeftStickY==0); // Menu navigation must not also move Link.
 }

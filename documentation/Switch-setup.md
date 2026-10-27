@@ -18,3 +18,9 @@ The bundled HD dialogue fonts work independently of the texture pack. A title
 screen's “4K” label is not a reliable check that all replacements are loading.
 
 Keep **30 FPS** as the default. **60 FPS** is an experimental interpolation option.
+
+## Player models
+
+Optionally add `--child-model /path/to/child.pak`, `--adult-model /path/to/adult.pak`, or both to the preparation command. These accept human-rig OoT PAKs or ZOBJs. Conversion requires NumPy 2.3.2 (`python3 -m pip install numpy==2.3.2`) in the Python environment running preparation.
+
+Models are included only in your private prepared game. Omit a model option to use Original Link for that age. Export a new prepared game to change models; retain your existing SD-card saves and settings. Package scripts, custom animations, and sounds are not imported.

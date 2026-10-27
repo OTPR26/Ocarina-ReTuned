@@ -111,6 +111,20 @@ class LocalCache:
         except OSError:
             return False
 
+    def discard(self, key):
+        """Remove a migrated entry only within this cache's reserved directory."""
+        with self.lock:
+            entry = self.entry(key)
+            if self.root.is_symlink() or entry.is_symlink():
+                return False
+            if not entry.resolve().is_relative_to(self.root.resolve()):
+                return False
+            try:
+                if entry.is_dir(): shutil.rmtree(entry)
+                return True
+            except OSError:
+                return False
+
     def trim(self):
         entries = []
         for entry in self.root.iterdir():

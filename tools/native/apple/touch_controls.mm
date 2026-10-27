@@ -24,6 +24,7 @@ constexpr int kButtonDpadUp = 11;
 constexpr int kButtonDpadDown = 12;
 constexpr int kButtonDpadLeft = 13;
 constexpr int kButtonDpadRight = 14;
+constexpr int kButtonMap = 15;
 
 constexpr int kAxisLeftX = 0;
 constexpr int kAxisLeftY = 1;
@@ -221,6 +222,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 @property(nonatomic) int controllerAxisX;
 @property(nonatomic) int controllerAxisY;
 @property(nonatomic) BOOL floating;
+@property(nonatomic) BOOL customPlaced;
 - (void)cancelInput;
 
 @end
@@ -265,7 +267,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
     self.knob.layer.cornerRadius = knobSize * 0.5;
     self.knob.center = CGPointMake(diameter * 0.5, diameter * 0.5);
     if (!self.floating) {
-        self.stickCenter = CGPointMake(MAX(diameter * 0.58, CGRectGetWidth(self.bounds) * 0.24),
+        self.stickCenter = self.customPlaced ? CGPointMake(CGRectGetMidX(self.bounds),CGRectGetMidY(self.bounds)) : CGPointMake(MAX(diameter * 0.58, CGRectGetWidth(self.bounds) * 0.24),
                                        CGRectGetHeight(self.bounds) - diameter * 0.58);
         self.base.center = self.stickCenter;
         self.base.hidden = NO;
@@ -367,6 +369,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 
 @end
 
+@class RetunedTouchLayoutEditor;
 @interface RetunedTouchOverlay : UIView
 
 @property(nonatomic, strong) UIView* controlGroup;
@@ -383,6 +386,16 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 @property(nonatomic, strong) RetunedTouchButton* buttonR;
 @property(nonatomic, strong) RetunedTouchButton* buttonBack;
 @property(nonatomic, strong) RetunedTouchButton* buttonStart;
+@property(nonatomic, strong) RetunedTouchButton* buttonMap;
+@property(nonatomic, strong) RetunedTouchLayoutEditor* layoutEditor;
+@property(nonatomic, strong) NSMutableDictionary<NSString*, NSArray<NSNumber*>*>* placements;
+@property(nonatomic) BOOL dualLayout;
+- (NSDictionary<NSString*, UIView*>*)placementControls;
+- (CGRect)placementRect:(NSString*)key;
+- (void)startLayoutEditing;
+- (void)loadPlacements;
+- (void)applyPlacements;
+- (void)finishLayoutEditing:(BOOL)save;
 @property(nonatomic, strong) NSArray<RetunedTouchButton*>* cButtons;
 @property(nonatomic, strong) NSArray<RetunedTouchButton*>* allInputButtons;
 @property(nonatomic, strong) UIButton* visibilityButton;
@@ -401,6 +414,9 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 
 @end
 
+
+#include "touch_layout_editor.mm.inc"
+
 @implementation RetunedTouchOverlay
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -411,6 +427,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
         self.controlsEnabled = YES;
         self.faceButtonLayout = 0;
         self.controlScale = 1;
+        [self loadPlacements];
 
         self.controlGroup = [[UIView alloc] initWithFrame:self.bounds];
         self.controlGroup.backgroundColor = UIColor.clearColor;
@@ -497,7 +514,11 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
         [self.controlGroup addSubview:self.rightStick];
         [self.controlGroup addSubview:self.cCross];
 
-        self.allInputButtons = @[
+        self.buttonMap = [[RetunedTouchButton alloc] initWithLabel:@"" button:kButtonMap shape:RetunedButtonShapeCircle];
+        [self.buttonMap setImage:[UIImage systemImageNamed:@"map"] forState:UIControlStateNormal];
+        self.buttonMap.tintColor=AndroidControlStroke();
+        self.buttonMap.accessibilityLabel=@"Toggle minimap";
+        self.allInputButtons = @[self.buttonMap,
             self.buttonA, self.buttonB, self.buttonX, self.buttonY, self.buttonL,
             self.buttonZL, self.buttonZR, self.buttonR, self.buttonBack, self.buttonStart,
             cUp, cDown, cLeft, cRight,
@@ -522,6 +543,76 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
     return self;
 }
 
+- (NSString*)placementPreference {
+    return self.dualLayout?@"Retuned.TouchLayout.Dual.v1":@"Retuned.TouchLayout.Single.v1";
+}
+- (void)loadPlacements {
+    self.placements=[NSMutableDictionary dictionary];
+    id saved=[NSUserDefaults.standardUserDefaults objectForKey:[self placementPreference]];
+    if(![saved isKindOfClass:NSDictionary.class] || [saved count]>16)return;
+    NSSet* allowed=[NSSet setWithArray:@[@"A",@"B",@"X",@"Y",@"L",@"R",@"ZL",@"ZR",@"Settings",@"Start",@"Map",@"D-pad",@"Move",@"Look",@"Eye"]];
+    for(id key in saved) {
+        id pair=saved[key];
+        if(![key isKindOfClass:NSString.class] || ![allowed containsObject:key] ||
+           ![pair isKindOfClass:NSArray.class] || [pair count]!=2 ||
+           ![pair[0] isKindOfClass:NSNumber.class] || ![pair[1] isKindOfClass:NSNumber.class])continue;
+        double x=[pair[0] doubleValue],y=[pair[1] doubleValue];
+        if(std::isfinite(x)&&std::isfinite(y))self.placements[key]=@[@(std::clamp(x,0.,1.)),@(std::clamp(y,0.,1.))];
+    }
+}
+- (NSDictionary<NSString*, UIView*>*)placementControls {
+    return @{@"A":self.buttonA,@"B":self.buttonB,@"X":self.buttonX,@"Y":self.buttonY,
+        @"L":self.buttonL,@"R":self.buttonR,@"ZL":self.buttonZL,@"ZR":self.buttonZR,
+        @"Settings":self.buttonBack,@"Start":self.buttonStart,@"Map":self.buttonMap,
+        @"D-pad":self.cCross,@"Move":self.leftStick,@"Look":self.rightStick,@"Eye":self.visibilityButton};
+}
+- (CGRect)placementRect:(NSString*)key {
+    UIView* control=[self placementControls][key];
+    CGRect rect=[control.superview convertRect:control.frame toView:self];
+    if(([key isEqual:@"Move"]||[key isEqual:@"Look"])&&!self.placements[key]) {
+        RetunedTouchStick* stick=(RetunedTouchStick*)control;CGFloat size=stick.stickDiameter;
+        BOOL move=[key isEqual:@"Move"];
+        rect=CGRectMake(move?self.safeAreaInsets.left+16:self.bounds.size.width*.62-size/2,
+            move?self.bounds.size.height-self.safeAreaInsets.bottom-size-16:self.bounds.size.height*.62-size/2,size,size);
+    }
+    return rect;
+}
+- (void)applyPlacements {
+    self.leftStick.customPlaced=self.placements[@"Move"]!=nil;
+    self.rightStick.customPlaced=self.placements[@"Look"]!=nil;
+    NSDictionary* controls=[self placementControls];
+    for(NSString* key in self.placements) {
+        UIView* view=controls[key];if(!view)continue;
+        NSArray* pair=self.placements[key];CGFloat w=self.bounds.size.width,h=self.bounds.size.height;
+        CGSize size=view.bounds.size;
+        if([view isKindOfClass:RetunedTouchStick.class])size=CGSizeMake(((RetunedTouchStick*)view).stickDiameter,((RetunedTouchStick*)view).stickDiameter);
+        UIEdgeInsets safe=self.safeAreaInsets;
+        CGFloat x=std::clamp([pair[0] doubleValue]*w,safe.left+size.width/2,MAX(safe.left+size.width/2,w-safe.right-size.width/2));
+        CGFloat y=std::clamp([pair[1] doubleValue]*h,safe.top+size.height/2,MAX(safe.top+size.height/2,h-safe.bottom-size.height/2));
+        CGPoint target=[self convertPoint:CGPointMake(x,y) toView:view.superview];
+        CGPoint delta=CGPointMake(target.x-view.center.x,target.y-view.center.y);
+        view.bounds=CGRectMake(0,0,size.width,size.height);view.center=target;
+        if(view==self.cCross)for(UIView* button in self.cButtons)button.center=CGPointMake(button.center.x+delta.x,button.center.y+delta.y);
+        if([view isKindOfClass:RetunedTouchStick.class]){
+            RetunedTouchStick* stick=(RetunedTouchStick*)view;
+            stick.stickCenter=CGPointMake(size.width/2,size.height/2);stick.base.center=stick.stickCenter;
+        }
+    }
+}
+- (void)startLayoutEditing {
+    if(self.layoutEditor)return;
+    [self cancelAllInputs];[self layoutIfNeeded];
+    self.layoutEditor=[[RetunedTouchLayoutEditor alloc] initWithOwner:self];
+    self.hidden=NO;[self addSubview:self.layoutEditor];
+}
+- (void)finishLayoutEditing:(BOOL)save {
+    if(!self.layoutEditor)return;
+    if(save)[NSUserDefaults.standardUserDefaults setObject:self.placements forKey:[self placementPreference]];
+    else [self loadPlacements];
+    [self.layoutEditor removeFromSuperview];self.layoutEditor=nil;
+    self.hidden=self.menuVisible;[self setNeedsLayout];
+}
+
 - (void)setRetunedFaceButtonLayout:(NSInteger)layout {
     self.faceButtonLayout = std::clamp<NSInteger>(layout, 0, 2);
 
@@ -534,6 +625,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 
 - (UIView*)hitTest:(CGPoint)point withEvent:(UIEvent*)event {
     UIView* hit = [super hitTest:point withEvent:event];
+    if (self.layoutEditor) return hit ?: self.layoutEditor;
     if (hit == self || hit == self.controlGroup) {
         return nil;
     }
@@ -563,6 +655,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
     if (self.menuVisible == visible) {
         return;
     }
+    if(!visible && self.layoutEditor)[self finishLayoutEditing:NO];
     self.menuVisible = visible;
     [self setNeedsLayout];
     [self cancelAllInputs];
@@ -687,6 +780,9 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
         button.hudIcon=self.hudIcons && (button==self.buttonZR?self.manualJump==2:!(button==self.buttonX && self.manualJump==2));
         [button setNeedsLayout];
     }
+    self.buttonMap.frame=CGRectMake(CGRectGetMaxX(self.cCross.frame)+12*scale,
+        CGRectGetMidY(self.cCross.frame)-18*scale,36*scale,36*scale);
+    [self applyPlacements];
     const CGPoint zr=[self.buttonZR.superview convertPoint:self.buttonZR.center toView:self];
     RetunedTouchSetHudAnchor(8,zr.x/width,zr.y/height);
     RetunedTouchSetHudDisplay(width,height);
@@ -713,6 +809,7 @@ static BOOL sTouchControlsDesired;
 static NSInteger sTouchFaceButtonLayout;
 static BOOL sTouchLeftStickFloating = YES;
 static std::atomic_int sTouchControlsMenuVisible(1);
+static std::atomic_int sTouchDualDesired(0);
 static float sTouchControlScale=1.f;
 
 static UIWindow* ActiveWindow() {
@@ -748,6 +845,7 @@ static void ApplyTouchControlsState() {
 
     if (sTouchOverlay == nil) {
         sTouchOverlay = [[RetunedTouchOverlay alloc] initWithFrame:window.bounds];
+        sTouchOverlay.dualLayout=sTouchDualDesired.load()!=0;[sTouchOverlay loadPlacements];
         sTouchOverlay.autoresizingMask =
             UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     }
@@ -761,7 +859,7 @@ static void ApplyTouchControlsState() {
         [window addSubview:sTouchOverlay];
     }
     [sTouchOverlay setRetunedMenuVisible:sTouchControlsMenuVisible.load()!=0];
-    sTouchOverlay.hidden=sTouchControlsMenuVisible.load()!=0;
+    sTouchOverlay.hidden=sTouchControlsMenuVisible.load()!=0 && !sTouchOverlay.layoutEditor;
     [window bringSubviewToFront:sTouchOverlay];
 }
 
@@ -857,5 +955,21 @@ void RetunedIOS_SetManualJump(int mode) {
         sTouchOverlay.manualJump=std::clamp(mode,0,2);
         [sTouchOverlay setNeedsLayout];
         [sTouchOverlay applyVisibility];
+    });
+}
+
+void RetunedIOS_EditTouchLayout(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        sTouchControlsDesired=YES;ApplyTouchControlsState();
+        [sTouchOverlay startLayoutEditing];
+    });
+}
+void RetunedIOS_SetTouchDualLayout(int dual) {
+    if(sTouchDualDesired.exchange(dual)==dual)return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if(!sTouchOverlay || sTouchOverlay.dualLayout==(dual!=0))return;
+        if(sTouchOverlay.layoutEditor)[sTouchOverlay finishLayoutEditing:NO];
+        sTouchOverlay.dualLayout=dual!=0;[sTouchOverlay loadPlacements];
+        [sTouchOverlay cancelAllInputs];[sTouchOverlay setNeedsLayout];
     });
 }

@@ -10,7 +10,7 @@
         {T::A,NativeControlAction::A},{T::B,NativeControlAction::B},
         {T::X,NativeControlAction::X},{T::Y,NativeControlAction::Y},
         {T::Target,NativeControlAction::L},{T::Shield,NativeControlAction::R},
-        {T::ItemI,NativeControlAction::Zl},{T::ItemII,NativeControlAction::Zr},
+        {T::Map,NativeControlAction::Zl},{T::ItemI,NativeControlAction::Zl},{T::ItemII,NativeControlAction::Zr},
         {T::Inventory,NativeControlAction::Select},{T::Settings,NativeControlAction::Start},
         {T::Up,NativeControlAction::DpadUp},{T::Down,NativeControlAction::DpadDown},
         {T::Left,NativeControlAction::DpadLeft},{T::Right,NativeControlAction::DpadRight}})

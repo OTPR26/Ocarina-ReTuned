@@ -192,6 +192,31 @@ def apply_file_selection_spacing(image, named):
         struct.pack_into('<I', image, offset, word)
 
 
+def apply_file_selection_back(image, named):
+    """Keep the bundled mod's Back replay enabled throughout file operations.
+
+    Its original predicate excludes states 11–42 (copy/erase/name transitions
+    and the fade to title). Change only that predicate's false result, inside
+    our own mod function, leaving the native button visibility and fades intact.
+    """
+    address, size, kind, _ = named['SingleScreen_AfterTopPass']
+    start = address - BASE
+    if kind != 'FUNC' or start < 0 or size <= 0 or size % 4 or start + size > len(image):
+        raise ValueError('Invalid file-selection replay function')
+    # Reviewed devkitARM sequence: state <= 10 || state > 42, then store bool.
+    prefix = (0xE353000A, 0x9A000002, 0xE59D30CC, 0xE353002A,
+              0x9A000001, 0xE3A03001, 0xEA000000)
+    suffix = 0xE5CD30CB
+    matches = []
+    for offset in range(start, start + size - 35, 4):
+        words = struct.unpack_from('<9I', image, offset)
+        if words[:7] == prefix and words[7] in (0xE3A03000, 0xE3A03001) and words[8] == suffix:
+            matches.append(offset + 28)
+    if len(matches) != 1:
+        raise ValueError('File-selection Back predicate context changed')
+    struct.pack_into('<I', image, matches[0], 0xE3A03001)
+
+
 def presentation_bridge(named):
     """Advertise only a complete, executable live-presentation bridge.
 
@@ -243,6 +268,7 @@ def _prepare(args):
     symbols = elf_symbols(args.readelf, args.elf)
     named = {name: (address, size, kind, section) for address, size, kind, name, section in symbols}
     apply_file_selection_spacing(image, named)
+    apply_file_selection_back(image, named)
     loader, loader_size, _, loader_section = named['loader_main']
     initialize, _, _, _ = named['NativeHud_InitializeScale']
     # The host maps the extra image segment. Do not invoke Luma's SVC 0x70.

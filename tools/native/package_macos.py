@@ -90,8 +90,8 @@ def package(engine, build, output, identity="-", entitlements=None, profile=None
         shutil.copy2(Path(__file__).resolve().parents[2]/'resources/icons/macos/OcarinaReTuned.icns', resources/'OcarinaReTuned.icns')
         metadata = {'CFBundleIconFile':'OcarinaReTuned.icns', 'CFBundleName': 'Ocarina ReTuned', 'CFBundleDisplayName': 'Ocarina ReTuned',
             'CFBundleExecutable': 'retuned-native', 'CFBundleIdentifier': 'io.github.otpr26.ocarinaretuned',
-            'CFBundlePackageType': 'APPL', 'CFBundleVersion': '1',
-            'CFBundleShortVersionString': '0.5.5', 'NSHighResolutionCapable': True,
+            'CFBundlePackageType': 'APPL', 'CFBundleVersion': '10',
+            'CFBundleShortVersionString': '0.5.6', 'NSHighResolutionCapable': True,
             'LSMinimumSystemVersion': minimum_macos}
         (contents / 'Info.plist').write_bytes(plistlib.dumps(metadata))
         notices = resources / 'licenses'

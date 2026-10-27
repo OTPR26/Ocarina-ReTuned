@@ -81,6 +81,11 @@ screen; no developer-tool installation or Developer Command Prompt is intended.
 The portable Windows candidate is being validated and is not a release asset.
 Older Windows test kits still discover installed Visual Studio Build Tools.
 Linux packages include portable CMake and Ninja, with their original license notices.
+Linux game modules must use libstdc++ with its C++11 ABI, matching the packaged
+host. Use the distribution's GCC or Clang with libstdc++ development headers.
+Zig's default libc++ and libstdc++ debug containers have incompatible C++ object
+layouts, even if module compilation and the plugin's C ABI query succeed.
+The preparation compiler check rejects these layouts before reading the ROM.
 A compatible C++20 compiler and system headers are still required. Real Windows bundled-tool preparation and gameplay have passed, including
 controller input and persistent HUD/dialogue with the matching private UI pack.
 Real Bazzite/Linux ROM preparation, gameplay, controller input, HUD, HD dialogue
@@ -238,3 +243,5 @@ atomic activation. Older unstamped desktop kits keep their legacy compatibility 
 ### Desktop texture folders
 
 In Settings → Graphics → Custom textures, choose **Choose texture folder**, browse to your extracted pack, and select **Select this folder**. The app enables custom textures, saves the folder, and searches its subfolders. No ROM preparation is needed when changing packs. Cancel leaves your current selection unchanged. The browser includes Home, parent-folder, drive, and typed-path navigation; use `/Volumes` on Mac or `/run/media`, `/media`, and `/mnt` on Linux for mounted drives.
+
+Generated source trees and compiled objects use separate bounded caches. Updating source code therefore cannot evict compiled objects merely by storing a new source tree. Existing verified source-cache entries migrate when they are reused. Compiler, header, and per-unit content checks still determine whether an object is safe to reuse.

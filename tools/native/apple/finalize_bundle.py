@@ -6,7 +6,7 @@ def finalize(app,platform,icons):
     path=Path(app)/'Info.plist'
     data=plistlib.loads(path.read_bytes())
     data.update(plistlib.loads(Path(icons).read_bytes()))
-    data.update(CFBundleDisplayName='Ocarina ReTuned',CFBundleShortVersionString='0.5.5',CFBundleVersion='9',MinimumOSVersion='17.0',LSRequiresIPhoneOS=True,
+    data.update(CFBundleDisplayName='Ocarina ReTuned',CFBundleShortVersionString='0.5.6',CFBundleVersion='10',MinimumOSVersion='17.0',LSRequiresIPhoneOS=True,
         UIDeviceFamily=[3] if platform=='tvos' else [1,2],
         UISupportedInterfaceOrientations=['UIInterfaceOrientationLandscapeLeft','UIInterfaceOrientationLandscapeRight'],
         UIApplicationSceneManifest={'UIApplicationSupportsMultipleScenes':False,'UISceneConfigurations':{'UIWindowSceneSessionRoleApplication':[{'UISceneConfigurationName':'Game','UISceneDelegateClassName':'RetunedSceneDelegate'}]}})

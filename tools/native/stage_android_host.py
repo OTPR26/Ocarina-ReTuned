@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 
@@ -20,7 +21,7 @@ def stage(engine, build, ndk, output):
     engine, build, ndk, output = map(lambda p: Path(p).resolve(), (engine, build, ndk, output))
     if output.exists():
         raise ValueError('Refusing to replace an existing host archive.')
-    llvm = ndk / 'toolchains/llvm/prebuilt/linux-x86_64'
+    llvm = ndk / 'toolchains/llvm/prebuilt' / ('darwin-x86_64' if sys.platform == 'darwin' else 'linux-x86_64')
     sources = {
         'libSDL2.so': build / '_deps/sdl2-build/libSDL2.so',
         'libTriAevum.so': build / 'product/libTriAevum.so',

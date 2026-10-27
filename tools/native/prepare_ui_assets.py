@@ -139,7 +139,8 @@ def prepare(source, destination, *, resources, notices_directory=None):
     return {'format': 'retuned_native_ui_assets_v2',
             'source_sha256': contract['source_sha256'],
             'pack_sha256': hashlib.sha256(Path(resources).read_bytes()).hexdigest(),
-            'resources': contract['resources'], 'notices': contract['notices']}
+            'resources': contract['resources'], 'notices': contract['notices'],
+            'texture_hash_aliases': contract.get('texture_hash_aliases', [])}
 
 
 def verify_font_coverage(path):

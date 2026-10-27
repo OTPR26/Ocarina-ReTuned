@@ -4,6 +4,10 @@
   "source_sha256": "31c298c754fd1944e46a750e722b610b95bc740c7bced6b2d25957fd11ee426f",
   "source_bytes": 2086835,
   "source_prefix": "Europe/load/mods/0004000000033600/romfs/",
+  "texture_hash_aliases": [
+    {"native": 1340536108095151237, "original": 1791793851411471712, "modern": false},
+    {"native": 7937083181935938578, "original": 2224394640933754576, "modern": true}
+  ],
   "resources": {
     "menu/02_EU_ENGLISH/cam_interface00.ctxb": {
       "sha256": "ee834acef75bc7f304ef5e9b760f0f60a2cbc49423afdb41324fdeb81dd73703",

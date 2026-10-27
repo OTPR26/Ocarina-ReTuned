@@ -106,7 +106,7 @@ public final class RomPreparationService extends Service {
     private void prepare(String selected, boolean reuseInputs) {
         File input = new File(getFilesDir(), ".rom-input-" + UUID.randomUUID() + ".cci");
         File internal = new File(getFilesDir(), "native-data");
-        try {
+        try (PreparationSession session = PreparationSession.acquire(internal)) {
             if (selected == null && !reuseInputs) throw new IOException("Choose your ROM to begin setup.");
             File userdata = getExternalFilesDir(null);
             if (userdata == null) throw new IOException("App data storage is unavailable.");

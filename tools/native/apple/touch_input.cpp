@@ -14,6 +14,7 @@ extern "C" void RetunedTouchSetButton(int button,int pressed) {
  case 9:action=TouchAction::Target;break;case 10:action=TouchAction::Shield;break;
  case 11:action=TouchAction::Up;break;case 12:action=TouchAction::Down;break;
  case 13:action=TouchAction::Left;break;case 14:action=TouchAction::Right;break;
+ case 15:action=TouchAction::Map;break;
  default:return;
  }
  std::lock_guard lock(TouchMutex);NativeTouch.SourceButton(button,action,pressed!=0);
@@ -37,12 +38,13 @@ extern "C" void RetunedTouchSetEnabled(int enabled) {
 #ifdef __ANDROID__
 #include <jni.h>
 #include "texture_folder_jni.h"
+#include "fast/oot3d/android_display_state.h"
 extern "C" JNIEXPORT jfloat JNICALL Java_org_triaevum_android_TouchOverlay_opacity(JNIEnv*,jclass){return RetunedFrontend::NativeTouchOpacity.load();}
 extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_button(JNIEnv*,jclass,jint button,jboolean down) {RetunedTouchSetButton(button,down);}
 extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_axis(JNIEnv*,jclass,jint axis,jint value) {RetunedTouchSetAxis(axis,value);}
 extern "C" JNIEXPORT jint JNICALL Java_org_triaevum_android_TouchOverlay_state(JNIEnv*,jclass) {
  using namespace RetunedFrontend;
- return (NativeFrontendEnabled?1:0)|(TouchHostMenu.load()?2:0)|(TouchVisibility.ControlsVisible()?4:0)|(TouchVisibility.ButtonVisible()?512:0)|((TouchHostMode.load()==0?TouchManualJumpMode.load():0)<<10)|(TouchFaceLayout.load()<<3)|(TouchHostMode.load()!=0?32:0)|(TouchFloating.load()?64:0)|(TouchExtraShoulders.load()?128:0)|(TouchHudActive.load()&&TouchHudLive.load()?256:0);
+ return (AndroidGuestDualActive.load()?4096:0)|(NativeFrontendEnabled?1:0)|(TouchHostMenu.load()?2:0)|(TouchVisibility.ControlsVisible()?4:0)|(TouchVisibility.ButtonVisible()?512:0)|((TouchHostMode.load()==0?TouchManualJumpMode.load():0)<<10)|(TouchFaceLayout.load()<<3)|(TouchHostMode.load()!=0?32:0)|(TouchFloating.load()?64:0)|(TouchExtraShoulders.load()?128:0)|(TouchHudActive.load()&&TouchHudLive.load()?256:0);
 }
 #endif
 

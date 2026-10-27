@@ -14,10 +14,14 @@
 #include <imgui.h>
 #include <mutex>
 #include <atomic>
+#ifdef __ANDROID__
+#include <jni.h>
+#endif
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
 #if TARGET_OS_IOS && !TARGET_OS_TV
 extern "C" void RetunedIOS_SetTouchControlsEnabled(int enabled);
+extern "C" void RetunedIOS_EditTouchLayout(void);
 extern "C" void RetunedIOS_SetTouchOpacity(float opacity);
 extern "C" void RetunedIOS_SetTouchScale(float scale);
 extern "C" void RetunedIOS_SetExtraShoulders(int enabled);
@@ -183,6 +187,24 @@ inline void DrawTouchSettings() {
  auto config=Ship::Context::GetRawInstance()->GetConfig();
  bool commit=false,enabled=TouchEnabled.load(),floating=TouchFloating.load();
  if(Toggle("Show touch controls",&enabled)){TouchVisibility.Configure(enabled);commit=true;}
+#ifdef __ANDROID__
+ if(ImGui::Button("Edit touch layout")) {
+  auto* env=static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());
+  auto activity=static_cast<jobject>(SDL_AndroidGetActivity());
+  if(env&&activity) {
+   auto type=env->GetObjectClass(activity);
+   auto method=env->GetMethodID(type,"retunedEditTouchLayout","()V");
+   if(method)env->CallVoidMethod(activity,method);
+   if(env->ExceptionCheck()){env->ExceptionClear();SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"Could not open touch-layout editor");}
+   env->DeleteLocalRef(type);env->DeleteLocalRef(activity);
+  }
+ }
+ ImGui::TextWrapped("Drag controls to reposition them. Single-screen and dual-screen layouts are saved separately. Map toggles the minimap without extra shoulder buttons.");
+#endif
+#if defined(__APPLE__) && TARGET_OS_IOS && !TARGET_OS_TV
+ if(ImGui::Button("Edit touch layout"))RetunedIOS_EditTouchLayout();
+ ImGui::TextWrapped("Drag controls to reposition them. Single-screen and dual-screen layouts are saved separately. Map toggles the minimap without extra shoulder buttons.");
+#endif
  float size=TouchSize.load();
  if(ImGui::SliderFloat("Control size",&size,.75f,1.25f,"%.2fx"))TouchSize=size;
  commit|=ImGui::IsItemDeactivatedAfterEdit();

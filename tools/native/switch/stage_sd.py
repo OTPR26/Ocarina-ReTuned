@@ -57,6 +57,7 @@ def stage(args):
         shutil.copyfile(inputs[key], game / name)
     ui = prepare_ui_assets.prepare(inputs['romfs_image'], game / 'romfs.bin',
         resources=args.ui_resources, notices_directory=game / 'ui-notices')
+    manifest['texture_hash_aliases'] = ui['texture_hash_aliases']
     native_font = prepare_ui_assets.RomFs(game / 'romfs.bin').read('message/eu/ltn16.qbf')
     prepare_open_font.pair_styles(native_font, PROJECT / 'resources/fonts', game / 'font_coverage.zip')
     for key, name in (('code_bin', 'code.bin'), ('exheader', 'exheader.bin'), ('romfs_image', 'romfs.bin')):

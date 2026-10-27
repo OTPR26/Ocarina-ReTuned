@@ -15,6 +15,7 @@ import sys
 import tempfile
 
 from rom_setup import RomSetup, SetupError, load_kit
+from player_models.export import add_arguments as add_model_arguments, prepared_models
 
 
 def output(*args):
@@ -179,14 +180,16 @@ def main():
     parser.add_argument('--platform', choices=('ios', 'tvos'), required=True)
     parser.add_argument('--identity', required=True, help='Installed signing certificate SHA-1, not a password')
     parser.add_argument('--jobs', type=int, default=2)
+    add_model_arguments(parser)
     args = parser.parse_args()
     if sys.platform != 'darwin':
         parser.error('Apple device preparation requires macOS and Xcode')
     setup = AppleRomSetup(apple_platform=args.platform, **load_kit(args.kit, args.host),
         jobs=args.jobs, progress=lambda event: print(json.dumps(event), flush=True))
     installation = setup.prepare(args.rom, args.data_root)
-    receipt = assemble(installation, args.template, args.platform, args.provisioning,
-        args.identity, args.output, args.controller_db)
+    with prepared_models(installation, child=args.child_model, adult=args.adult_model) as exported:
+        receipt = assemble(exported, args.template, args.platform, args.provisioning,
+            args.identity, args.output, args.controller_db)
     args.output.with_suffix('.receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print('Private IPA created locally. Keep it private; no upload or installation was performed.')
 
