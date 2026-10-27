@@ -10,22 +10,28 @@ A native, single-screen Recomp of OOT3D for Windows, Mac, Linux, Android, iOS, A
 ## Features
 
 - Single-screen gameplay with the Ocarina ReFramed HUD, menus, and camera controls.
+- **Optional dual-screen support:** Android dual-screen devices and experimental iPhone Duo support, with an optional bottom equipment panel.
+- **Manual jump:** choose X or ZR as a dedicated jump button.
 - **PAK Loader for custom player models:** import child and adult models on Android and desktop, or include them during preparation for iOS, Apple TV, and Switch. Browse [models on ModLoader64](https://modloader64.com/models.html) and follow the [setup guide](documentation/Player-models.md). Choose compatible Ocarina of Time player models.
 - A shared startup screen and settings menus, with controller navigation and Apple TV remote support.
 - Adjustable internal resolution and frame-rate interpolation, including 60 FPS.
 - Bundled HD dialogue fonts with Regular and Bold styles.
 - Custom texture-pack support, with memory budgets suited to each device and folder selection on Windows, Mac, and Linux.
 - Cached preparation updates, with automatic upgrade checks, progress, and time estimates.
-- Touch controls on iOS and Android, plus configurable controller bindings.
+- **Customizable touch controls on Android and iOS:** move buttons and sticks, save your layout, and toggle the minimap by touch. Controller bindings are configurable too.
 - iCloud save-sync support in separately configured Apple builds. Sync is off in the downloadable Preview packages.
 
 ## How ReTuned differs from TriAevum
 
-TriAevum provides the runtime and translation foundation. ReTuned adds substantial work across the startup and settings interface, controller and touch input, Apple platforms, Android on-device ROM preparation, portable Windows preparation tools, texture-memory management, and dialogue rendering.
+TriAevum provides the runtime and translation foundation. ReTuned builds on it with ReFramed gameplay, player-model imports, optional dual-screen layouts, manual jump, customizable touch controls, and its own startup, settings, and preparation flow.
 
-Key integration and resource changes:
+Key additions and changes:
 
 - **Ocarina ReFramed HUD and controls:** ReTuned extends the TriAevum runtime with ReFramed's gameplay patches and matching UI resources, integrating its single-screen HUD, inventory/pause menus, and camera controls. These changes run in-game alongside the ReTuned startup and settings interface.
+- **Dual-screen presentation:** optional Android dual-screen layouts retain the ReFramed HUD on the gameplay screen and restore touch menus on the second screen. An optional bottom panel adds quick equipment controls and a Shard of Agony indicator. iPhone Duo support is experimental and has not been verified on physical hardware.
+- **Manual jump and item remapping:** map jumping to ZR or X. Choosing X moves its equipped item to ZR, with matching HUD and touch-control changes.
+- **Customizable touch layouts:** Android and iOS users can reposition buttons and sticks, save their layouts, hide or restore the overlay, and toggle the minimap without physical shoulder buttons.
+- **PAK Loader:** use compatible custom child and adult player models and their textures. Android and desktop provide an in-app importer; iOS, Apple TV, and Switch include models during game preparation.
 - **Replacement dialogue fonts:** ReTuned Dialogue provides our adapted Regular and Bold font set, based on Liberation Sans under the SIL Open Font License. It replaces reliance on the previous external HD font pack; its source attribution and license are included.
 - **Locally generated shaders:** the upstream embedded title-specific GLSL tables and precompiled SPIR-V pack were removed. The generic shader decompiler instead processes data from the user's game locally.
 
