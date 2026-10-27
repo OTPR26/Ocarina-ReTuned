@@ -32,12 +32,12 @@ def prepare(engine, private_kit=None, preparation_native_stage=None):
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
     text = gradle.read_text()
-    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5'):
-        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.5.6"')
-    if 'versionName = "0.5.6"' not in text:
+    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6'):
+        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.5.7"')
+    if 'versionName = "0.5.7"' not in text:
         raise ValueError('Android Preview version context changed')
-    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 10', text)
-    if 'versionCode = 10' not in text: raise ValueError('Android version code context changed')
+    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 11', text)
+    if 'versionCode = 11' not in text: raise ValueError('Android version code context changed')
     gradle.write_text(text)
     shutil.copy2(Path(__file__).with_name('preparation_identity.py'), root/'preparation_identity.py')
     identity_task = '''

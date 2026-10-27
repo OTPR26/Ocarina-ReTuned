@@ -217,6 +217,38 @@ def apply_file_selection_back(image, named):
     struct.pack_into('<I', image, matches[0], 0xE3A03001)
 
 
+def apply_game_over_draw(image, named):
+    """Use the renderer entry in the pinned canonical image, not its interior.
+
+    The mod applies ADDR's EUR delta to an already canonical address. Its
+    indirect call then enters 36 bytes past the native function's prologue.
+    Limit the correction to the reviewed Game Over call in our overlay.
+    """
+    address, size, kind, _ = named['SingleScreen_AfterTopPass']
+    start = address - BASE
+    if kind != 'FUNC' or start < 0 or size <= 0 or size % 4 or start + size > len(image):
+        raise ValueError('Invalid Game Over replay function')
+    old, entry = 0x0041C524, 0x0041C500
+    literals = [offset for offset in range(start, start + size, 4)
+                if struct.unpack_from('<I', image, offset)[0] in (old, entry)]
+    if len(literals) != 1:
+        raise ValueError('Game Over renderer literal context changed')
+    literal = literals[0]
+    references = []
+    for offset in range(start, start + size - 15, 4):
+        word = struct.unpack_from('<I', image, offset)[0]
+        # ldr r2, [pc, +/-imm12], followed by the reviewed blx r2.
+        if word & 0x0F7FF000 != 0x051F2000:
+            continue
+        displacement = word & 0xFFF
+        target = offset + 8 + (displacement if word & (1 << 23) else -displacement)
+        if target == literal and struct.unpack_from('<I', image, offset + 12)[0] == 0xE12FFF32:
+            references.append(offset)
+    if len(references) != 1:
+        raise ValueError('Game Over indirect-call context changed')
+    struct.pack_into('<I', image, literal, entry)
+
+
 def presentation_bridge(named):
     """Advertise only a complete, executable live-presentation bridge.
 
@@ -269,6 +301,7 @@ def _prepare(args):
     named = {name: (address, size, kind, section) for address, size, kind, name, section in symbols}
     apply_file_selection_spacing(image, named)
     apply_file_selection_back(image, named)
+    apply_game_over_draw(image, named)
     loader, loader_size, _, loader_section = named['loader_main']
     initialize, _, _, _ = named['NativeHud_InitializeScale']
     # The host maps the extra image segment. Do not invoke Luma's SVC 0x70.

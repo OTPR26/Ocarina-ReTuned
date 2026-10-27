@@ -10,6 +10,25 @@ spec.loader.exec_module(image)
 
 
 class ReframedImageTests(unittest.TestCase):
+    def test_game_over_calls_native_entry_and_preserves_other_literals(self):
+        code = bytearray(64)
+        struct.pack_into('<I', code, 0, 0x0041C524)
+        struct.pack_into('<IIII', code, 16, 0xE51F2018, 0, 0, 0xE12FFF32)
+        struct.pack_into('<I', code, 60, 0x0041C524)
+        named = {'SingleScreen_AfterTopPass': (image.BASE, 48, 'FUNC', 1)}
+        before = bytes(code)
+        image.apply_game_over_draw(code, named)
+        self.assertEqual(struct.unpack_from('<I', code, 0)[0], 0x0041C500)
+        self.assertEqual(code[4:], before[4:])
+        fixed = bytes(code)
+        image.apply_game_over_draw(code, named)
+        self.assertEqual(bytes(code), fixed)
+        struct.pack_into('<I', code, 28, 0xE12FFF33)
+        invalid = bytes(code)
+        with self.assertRaises(ValueError):
+            image.apply_game_over_draw(code, named)
+        self.assertEqual(bytes(code), invalid)
+
     def test_manual_jump_requires_complete_executable_bridge(self):
         self.assertEqual(image.manual_jump_bridge({}),{})
         valid={'ManualJump_Get':(image.INJECTION,8,'FUNC','1'),
