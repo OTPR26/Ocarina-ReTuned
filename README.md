@@ -10,7 +10,7 @@ A native, single-screen Recomp of OOT3D for Windows, Mac, Linux, Android, iOS, A
 ## Features
 
 - Single-screen gameplay with the Ocarina ReFramed HUD, menus, and camera controls.
-- **PAK Loader for custom player models:** import child and adult models on Android and desktop, or include them during preparation for iOS, Apple TV, and Switch. See the [player-model setup guide](documentation/Player-models.md).
+- **PAK Loader for custom player models:** import child and adult models on Android and desktop, or include them during preparation for iOS, Apple TV, and Switch. Browse [models on ModLoader64](https://modloader64.com/models.html) and follow the [setup guide](documentation/Player-models.md). Choose compatible Ocarina of Time player models.
 - A shared startup screen and settings menus, with controller navigation and Apple TV remote support.
 - Adjustable internal resolution and frame-rate interpolation, including 60 FPS.
 - Bundled HD dialogue fonts with Regular and Bold styles.
