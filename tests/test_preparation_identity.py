@@ -9,14 +9,15 @@ import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools/native'))
 from preparation_identity import archive_identity, stamp_android, stamp_desktop, NATIVE_TOOLS
+from elf_fixture import elf
 
 
 class PreparationIdentityTests(unittest.TestCase):
     def test_android_stamp_refreshes_size_and_checksum_after_archive_changes(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            for name in NATIVE_TOOLS:
-                (root / name).write_bytes(b'compiler fixture')
+            for name in (*NATIVE_TOOLS, 'libTriAevum.so'):
+                (root / name).write_bytes(elf())
             manifest = root / 'preparation-kit.json'
             manifest.write_text(json.dumps({'format': 'retuned_preparation_asset_v1',
                                             'sha256': 'old', 'unpacked_bytes': 1}))

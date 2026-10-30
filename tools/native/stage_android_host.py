@@ -2,6 +2,7 @@
 """Archive only neutral Android host libraries, excluding translated title code."""
 import argparse
 from audit_neutral_shaders import verify as verify_neutral_shaders
+from android_runtime import verify_runtime
 import hashlib
 import json
 from pathlib import Path
@@ -21,6 +22,10 @@ def stage(engine, build, ndk, output):
     engine, build, ndk, output = map(lambda p: Path(p).resolve(), (engine, build, ndk, output))
     if output.exists():
         raise ValueError('Refusing to replace an existing host archive.')
+    cache = (build / 'CMakeCache.txt').read_text()
+    configured = re.search(r'^CMAKE_TOOLCHAIN_FILE:[^=]+=(.+)$', cache, re.MULTILINE)
+    if not configured or Path(configured[1]).resolve() != ndk / 'build/cmake/android.toolchain.cmake':
+        raise ValueError('Staging NDK must match the native build toolchain.')
     llvm = ndk / 'toolchains/llvm/prebuilt' / ('darwin-x86_64' if sys.platform == 'darwin' else 'linux-x86_64')
     sources = {
         'libSDL2.so': build / '_deps/sdl2-build/libSDL2.so',
@@ -29,6 +34,7 @@ def stage(engine, build, ndk, output):
         'libc++_shared.so': llvm / 'sysroot/usr/lib/aarch64-linux-android/libc++_shared.so',
     }
     commands = subprocess.check_output(['ninja', '-C', str(build), '-t', 'commands', 'oot3d_native_game'], text=True)
+    verify_runtime(sources)
     if any(token in commands for token in ('oot3d_whole_aot_shard_', '/oot3d_whole_aot_cpp/', '/oot3d_a32_generated/')):
         raise ValueError('The public host must not compile game-derived title sources.')
     verify_neutral_shaders(engine, sources['libTriAevum.so'])
