@@ -30,6 +30,8 @@ def stage_touch_input(path, template):
     path.write_text(text.replace(anchor,template+'\n'+anchor))
 
 def apply(engine):
+    from apply_mobile_motion import apply as apply_motion
+    apply_motion(engine)
     from panel_staging import refresh_mods_page
     refresh_mods_page(engine)
     from apply_gui_textures import apply as apply_gui_textures

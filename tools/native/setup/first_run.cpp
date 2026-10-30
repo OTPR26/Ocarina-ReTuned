@@ -141,7 +141,7 @@ struct RomBrowser {
         std::string chosen;
         ImGui::SetNextWindowSize({720,500},ImGuiCond_Appearing);
         if(ImGui::BeginPopupModal("Choose ROM",nullptr,ImGuiWindowFlags_NoSavedSettings)) {
-            ImGui::TextUnformatted("Choose a decrypted USA cartridge dump (.3ds or .cci).");
+            ImGui::TextUnformatted("Choose a decrypted USA or European cartridge dump (.3ds or .cci).");
             ImGui::SetNextItemWidth(-70);
             bool go=ImGui::InputText("##location",location,sizeof(location),ImGuiInputTextFlags_EnterReturnsTrue);
             ImGui::SameLine();go=ImGui::Button("Go")||go;
@@ -227,7 +227,7 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
         kit=executable/"setup/kit.json";
 #endif
     }
-    std::string status="Choose your decrypted Ocarina of Time 3D USA ROM (.3ds or .cci).";
+    std::string status="Choose your decrypted Ocarina of Time 3D USA or European ROM (.3ds or .cci).";
     const bool hasKit=std::filesystem::is_regular_file(kit);
     preparationKit=std::filesystem::absolute(kit);
     std::string requiredIdentity;

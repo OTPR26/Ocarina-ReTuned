@@ -24,7 +24,7 @@ public final class SaveFilesActivity extends Activity {
         super.onCreate(state);ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setFitsSystemWindows(true);scroll.setBackgroundColor(Color.rgb(8,14,20));
         LinearLayout panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setPadding(dp(28),dp(24),dp(28),dp(24));scroll.addView(panel);
         text(panel,"Ocarina ReTuned — Save files",22);
-        text(panel,"Import Citra/Azahar in-game saves (USA version), or export a ZIP. Save states are separate.",17);
+        text(panel,"Import Citra/Azahar in-game saves, or export a ZIP. Save states are separate.",17);
         text(panel,"For Syncthing, choose a folder such as Documents/ReTuned Saves. Changes load when you reopen the app; new in-game saves copy back automatically. Play on one synced device at a time.",17);
         message=text(panel,"",16);
         button(panel,"Import saves",()->picker(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),IMPORT));

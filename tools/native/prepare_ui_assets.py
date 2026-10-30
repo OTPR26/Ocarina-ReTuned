@@ -122,6 +122,20 @@ class RomFs:
             raise
 
 
+def localized_menu_resources(replacements, files):
+    """Share ReFramed's atlas layout without replacing localized messages."""
+    result = dict(replacements)
+    prefix = 'menu/02_EU_ENGLISH/'
+    artwork = {name[len(prefix):]: data for name, data in replacements.items()
+               if name.startswith(prefix) and name.endswith('.ctxb')}
+    for name, (_, _, size) in files.items():
+        parts = name.split('/')
+        if (len(parts) == 3 and parts[0] == 'menu' and len(parts[1]) > 3 and
+                parts[1][:2].isdigit() and parts[1][2] == '_' and size and parts[2] in artwork):
+            result[name] = artwork[parts[2]]
+    return result
+
+
 def prepare(source, destination, *, resources, notices_directory=None):
     """Apply the fixed UI contract, preserving the user's original ROM."""
     contract, entries = read_pack(resources)
@@ -130,6 +144,7 @@ def prepare(source, destination, *, resources, notices_directory=None):
     # All six paths must exist in the normalized supported ROM.
     if not replacements.keys() <= rom.files.keys():
         raise ValueError('The ROM lacks the supported UI resource paths')
+    replacements = localized_menu_resources(replacements, rom.files)
     if notices_directory is not None:
         target = Path(notices_directory)
         target.mkdir()
@@ -140,6 +155,8 @@ def prepare(source, destination, *, resources, notices_directory=None):
             'source_sha256': contract['source_sha256'],
             'pack_sha256': hashlib.sha256(Path(resources).read_bytes()).hexdigest(),
             'resources': contract['resources'], 'notices': contract['notices'],
+            'installed_resources': {name: {'bytes': len(data),
+                'sha256': hashlib.sha256(data).hexdigest()} for name, data in replacements.items()},
             'texture_hash_aliases': contract.get('texture_hash_aliases', [])}
 
 

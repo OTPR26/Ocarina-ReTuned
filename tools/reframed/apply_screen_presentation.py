@@ -72,6 +72,8 @@ unsigned ScreenPresentation_CanSwitch(void) {
 }
 '''
     path.write_text(text)
+    from apply_file_selection_fade import apply as apply_file_fade
+    apply_file_fade(root)
     # Native Dual menus already consume 320x240 input. The unified shell's
     # 400x240 transform would otherwise intercept and misroute those touches.
     inputs = root / 'src/input_remap.c'

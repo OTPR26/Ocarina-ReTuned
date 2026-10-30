@@ -49,6 +49,22 @@ class NativeRomFsTests(unittest.TestCase):
 
 
 class BundledUiTests(unittest.TestCase):
+    def test_shared_hud_atlas_reaches_localized_menus_without_replacing_text(self):
+        replacements = {'menu/02_EU_ENGLISH/hud_all00.ctxb': b'ReFramed HUD',
+                        'message/eu/eu.qm': b'multilingual messages',
+                        'message/eu/ltn16.qbf': b'Latin font'}
+        files = {name: (0, 0, 1) for name in replacements}
+        files.update({'menu/08_EU_ITALIAN/hud_all00.ctxb': (0, 0, 100),
+                      'menu/03_EU_GERMAN/hud_all00.ctxb': (0, 0, 100),
+                      'menu/00_JP_JAPANESE/hud_all00.ctxb': (0, 0, 0),
+                      'menu/common/hud_all00.ctxb': (0, 0, 100),
+                      'menu/08_EU_ITALIAN/menu_file_select_parts00.ctxb': (0, 0, 100)})
+        result = assets.localized_menu_resources(replacements, files)
+        self.assertEqual(set(result) - set(replacements), {
+            'menu/08_EU_ITALIAN/hud_all00.ctxb', 'menu/03_EU_GERMAN/hud_all00.ctxb'})
+        self.assertEqual(result['menu/08_EU_ITALIAN/hud_all00.ctxb'], b'ReFramed HUD')
+        self.assertEqual(result['message/eu/eu.qm'], b'multilingual messages')
+
     def setUp(self):
         import tempfile
         import hashlib

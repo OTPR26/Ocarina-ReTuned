@@ -78,7 +78,7 @@
     self.steps=[UILabel new];self.steps.numberOfLines=0;
 #endif
     self.steps.textColor=UIColor.whiteColor;self.steps.font=[UIFont systemFontOfSize:bodySize];
-    self.steps.text=@"1. On a Mac, download the Mac Preview and the unsigned IPA for your device.\n\n2. Follow the Apple preparation guide using your decrypted USA ROM and your own signing profile. The tool is prepare_apple_app.py in the Mac app’s preparation toolkit.\n\n3. Sign and install the prepared IPA, including its embedded frameworks. Keep the same app identity to preserve existing saves.\n\nThe prepared IPA contains your game data. Keep it private.\n\nGuide: github.com/OTPR26/Ocarina-ReTuned → documentation → Apple setup";
+    self.steps.text=@"1. On a Mac, download the Mac Preview and the unsigned IPA for your device.\n\n2. Follow the Apple preparation guide using your supported decrypted ROM and your own signing profile. The tool is prepare_apple_app.py in the Mac app’s preparation toolkit.\n\n3. Sign and install the prepared IPA, including its embedded frameworks. Keep the same app identity to preserve existing saves.\n\nThe prepared IPA contains your game data. Keep it private.\n\nGuide: github.com/OTPR26/Ocarina-ReTuned → documentation → Apple setup";
     self.steps.accessibilityIdentifier=@"setup-steps";self.steps.hidden=YES;[stack addArrangedSubview:self.steps];
     UILabel* code=[UILabel new];code.numberOfLines=0;code.font=[UIFont monospacedSystemFontOfSize:bodySize-3 weight:UIFontWeightRegular];
     code.textColor=UIColor.lightGrayColor;code.text=[NSString stringWithFormat:@"Startup code: APPLE-%ld",(long)self.issue];[stack addArrangedSubview:code];

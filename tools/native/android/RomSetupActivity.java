@@ -122,7 +122,7 @@ public class RomSetupActivity extends Activity {
         LinearLayout panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL); panel.setPadding(dp(20), 0, 0, 0); scroll.addView(panel);
         add(panel, text("Ocarina ReTuned", 34, true), 0);
         add(panel, text(updating || requiredUpdate ? "Game preparation" : "First-time setup", 22, false), 12);
-        message = text("Choose your clean, decrypted Ocarina of Time 3D USA ROM (.3ds or .cci). Preparation runs entirely on this device. First-time setup can take some time.", 18, false); add(panel, message, 12);
+        message = text("Choose your clean, decrypted Ocarina of Time 3D USA or European ROM (.3ds or .cci). Preparation runs entirely on this device. First-time setup can take some time.", 18, false); add(panel, message, 12);
         if (updating || requiredUpdate) message.setText(hasLocalInputs()
             ? "Apply the latest game fixes using the game inputs already on this device. Your saves, textures, and settings are preserved."
             : "This upgrade needs your ROM once to update the prepared game. Your saves, textures, and settings are preserved.");

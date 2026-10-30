@@ -8,6 +8,13 @@
       "code": {"bytes": 4567040, "sha256": "ef210566e1d9d16879a746dfb063fcbad232f0171d860de906531ecc526cc020"},
       "exheader": {"bytes": 2048, "sha256": "dbe5fa0174d73bffb75d7cf0fbaa05d3e0ee080df0e257afc58b6c45ae5de3d0"},
       "romfs": {"bytes": 473526272, "sha256": "dd6def65af151d40fcbba7202c36bbdd8ed5b5b431373dc6a8c89bfd708af690"}
+    },
+    {
+      "region": "EUR",
+      "program_id": "0004000000033600",
+      "code": {"bytes": 4567040, "sha256": "16a6b0aa4c4784680220a6f780f7f8a73cfb205557aa9f9f0e705179e0613220"},
+      "exheader": {"bytes": 2048, "sha256": "a584b067427f81edcca739497ec7b4ce1217eb9612090e6ae5b846e5674d12c1"},
+      "romfs": {"bytes": 479260672, "sha256": "a3ad05dcf12893de5f1617a60f4e80f54f5e1c80069922a96a4f9c8c8cbac8ca"}
     }
   ],
   "extractor_sha256": "48ad2fabb817aa8081d5a224f60b1d91dd7b33fc4546d96df0a5ae71cc8741a3"

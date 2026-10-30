@@ -29,6 +29,7 @@ import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from preparation_cache import LocalCache, fingerprint
+from region_inputs import active_region, input_plan, normalize as normalize_regional_inputs
 
 PROJECT = Path(__file__).resolve().parents[2]
 RUNTIME_REVISION = '17218b0cfdb944645bb5cde5249f313dca7e53ce'
@@ -340,7 +341,7 @@ class RomSetup:
         self.preflight()
         rom = Path(rom).expanduser().resolve() if rom is not None else None
         if rom is not None and not rom.is_file():
-            raise SetupError('Choose a decrypted Ocarina of Time 3D USA cartridge dump (.3ds or .cci).')
+            raise SetupError('Choose a supported decrypted Ocarina of Time 3D cartridge dump (.3ds or .cci).')
         with installation_transaction(data_root) as (root, work):
             self.cache = LocalCache(root / 'preparation-cache', limit=768 * 1024 * 1024)
             self.source_cache = LocalCache(root / 'preparation-sources', limit=512 * 1024 * 1024)
@@ -358,27 +359,27 @@ class RomSetup:
         sys.path[:0] = [str(a32), str(release), str(PROJECT / 'tools/reframed')]
         inputs = work / 'inputs'
         input_pins = json.loads((PROJECT / 'resources/native-inputs.json').read_text())
-        input_key = fingerprint({'format': 'verified-inputs-v1', 'code': CANONICAL_CODE,
-                                 'romfs': CANONICAL_ROMFS, 'pins': input_pins})
-        expected_inputs = {'canonical-code.bin': CANONICAL_CODE, 'romfs.bin': CANONICAL_ROMFS,
-                           'inputs/exheader.bin': input_pins['inputs'][0]['exheader']['sha256']}
         if rom is None:
+            input_region = active_region(self.profile_root or root)
+            input_keys, expected_inputs = input_plan(input_pins, input_region)
             self.checkpoint('extracting', 'Checking the verified game inputs already on this device…')
-            if not self.input_cache.restore(input_key, work, expected_inputs):
+            if not any(self.input_cache.restore(key, work, expected_inputs) for key in input_keys):
                 raise SetupError('Verified game inputs are unavailable or damaged. Choose your ROM once to refresh them; your existing game and saves are unchanged.')
         else:
             self.checkpoint('extracting', 'Extracting and verifying your ROM…')
             extract = load_module('_retuned_prepare_inputs', PROJECT / 'tools/native/prepare_inputs.py')
-            extract.prepare(engine, rom, inputs)
+            verified = extract.prepare(engine, rom, inputs)
+            input_region = verified['region']
+            input_keys, expected_inputs = input_plan(input_pins, input_region)
             self.checkpoint('normalizing', 'Preparing compatible game resources…')
             adapter = load_module('_retuned_copy_adapter', release / 'input_copy_adapter.py')
-            adapter.normalize_file(inputs / 'code.bin', work / 'canonical-code.bin', json.loads(
-                (release / 'input_coverage/recipes/adapters/oot3d-usa-ef210566-copies.json').read_text()))
             region = load_module('_retuned_region', release / 'oot3d_region_assets.py')
-            region.normalize_romfs(inputs / 'romfs.bin', work / 'romfs.bin')
-            if digest(work / 'canonical-code.bin') != CANONICAL_CODE or digest(work / 'romfs.bin') != CANONICAL_ROMFS:
+            normalize_regional_inputs(inputs, work, input_region, copy_adapter=adapter,
+                usa_resources=region, recipe=json.loads((release /
+                    'input_coverage/recipes/adapters/oot3d-usa-ef210566-copies.json').read_text()))
+            if any(digest(work / name) != expected for name, expected in expected_inputs.items()):
                 raise SetupError('The ROM could not be normalized to the supported version.')
-            self.input_cache.store(input_key, {name: work / name for name in expected_inputs})
+            self.input_cache.store(input_keys[0], {name: work / name for name in expected_inputs})
         self.checkpoint('assets', 'Installing the bundled HUD and menu resources…')
         ui_assets = load_module('_retuned_ui_assets', PROJECT / 'tools/native/prepare_ui_assets.py')
         asset_receipt = ui_assets.prepare(work / 'romfs.bin', work / 'native-romfs.bin',
@@ -502,13 +503,14 @@ class RomSetup:
                 'pack_sha256': digest(stage / 'font_coverage.zip')}
         write_json(stage / 'ui-assets-receipt.json', asset_receipt)
         write_json(stage / 'setup-receipt.json', {'format': 'retuned_local_setup_v1',
+            'input_region': input_region,
             'preparation_identity': self.preparation_identity,
             'runtime_revision': RUNTIME_REVISION, 'platform': platform.system(), 'architecture': platform.machine(),
             'private_local_artifact': True, 'redistributable': False,
             'files': {p.relative_to(stage).as_posix(): digest(p) for p in stage.rglob('*') if p.is_file()}})
         self.checkpoint('activating', 'Finishing setup…')
         target = activate(root, stage, installation_id,
-            lambda target: launch_profile(self.profile_root or root, target), profile_root=self.profile_root)
+            lambda target: launch_profile(self.profile_root or root, target, input_region=input_region), profile_root=self.profile_root)
         self.progress({'stage': 'complete', 'message': 'Setup complete. Your game is ready.', 'installation': str(target)})
         return target
 
@@ -587,7 +589,7 @@ class RomSetup:
             self.cache.store(self.module_cache_key, {library.name: library})
 
 
-def launch_profile(root, installation):
+def launch_profile(root, installation, *, input_region=None):
     existing = root / 'native-launch.json'
     extension = '.dylib' if sys.platform == 'darwin' else '.dll' if os.name == 'nt' else '.so'
     replacements = {'--a32-process-manifest': str(installation / 'process-manifest.json'),
@@ -606,7 +608,8 @@ def launch_profile(root, installation):
                 arguments[index] = value
             else:
                 arguments.extend([flag, value])
-        return {**previous, 'arguments': arguments}
+        return {**previous, 'arguments': arguments,
+                **({'native_input_region': input_region} if input_region is not None else {})}
     arguments = ['--a32-process-manifest', str(installation / 'process-manifest.json'),
         '--title-plugin', str(installation / ('triaevum_title_aot' + ('.dylib' if sys.platform == 'darwin' else '.dll' if os.name == 'nt' else '.so'))),
         '--resource-root', str(root), '--renderer', 'nri', '--ui-profile', 'reframed',
@@ -614,7 +617,8 @@ def launch_profile(root, installation):
         '--save-data', str(root / 'saves'), '--renderer-cache-directory', str(root / 'cache'),
         '--gameplay-timing', 'native30_no_interpolation', '--presentation-rate', '30',
         '--width', '1280', '--height', '720', '--output', str(root / 'logs/native-summary.json')]
-    return {'format': 'oot3d_native_game_launch_profile_v1', 'arguments': arguments}
+    return {'format': 'oot3d_native_game_launch_profile_v1', 'arguments': arguments,
+            **({'native_input_region': input_region} if input_region is not None else {})}
 
 
 def load_kit(path, host=None):
