@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include <vulkan/vulkan.h>
 #include "android_secondary_swapchain.h"
+#include "fast/oot3d/retuned_game_save.h"
+extern "C" JNIEXPORT jboolean JNICALL Java_org_triaevum_android_RetunedSaveButton_visible(JNIEnv*,jclass) {return RetunedFrontend::GameSave.Visible();}
+extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_RetunedSaveButton_open(JNIEnv*,jclass) {if(RetunedFrontend::GameSave.Visible())RetunedFrontend::GameSave.Request();}
 extern "C" JNIEXPORT jint JNICALL Java_org_triaevum_android_RetunedEquipmentStrip_state(JNIEnv*,jclass) {return RetunedFrontend::AndroidEquipmentState.load();}
 extern "C" JNIEXPORT jboolean JNICALL Java_org_triaevum_android_RetunedEquipmentStrip_panelEnabled(JNIEnv*,jclass) {return RetunedFrontend::LowerEquipmentPanelEnabled.load();}
 extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_RetunedEquipmentStrip_select(JNIEnv*,jclass,jint action) {

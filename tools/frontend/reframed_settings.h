@@ -1,6 +1,9 @@
 #pragma once
 #include "oot3d_native_a32_process.h"
 #include "retuned_ocarina_lifecycle.h"
+#include "fast/oot3d/retuned_game_save.h"
+#include "fast/oot3d/retuned_native_save_menu.h"
+#include "fast/oot3d/lower_equipment_state.h"
 #include "retuned_touch_hud_runtime.h"
 #include "fast/oot3d/retuned_blue_style.h"
 #include "fast/oot3d/graphics_settings_window.h"
@@ -31,6 +34,7 @@ class Settings {
   public:
     void Initialize(const std::filesystem::path& manifest) {
         std::lock_guard lock(mMutex);
+        GameSave.SetAvailable(false);
         try {
             std::ifstream stream(manifest);
             nlohmann::json root;stream>>root;
@@ -81,10 +85,24 @@ class Settings {
     }
     void Apply(Oot3dNativeGame::NativeA32Process& process) {
         std::lock_guard lock(mMutex);
-        if(!mReady)return;
+        if(!mReady){GameSave.SetAvailable(false);GameSave.SetDialog(false);NativeLowerUiReady=false;return;}
         auto& memory=process.Memory();uint32_t context=0;
-        if(!memory.Read32(mBridge.at("context_pointer").get<uint32_t>(),&context) || !context)return;
+        if(!memory.Read32(mBridge.at("context_pointer").get<uint32_t>(),&context) || !context){GameSave.SetAvailable(false);GameSave.SetDialog(false);NativeLowerUiReady=false;return;}
         const auto save=mBridge.at("save_context").get<uint32_t>();
+        uint16_t health=0;uint32_t pause=0;uint8_t type=0,subtype=0;
+        const bool gameplay=memory.Read16(save+0x44,&health) && health &&
+            memory.Read32(0x0050af68,&pause) &&
+            memory.Read8(context+0x100,&type) && type==3 &&
+            memory.Read8(context+0x101,&subtype) && subtype==2;
+        uint8_t trigger=1,transition=1;uint32_t saveMode=0,saveState=0;
+        const bool sceneSettled=gameplay && memory.Read8(context+0x5C2D,&trigger) && !trigger &&
+            memory.Read8(context+0x7F12,&transition) && !transition;
+        const bool saveDialog=gameplay && pause==0 && memory.Read32(0x0050A530,&saveMode) && saveMode==2 &&
+            memory.Read32(0x0050A52C,&saveState) && saveState<=1;
+        NativeLowerUiReady=LowerUiSettled(pause,sceneSettled,saveDialog);
+        GameSave.SetDialog(GameSave.Dual() && saveDialog);
+        GameSave.SetAvailable(sceneSettled && pause==2);
+        if(GameSave.Dual() && saveDialog)HideNativeSaveOptions(memory);
         const auto invoke=[&](const char* name,std::span<const uint32_t> args={}) {
             const auto entry=mBridge.at("functions").at(name).get<uint32_t>();
             uint32_t result=0;std::string error;

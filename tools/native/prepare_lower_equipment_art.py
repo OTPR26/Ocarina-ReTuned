@@ -34,13 +34,13 @@ def prepare_romfs(romfs, output):
     output.mkdir(parents=True, exist_ok=True)
     images = {}
     sources = {}
-    for name in ('menu_item_parts00', 'icon_item_menu00'):
+    for name in ('menu_item_parts00', 'icon_item_menu00', 'menu_option_parts00'):
         data = source.read('menu/02_EU_ENGLISH/' + name + '.ctxb')
         try:
             width, height, rgba = decode(data)
         except ValueError:
             width, height, rgba = decode_compressed(data)
-        expected = 256 if name == 'menu_item_parts00' else 512
+        expected = 512 if name == 'icon_item_menu00' else 256
         if width != expected or height != expected:
             raise ValueError('Unsupported equipment-panel atlas dimensions')
         images[name] = (width, rgba)
@@ -62,6 +62,7 @@ def prepare_romfs(romfs, output):
         (output / (name + '.png')).write_bytes(_png(width, height, pixels))
 
     crop('menu_item_parts00', (140, 136, 192, 188), 'button')
+    crop('menu_option_parts00', (0, 128, 120, 176), 'save')
     crop('menu_item_parts00', (198, 2, 254, 238), 'stone', rotate=True)
     for i in range(3):
         crop('icon_item_menu00', (336 + i * 42, 210, 378 + i * 42, 252), 'boots-' + str(i + 1))

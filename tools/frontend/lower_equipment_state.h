@@ -3,6 +3,7 @@
 #include <atomic>
 namespace RetunedFrontend {
 inline std::atomic<bool> LowerEquipmentPanelEnabled{true};
+inline std::atomic<bool> NativeLowerUiReady{false};
 inline std::atomic<unsigned> LowerEquipmentState{0},LowerEquipmentRequest{0};
 inline std::atomic<unsigned> LowerEquipmentSurfaceWidth{0},LowerEquipmentSurfaceHeight{0};
 }

@@ -22,9 +22,9 @@ inline void UpdateLowerEquipment(Oot3dNativeGame::NativeA32Process& process,bool
  // Read the original Shard HUD animation counter, reset by the native
  // detection path. No host timer or proximity approximation is involved.
  m.Read8(0x004fc649,&pulse);
- const bool ready=!hostMenu&&health&&pause==2&&type==3&&subtype==2;
+ const bool ready=NativeLowerUiReady.load()&&!hostMenu&&health&&pause==2&&type==3&&subtype==2;
  LowerEquipmentState=PackLowerEquipment(ready,age==0,owned,equipped,
-                                         (quest&(1u<<21))!=0,pulse) | ((health&&type==3&&subtype==2)?(1u<<14):0u);
+                                         (quest&(1u<<21))!=0,pulse) | ((NativeLowerUiReady.load()&&health&&type==3&&subtype==2)?(1u<<14):0u);
  if(!ready||age!=0||(request!=1&&request!=2))return;
  Oot3dNativeGame::TopScreenDpadActionState actions;
  const auto action=request==1?Oot3dNativeGame::TopScreenDpadAction::AllBootsToggle:

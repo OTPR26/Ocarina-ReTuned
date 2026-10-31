@@ -43,5 +43,6 @@
         ImGui::End();ImGui::GetStyle()=previous;ImGui::GetIO().FontGlobalScale=previousFontScale;ImGui::PopFont();
         RetunedFrontend::SettingsNav.End();
         if(RetunedFrontend::SettingsNav.Close)SetVisibility(false);
+        if(RetunedFrontend::GameSave.Pending())SetVisibility(false);
         if(!IsVisible())Oot3d::EndGraphicsSettingsPreviews();
     }

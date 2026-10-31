@@ -32,12 +32,12 @@ def prepare(engine, private_kit=None, preparation_native_stage=None):
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
     text = gradle.read_text()
-    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9'):
-        text = text.replace('versionName = "' + previous + '"', 'versionName = "2.6.0"')
-    if 'versionName = "2.6.0"' not in text:
+    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9', '2.6.0'):
+        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.6.1"')
+    if 'versionName = "0.6.1"' not in text:
         raise ValueError('Android Preview version context changed')
-    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 14', text)
-    if 'versionCode = 14' not in text: raise ValueError('Android version code context changed')
+    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 15', text)
+    if 'versionCode = 15' not in text: raise ValueError('Android version code context changed')
     gradle.write_text(text)
     shutil.copy2(Path(__file__).with_name('preparation_identity.py'), root/'preparation_identity.py')
     shutil.copy2(Path(__file__).with_name('android_runtime.py'), root/'android_runtime.py')
@@ -209,6 +209,7 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     python.mkdir(parents=True, exist_ok=True)
     shutil.copy2(Path(__file__).parent/'android/retuned_setup_entry.py', python/'retuned_setup_entry.py')
     shutil.copy2(Path(__file__).parent/'android/retuned_models_entry.py', python/'retuned_models_entry.py')
+    shutil.copy2(Path(__file__).parent/'android/retuned_lower_art_entry.py', python/'retuned_lower_art_entry.py')
     top = root/'build.gradle.kts'
     replace(top, 'plugins {', 'plugins {\n    id("com.chaquo.python") version "17.1.0" apply false')
     replace(gradle, 'plugins { id("com.android.application") }', 'plugins { id("com.android.application"); id("com.chaquo.python") }')

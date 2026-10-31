@@ -30,7 +30,7 @@ final class RetunedDualScreen implements DisplayManager.DisplayListener {
   private SurfaceView view;
   Lower(Activity a,Display d){super(a,d);}
   protected void onCreate(Bundle b){super.onCreate(b);view=new SurfaceView(getContext());
-   FrameLayout frame=new FrameLayout(getContext());frame.addView(view);frame.addView(new RetunedEquipmentStrip(getContext()));setContentView(frame);
+   FrameLayout frame=new FrameLayout(getContext());frame.addView(view);frame.addView(new RetunedEquipmentStrip(getContext()));frame.addView(new RetunedSaveButton(getContext()));setContentView(frame);
    getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
    view.getHolder().addCallback(this);view.setOnTouchListener((v,e)->{int action=e.getActionMasked();boolean down=action!=MotionEvent.ACTION_UP&&action!=MotionEvent.ACTION_CANCEL;
     float w=view.getWidth(),h=view.getHeight(),fitW=Math.min(w,h*4f/3f),fitH=fitW*3f/4f;

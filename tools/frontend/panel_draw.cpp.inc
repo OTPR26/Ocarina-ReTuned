@@ -42,6 +42,7 @@ void GraphicsSettingsPanel::Draw() {
     ImGui::PushItemWidth(std::min(ImGui::GetContentRegionAvail().x*.58f,font*18));
     switch(page){
       case SettingsPage::General: {
+        RetunedFrontend::DrawDualGameSave(RetunedFrontend::ProbeGuestDualActive.load(),!RetunedFrontend::StartupVisible);
         drawTabs("Language");ImGui::Spacing();
 #ifdef __ANDROID__
         RetunedFrontend::DrawAndroidRomPreparation();
@@ -152,7 +153,7 @@ void GraphicsSettingsPanel::Draw() {
 #endif
         break;
       case SettingsPage::About:
-        ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("2.6.0 Preview");
+        ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.6.1 Preview");
         ImGui::Spacing();ImGui::TextWrapped("Ocarina of Time 3D with the Reframed single-screen HUD.");
         ImGui::SeparatorText("Contributors");
         ImGui::TextWrapped("Upstream engine credits: TriAevum by coccofresco. Uses libultraship, SDL, Dear ImGui and MoltenVK on Apple devices. Interface fonts: Fira Sans, Fira Sans Condensed, and Alegreya SC (SIL Open Font License).");

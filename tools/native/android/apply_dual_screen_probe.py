@@ -128,6 +128,7 @@ def apply(root):
  (android/'android_secondary_swapchain.h').write_text('#include "fast/oot3d/android_secondary_swapchain.h"\n')
  java=root/'ports/android/app/src/main/java/org/triaevum/android'
  (java/'RetunedDualScreen.java').write_bytes((here/'RetunedDualScreen.java').read_bytes())
+ (java/'RetunedSaveButton.java').write_bytes((here/'RetunedSaveButton.java').read_bytes())
  (java/'RetunedEquipmentStrip.java').write_bytes((here/'RetunedEquipmentStrip.java').read_bytes())
  activity=java/'RetunedGameActivity.java'
  edit(activity,'    private TouchOverlay touchOverlay;', '    private TouchOverlay touchOverlay;\n    private RetunedDualScreen dualScreen;')
