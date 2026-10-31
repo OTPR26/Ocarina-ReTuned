@@ -5,6 +5,12 @@
 int main(){
  using namespace RetunedFrontend;
  std::vector<std::string_view> mobile;
+#ifdef RETUNED_SWITCH_DEKO
+ assert(!CategoryVisible(SettingsPage::Touch,false,true));
+ assert(!CategoryVisible(SettingsPage::Advanced,false,false));
+ assert(CategoryVisible(SettingsPage::General,false,false));
+ return 0;
+#endif
  for(const auto& category:SettingsCategories)if(CategoryVisible(category.Page,true,true))mobile.push_back(category.Label);
  const std::vector<std::string_view> expected{"General","Controls","Touch","Graphics","Audio","HUD","Quality of life",
  "Mods",

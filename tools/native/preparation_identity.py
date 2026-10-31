@@ -40,11 +40,13 @@ def archive_identity(archive, native_tools):
 
 def stamp_android(assets, compiler_directory, runtime_directory):
     from android_runtime import verify_runtime
+    from audit_frontend_settings import verify as verify_frontend_settings
     assets = Path(assets)
     tools = {name: Path(compiler_directory) / name for name in NATIVE_TOOLS}
     tools['libc++_shared.so'] = Path(runtime_directory) / 'libc++_shared.so'
     libraries = {path.name: path for path in Path(runtime_directory).glob('*.so')}
     verify_runtime(libraries | tools)
+    verify_frontend_settings(libraries['libTriAevum.so'], require_dual=True)
     identity = archive_identity(assets / 'preparation-kit.zip', tools)
     path = assets / 'preparation-kit.json'
     metadata = json.loads(path.read_text())

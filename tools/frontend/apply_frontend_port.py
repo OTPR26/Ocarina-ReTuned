@@ -30,8 +30,8 @@ def apply(engine):
     (include/'retuned_blue_style.h').write_text((source/'blue_style.h').read_text())
     (include/'retuned_android_save_files.h').write_text((source.parents[1]/'tools/native/android/save_files_ui.h').read_text())
     graphics=engine/'runtime/three_ds_recomp/src/fast/oot3d/graphics_settings_window.cpp'
-    text=graphics.read_text();start=text.index('void GraphicsSettingsPanel::Draw() {');end=text.index('\nvoid GraphicsSettingsPanel::DrawGrassSettings()',start)
-    text=text[:start]+(source/'panel_draw.cpp.inc').read_text()+text[end:];graphics.write_text(text)
+    from panel_staging import refresh_panel_draw
+    refresh_panel_draw(engine)
     edit(graphics,'#include <algorithm>','#include <algorithm>\n#include <atomic>')
     edit(graphics,'#include <algorithm>','#include <algorithm>\n#include "fast/oot3d/retuned_android_save_files.h"')
     edit(graphics,'namespace Fast::Oot3d {','namespace Fast::Oot3d {\nnamespace { std::atomic<bool> UnifiedSettingsRequested{false}; std::atomic<bool> UnifiedSettingsToggleRequested{false}; }\nvoid RequestUnifiedSettings() { UnifiedSettingsRequested.store(true); }\nbool TakeUnifiedSettingsRequest() { return UnifiedSettingsRequested.exchange(false); }\nvoid RequestUnifiedSettingsToggle() { UnifiedSettingsToggleRequested.store(true); }\nbool TakeUnifiedSettingsToggleRequest() { return UnifiedSettingsToggleRequested.exchange(false); }')

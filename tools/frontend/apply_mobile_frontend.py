@@ -32,8 +32,9 @@ def stage_touch_input(path, template):
 def apply(engine):
     from apply_mobile_motion import apply as apply_motion
     apply_motion(engine)
-    from panel_staging import refresh_mods_page
+    from panel_staging import refresh_mods_page, stage_platform_display_settings
     refresh_mods_page(engine)
+    stage_platform_display_settings(engine)
     from apply_gui_textures import apply as apply_gui_textures
     apply_gui_textures(engine)
     from apply_mobile_lifecycle import apply as apply_lifecycle

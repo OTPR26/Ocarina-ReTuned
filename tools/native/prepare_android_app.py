@@ -32,15 +32,16 @@ def prepare(engine, private_kit=None, preparation_native_stage=None):
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
     text = gradle.read_text()
-    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8'):
-        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.5.9"')
-    if 'versionName = "0.5.9"' not in text:
+    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9'):
+        text = text.replace('versionName = "' + previous + '"', 'versionName = "2.6.0"')
+    if 'versionName = "2.6.0"' not in text:
         raise ValueError('Android Preview version context changed')
-    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 13', text)
-    if 'versionCode = 13' not in text: raise ValueError('Android version code context changed')
+    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 14', text)
+    if 'versionCode = 14' not in text: raise ValueError('Android version code context changed')
     gradle.write_text(text)
     shutil.copy2(Path(__file__).with_name('preparation_identity.py'), root/'preparation_identity.py')
     shutil.copy2(Path(__file__).with_name('android_runtime.py'), root/'android_runtime.py')
+    shutil.copy2(Path(__file__).with_name('audit_frontend_settings.py'), root/'audit_frontend_settings.py')
     identity_task = '''
 // Stamp final preparation inputs after staging, independently of app/UI versions.
 tasks.register<Exec>("stampPreparationIdentity") {

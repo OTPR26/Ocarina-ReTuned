@@ -18,6 +18,7 @@ class PreparationIdentityTests(unittest.TestCase):
             root = Path(temporary)
             for name in (*NATIVE_TOOLS, 'libTriAevum.so'):
                 (root / name).write_bytes(elf())
+            (root / 'libTriAevum.so').write_bytes(elf() + b'Screen mode\0Bottom equipment panel\0')
             manifest = root / 'preparation-kit.json'
             manifest.write_text(json.dumps({'format': 'retuned_preparation_asset_v1',
                                             'sha256': 'old', 'unpacked_bytes': 1}))

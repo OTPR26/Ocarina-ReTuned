@@ -50,29 +50,8 @@ def apply(root):
   graphics.write_text(text[:start]+text[end:])
 
  edit(graphics,'#include <algorithm>','#include <algorithm>\n#include "fast/oot3d/android_display_state.h"')
- edit(graphics,'        ImGui::SeparatorText("Menu");','''        if(RetunedFrontend::AndroidDualProbeRequested()) {
-            ImGui::SeparatorText("Display");
-            int mode=RetunedFrontend::AndroidDualSelected.load()?1:0;
-            if(ImGui::Combo("Screen mode",&mode,"Single\\0Dual\\0")) {
-                RetunedFrontend::AndroidDualSelected=mode==1;
-                RetunedFrontend::AndroidLowerTouch=0;
-                config->SetBool("Interface.DualScreen",mode==1);config->Save();
-            }
-            if(mode==1) {
-                bool panel=RetunedFrontend::LowerEquipmentPanelEnabled.load();
-                if(ImGui::Checkbox("Bottom equipment panel",&panel)) {
-                    RetunedFrontend::LowerEquipmentPanelEnabled=panel;
-                    RetunedFrontend::AndroidLowerTouch=0;
-                    config->SetBool("Interface.DualEquipmentPanel",panel);config->Save();
-                }
-                ImGui::TextWrapped("Uses spare space below the 4:3 game picture. Best on taller secondary displays, like the AYN Thor.");
-            }
-            if(mode==1 && !RetunedFrontend::AndroidLowerAvailable.load())
-                ImGui::TextWrapped("Dual screen uses a connected second display. Using Single until it is available.");
-            if(RetunedFrontend::AndroidDualSelected.load()!=RetunedFrontend::AndroidGuestDualActive.load())
-                ImGui::TextWrapped("Screen mode changes after closing game menus and returning to gameplay.");
-        }
-        ImGui::SeparatorText("Menu");''')
+ from panel_staging import stage_platform_display_settings
+ stage_platform_display_settings(root)
  (inc/'android_lower_resolution.h').write_bytes((here/'lower_resolution.h').read_bytes())
  resolution=inc/'render_resolution_policy.h'
  edit(resolution,'#include "fast/oot3d/graphics_settings.h"','#include "fast/oot3d/graphics_settings.h"\n#include "android_display_state.h"\n#include "android_lower_resolution.h"')

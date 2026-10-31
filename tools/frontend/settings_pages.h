@@ -26,6 +26,9 @@ inline constexpr bool CategoryVisible(SettingsPage page,bool mobile,bool touch) 
  return false;
 #endif
  }
+#ifdef RETUNED_SWITCH_DEKO
+ if(page==SettingsPage::Touch||page==SettingsPage::Advanced)return false;
+#endif
  if(page==SettingsPage::Touch)return touch;
  if(page==SettingsPage::SaveStates||page==SettingsPage::Advanced)return !mobile;
  return true;

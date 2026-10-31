@@ -3,6 +3,7 @@
 import argparse
 from audit_neutral_shaders import verify as verify_neutral_shaders
 from android_runtime import verify_runtime
+from audit_frontend_settings import verify as verify_frontend_settings
 import hashlib
 import json
 from pathlib import Path
@@ -35,6 +36,7 @@ def stage(engine, build, ndk, output):
     }
     commands = subprocess.check_output(['ninja', '-C', str(build), '-t', 'commands', 'oot3d_native_game'], text=True)
     verify_runtime(sources)
+    verify_frontend_settings(sources['libTriAevum.so'], require_dual=True)
     if any(token in commands for token in ('oot3d_whole_aot_shard_', '/oot3d_whole_aot_cpp/', '/oot3d_a32_generated/')):
         raise ValueError('The public host must not compile game-derived title sources.')
     verify_neutral_shaders(engine, sources['libTriAevum.so'])

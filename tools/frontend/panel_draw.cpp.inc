@@ -72,6 +72,7 @@ void GraphicsSettingsPanel::Draw() {
         ImGui::TextWrapped("Only game saves sync. Graphics, controls and texture folders stay on this device.");
 #endif
         auto config=Ship::Context::GetRawInstance()->GetConfig();
+        RetunedFrontend::DrawPlatformDisplaySettings(config,RetunedFrontend::Toggle);
         ImGui::SeparatorText("Menu");
         ImGui::SliderFloat("Menu size",&RetunedFrontend::MenuSize,.8f,1.25f,"%.2fx");
         bool saveSize=ImGui::IsItemDeactivatedAfterEdit();
@@ -85,6 +86,12 @@ void GraphicsSettingsPanel::Draw() {
         drawTabs("Controls");break;
       case SettingsPage::Touch:RetunedFrontend::DrawTouchSettings();break;
       case SettingsPage::Graphics:
+#ifdef RETUNED_SWITCH_DEKO
+        DrawSettingsSections({&GraphicsSettingsPanel::DrawMotionSettings});
+        drawTabs("Camera");
+        ImGui::TextWrapped("Switch output: 1280 x 720. Desktop effects and display modes are unavailable.");
+        ImGui::SeparatorText("Custom textures");DrawTextureSettings();
+#else
         if(!mobile)DrawPresetSelector();
         DrawSettingsSections({&GraphicsSettingsPanel::DrawMotionSettings});
         drawTabs("Camera");
@@ -95,6 +102,7 @@ void GraphicsSettingsPanel::Draw() {
             for(const auto& tab:SnapshotPanelTabs())if(tab->Group() && std::string_view(tab->Group())==kLightingSettingsGroup)lighting.push_back(tab);
             DrawLightingTab(lighting);
         }
+#endif
         break;
       case SettingsPage::Audio: {
         auto config=Ship::Context::GetRawInstance()->GetConfig();
@@ -144,7 +152,7 @@ void GraphicsSettingsPanel::Draw() {
 #endif
         break;
       case SettingsPage::About:
-        ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.5.8 Preview");
+        ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("2.6.0 Preview");
         ImGui::Spacing();ImGui::TextWrapped("Ocarina of Time 3D with the Reframed single-screen HUD.");
         ImGui::SeparatorText("Contributors");
         ImGui::TextWrapped("Upstream engine credits: TriAevum by coccofresco. Uses libultraship, SDL, Dear ImGui and MoltenVK on Apple devices. Interface fonts: Fira Sans, Fira Sans Condensed, and Alegreya SC (SIL Open Font License).");

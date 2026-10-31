@@ -48,6 +48,8 @@ def apply(engine):
     app.mkdir(parents=True,exist_ok=True)
     for name in ('app.cmake','apple_main.mm','startup_status.h','startup_status.mm','patch_sdl_scenes.py','finalize_bundle.py','touch_controls.mm','touch_layout_editor.mm.inc','touch_controls.h','touch_input.cpp','touch_input_api.h','texture_folder.mm','television_remote.mm','television_resolution.h','apple_paths.h'):
         (app/name).write_text(Path(__file__).with_name(name).read_text())
+    (app/'audit_frontend_settings.py').write_bytes(
+        (Path(__file__).resolve().parents[1]/'audit_frontend_settings.py').read_bytes())
     from importlib.util import spec_from_file_location,module_from_spec
     artwork_spec=spec_from_file_location('retuned_touch_artwork',Path(__file__).parents[1]/'prepare_touch_artwork.py')
     artwork=module_from_spec(artwork_spec);artwork_spec.loader.exec_module(artwork)
