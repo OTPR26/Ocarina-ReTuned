@@ -78,3 +78,11 @@ int main(){using namespace RetunedFrontend;
             single=frame.read_text(),graphics.read_text()
             apply(root)
             self.assertEqual(single,(frame.read_text(),graphics.read_text()))
+
+            probe.write_text('// Dual-display backend was staged after the frontend.\n')
+            apply(root)
+            self.assertEqual(graphics.read_text().count('DrawDualGameSave('),1)
+            self.assertIn('DrawDualGameSave(RetunedFrontend::ProbeGuestDualActive.load(),', graphics.read_text())
+            dual=frame.read_text(),graphics.read_text()
+            apply(root)
+            self.assertEqual(dual,(frame.read_text(),graphics.read_text()))

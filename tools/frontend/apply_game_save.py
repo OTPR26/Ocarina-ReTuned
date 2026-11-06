@@ -1,5 +1,6 @@
 """Stage native Save access without replacing platform-specific settings pages."""
 from pathlib import Path
+import re
 from apply_native_port import edit
 
 
@@ -40,8 +41,7 @@ def apply(engine):
     marker = '#include "fast/oot3d/retuned_game_save.h"\n'
     if marker not in gui.read_text():
         gui.write_text(marker + gui.read_text())
-    if dual_active == 'false':
-        graphics.write_text(graphics.read_text().replace('RetunedFrontend::DrawDualGameSave(RetunedFrontend::ProbeGuestDualActive.load(),', 'RetunedFrontend::DrawDualGameSave(false,'))
+    graphics.write_text(re.sub(r'        RetunedFrontend::DrawDualGameSave\([^\n]+\);\n', '', graphics.read_text()))
     edit(graphics, '      case SettingsPage::General: {\n',
          '      case SettingsPage::General: {\n'
          '        RetunedFrontend::DrawDualGameSave(' + dual_active + ',!RetunedFrontend::StartupVisible);\n')
