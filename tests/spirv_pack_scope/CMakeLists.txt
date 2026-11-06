@@ -13,7 +13,7 @@ add_subdirectory("${CMAKE_BINARY_DIR}/producer" "${CMAKE_BINARY_DIR}/producer-bu
 file(WRITE "${CMAKE_BINARY_DIR}/scope.cpp" "int shader_scope_fixture;\n")
 file(WRITE "${CMAKE_BINARY_DIR}/fixture.spvpack" "neutral test fixture")
 add_library(scope STATIC EXCLUDE_FROM_ALL "${CMAKE_BINARY_DIR}/scope.cpp")
-triaevum_add_spirv_pack(scope "${CMAKE_BINARY_DIR}/scope.cpp" "${CMAKE_BINARY_DIR}/fixture.spvpack")
+retuned_literal_add_spirv_pack(scope "${CMAKE_BINARY_DIR}/scope.cpp" "${CMAKE_BINARY_DIR}/fixture.spvpack")
 if(NOT EXISTS "${CMAKE_BINARY_DIR}/spirv_pack_inc/fixture.spvpack.inc")
     message(FATAL_ERROR "Shader byte-list generation lost its definition directory")
 endif()

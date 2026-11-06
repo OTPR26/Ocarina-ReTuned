@@ -131,7 +131,13 @@ def apply(root):
  (java/'RetunedSaveButton.java').write_bytes((here/'RetunedSaveButton.java').read_bytes())
  (java/'RetunedEquipmentStrip.java').write_bytes((here/'RetunedEquipmentStrip.java').read_bytes())
  activity=java/'RetunedGameActivity.java'
- edit(activity,'    private TouchOverlay touchOverlay;', '    private TouchOverlay touchOverlay;\n    private RetunedDualScreen dualScreen;')
+ declaration='    private RetunedDualScreen dualScreen;'
+ text=activity.read_text()
+ if declaration not in text:
+  edit(activity,'    private TouchOverlay touchOverlay;', '    private TouchOverlay touchOverlay;\n'+declaration)
+ elif text.count(declaration)>1:
+  first=text.index(declaration)+len(declaration)
+  activity.write_text(text[:first]+text[first:].replace(declaration+'\n',''))
  edit(activity,'        StartupDiagnostics.stage(this, "loading SDL and game libraries");','''        try {android.system.Os.setenv("RETUNED_SCREEN_PROBE","android-dual",true);android.system.Os.setenv("TRIAEVUM_VULKAN_PRESENT_DISPATCH","graphics",true);}catch(Exception e){throw new RuntimeException(e);}
         StartupDiagnostics.stage(this, "loading SDL and game libraries");''')
  edit(activity,'        retunedTextures=new TextureFolder(this);','        retunedTextures=new TextureFolder(this);\n        dualScreen=new RetunedDualScreen(this);')
