@@ -1,4 +1,5 @@
 import importlib.util
+import errno
 import json
 from pathlib import Path
 import tempfile
@@ -37,6 +38,34 @@ class RomSetupTransactions(unittest.TestCase):
         self.assertEqual((self.root / 'native-launch.json').read_bytes(), self.old_profile)
         self.assertFalse(list(self.root.glob('.rom-setup*')))
         self.unchanged()
+
+    def test_full_preparation_volume_reports_destination_and_preserves_game(self):
+        failed = self.root / 'new-output.bin'
+        with self.assertRaises(setup.SetupError) as caught:
+            with setup.installation_transaction(self.root) as (root, work):
+                (work / 'partial').write_bytes(b'partial')
+                raise OSError(errno.ENOSPC, 'No space left on device', str(failed))
+        message = str(caught.exception)
+        self.assertIn(str(failed), message)
+        self.assertIn('Preparation folder:', message)
+        self.assertIn('Temporary folder:', message)
+        self.assertIn('different drive', message)
+        self.assertFalse((self.root / '.rom-setup.lock').exists())
+        self.assertFalse(list(self.root.glob('.rom-setup-*')))
+        self.assertEqual((self.root / 'native-launch.json').read_bytes(), self.old_profile)
+        self.unchanged()
+
+    def test_storage_quota_and_unavailable_space_query(self):
+        error = OSError(getattr(errno, 'EDQUOT', errno.ENOSPC), 'Quota exceeded')
+        with patch.object(setup.shutil, 'disk_usage', side_effect=OSError('unavailable')):
+            message = setup.storage_error_message(error, self.root / 'not-created')
+        self.assertIn('quota', message)
+        self.assertIn('available space could not be checked', message)
+
+    def test_non_storage_errors_keep_their_original_type(self):
+        with self.assertRaises(PermissionError):
+            with setup.installation_transaction(self.root):
+                raise PermissionError(errno.EACCES, 'Denied')
 
     def test_simultaneous_setup_is_rejected_without_unlocking_first(self):
         with setup.installation_transaction(self.root):

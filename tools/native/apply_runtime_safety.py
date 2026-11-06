@@ -46,7 +46,7 @@ def apply(root):
 
     # Apply the checked-in, modified-file unified hunks by exact context. This
     # works with both Git checkouts and source archives, without touching refs.
-    for patch in ('startup-cleanup.patch', 'dsp-cache-requests.patch'):
+    for patch in ('startup-cleanup.patch', 'dsp-cache-requests.patch', 'vulkan-enumeration.patch'):
         lines = (Path(__file__).parent / 'upstream' / patch).read_text().splitlines(keepends=True)
         index, name = 0, None
         while index < len(lines):
@@ -88,6 +88,9 @@ def apply(root):
     for name, source in updates.items():
         path = root / name
         if path.read_text() != source: path.write_text(source)
+    enumeration = root / 'runtime/three_ds_recomp/include/fast/renderer3ds/retuned_vulkan_enumeration.h'
+    enumeration.parent.mkdir(parents=True, exist_ok=True)
+    enumeration.write_text((Path(__file__).parent / 'vulkan_enumeration.h').read_text())
 
 
 if __name__ == '__main__':

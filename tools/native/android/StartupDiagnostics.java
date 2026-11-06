@@ -6,7 +6,7 @@ import android.content.pm.*;
 import android.os.Build;
 import java.util.*;
 
-/** Local, deliberately restricted report: no paths, identifiers, saves or exception messages. */
+/** Local report containing checkpoints and recognized errors, without raw exception messages. */
 public final class StartupDiagnostics extends Application {
     static android.content.SharedPreferences prefs(Context c) { return c.getSharedPreferences("startup-diagnostics", 0); }
     static synchronized void stage(Context c, String stage) { prefs(c).edit().putString("stage", stage).commit(); }
@@ -15,11 +15,27 @@ public final class StartupDiagnostics extends Application {
             + ", vendor=0x" + Integer.toHexString(vendor) + ", driver=0x" + Integer.toHexString(driver);
         prefs(c).edit().putString("runtime_vulkan", value).commit();
     }
+    static void candidate(Context c, int api, int vendor, int driver) {
+        String value = ((api >>> 22) & 127) + "." + ((api >>> 12) & 1023) + "." + (api & 4095)
+            + ", vendor=0x" + Integer.toHexString(vendor) + ", driver=0x" + Integer.toHexString(driver);
+        String previous = prefs(c).getString("vulkan_candidates", "");
+        if (previous.length() < 1024) prefs(c).edit().putString("vulkan_candidates",
+            previous.isEmpty() ? value : previous + "\n" + value).commit();
+    }
+    static synchronized void nativeException(Context c, String message) {
+        String detail = StartupReport.nativeException(message);
+        nativeStage(c, 14);
+        prefs(c).edit().putString("failure", prefs(c).getString("failure", "")
+            + "\nNative error: " + detail
+            + "\nVulkan candidates:\n" + prefs(c).getString("vulkan_candidates", "not captured")).commit();
+    }
     static synchronized void nativeStage(Context c, int code) {
         String[] stages = {"native entry", "loading game module", "game runtime setup", "reading process manifest",
             "loading fonts and UI resources", "allocating guest memory", "guest memory allocated", "creating renderer context",
             "Vulkan instance/device initialization", "Vulkan swapchain/resources", "preparing shaders",
-            "starting guest execution", "guest initialization complete", "first frame processing", "native runtime exception"};
+            "starting guest execution", "guest initialization complete", "first frame processing", "native runtime exception",
+            "creating Vulkan instance", "creating Vulkan surface", "selecting Vulkan physical device",
+            "creating Vulkan logical device", "creating Vulkan pipeline cache", "creating Vulkan command resources"};
         if (code < 0 || code >= stages.length) return;
         String snapshot = "memory unavailable";
         try {
@@ -62,6 +78,7 @@ public final class StartupDiagnostics extends Application {
                             + "; these samples are not peak memory."
                             + "\nLast native stage: " + p.getString("native_stage", "not captured")
                             + "\nRuntime Vulkan: " + p.getString("runtime_vulkan", "not captured")
+                            + "\nVulkan candidates:\n" + p.getString("vulkan_candidates", "not captured")
                             + "\nStartup checkpoints:\n" + p.getString("native_history", "not captured");
                         if (reason == ApplicationExitInfo.REASON_CRASH_NATIVE && Build.VERSION.SDK_INT >= 31) {
                             try { failure += "\n" + NativeCrashReport.read(exit.getTraceInputStream()); }
@@ -76,7 +93,7 @@ public final class StartupDiagnostics extends Application {
         if (!failure.isEmpty() && p.getLong("java_session", -1) == previous)
             failure += "\n" + p.getString("java_failure", "");
         android.content.SharedPreferences.Editor edit = p.edit().putLong("session", System.currentTimeMillis())
-            .remove("native_stage").remove("native_history").remove("runtime_vulkan");
+            .remove("native_stage").remove("native_history").remove("runtime_vulkan").remove("vulkan_candidates");
         if (!failure.isEmpty()) edit.putString("failure", failure).putBoolean("pending", true);
         edit.commit();
         Thread.UncaughtExceptionHandler previousHandler = Thread.getDefaultUncaughtExceptionHandler();
@@ -122,6 +139,7 @@ public final class StartupDiagnostics extends Application {
             .append("\nCurrent stage: ").append(prefs(c).getString("stage", "unknown"))
             .append("\nCurrent native stage: ").append(prefs(c).getString("native_stage", "not captured"))
             .append("\nRuntime Vulkan: ").append(prefs(c).getString("runtime_vulkan", "not captured"))
+            .append("\nVulkan candidates:\n").append(prefs(c).getString("vulkan_candidates", "not captured"))
             .append("\nPrevious failure: ").append(prefs(c).getString("failure", "No failure captured. Android 10 cannot report prior native exit reasons."));
         return out.toString();
     }

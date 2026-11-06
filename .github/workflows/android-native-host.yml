@@ -1,4 +1,4 @@
-name: Android native host prototype
+name: Android native host
 on:
   workflow_dispatch:
 permissions:
@@ -45,6 +45,9 @@ jobs:
           python tools/reframed/apply_renderer_port.py engine
           python tools/native/apply_audio_port.py engine
           python tools/frontend/apply_frontend_port.py engine
+          python tools/native/prepare_android_app.py engine
+          python tools/native/android/apply_dual_screen_probe.py engine
+          PYTHONPATH=tools/native:tools/reframed:tools/frontend python -c 'from pathlib import Path; from apply_mobile_frontend import apply; apply(Path("engine"))'
       - name: Check packed integer vertex inputs
         run: |
           c++ -std=c++20 -I engine/runtime/three_ds_recomp/include tests/pica_vertex_packing.cpp engine/runtime/three_ds_recomp/src/fast/oot3d/pica_nri_vertex_input.cpp -o vertex-packing-test
@@ -105,6 +108,7 @@ jobs:
           name: Ocarina-ReTuned-Native-Android-arm64-${{ github.sha }}
           path: artifacts/Ocarina-ReTuned-Native-Android-arm64.tar.gz
           if-no-files-found: error
+          retention-days: 1
       - uses: actions/cache/save@v5
         if: always() && steps.native_cache.outputs.cache-hit != 'true'
         with:

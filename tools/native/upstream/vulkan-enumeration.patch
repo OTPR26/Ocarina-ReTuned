@@ -1,0 +1,101 @@
+--- a/runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_device.cpp
++++ b/runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_device.cpp
+@@ -3,4 +3,5 @@
+ #ifdef ENABLE_OOT3D_VULKAN
+ #include "gfx_vulkan_internal.h"
++#include "fast/renderer3ds/retuned_vulkan_enumeration.h"
+ #include "fast/renderer3ds/vulkan_commands.h"
+ 
+@@ -55,9 +56,8 @@
+         mNgxVulkanUnavailableReason += extension;
+     };
+-    uint32_t availableCount = 0;
+-    vkEnumerateInstanceExtensionProperties(nullptr, &availableCount, nullptr);
+-    std::vector<VkExtensionProperties> available(availableCount);
+-    vkEnumerateInstanceExtensionProperties(
+-        nullptr, &availableCount, available.data());
++    const auto available = RetunedVulkan::Enumerate<VkExtensionProperties>(
++        "vkEnumerateInstanceExtensionProperties", [&](uint32_t* count, VkExtensionProperties* values) {
++            return vkEnumerateInstanceExtensionProperties(nullptr, count, values);
++        });
+     for (const std::string& required : ngxRequirements.InstanceExtensions) {
+         const bool supported = std::any_of(
+@@ -124,12 +124,11 @@
+ 
+ void GfxRenderingAPIVulkan::PickPhysicalDevice() {
+-    uint32_t deviceCount = 0;
+-    CheckVk(vkEnumeratePhysicalDevices(mInstance, &deviceCount, nullptr), "vkEnumeratePhysicalDevices");
+-    if (deviceCount == 0) {
++    const auto devices = RetunedVulkan::Enumerate<VkPhysicalDevice>(
++        "vkEnumeratePhysicalDevices", [&](uint32_t* count, VkPhysicalDevice* values) {
++            return vkEnumeratePhysicalDevices(mInstance, count, values);
++        });
++    if (devices.empty()) {
+         throw std::runtime_error("no Vulkan physical device is available");
+     }
+-    std::vector<VkPhysicalDevice> devices(deviceCount);
+-    CheckVk(vkEnumeratePhysicalDevices(mInstance, &deviceCount, devices.data()),
+-            "vkEnumeratePhysicalDevices");
+ 
+     std::vector<Oot3d::VulkanAdapterCandidate> candidates;
+@@ -283,11 +282,8 @@
+         queueInfos.push_back(queueInfo);
+     }
+-    uint32_t extensionCount = 0;
+-    CheckVk(vkEnumerateDeviceExtensionProperties(mPhysicalDevice, nullptr, &extensionCount, nullptr),
+-            "vkEnumerateDeviceExtensionProperties");
+-    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+-    CheckVk(vkEnumerateDeviceExtensionProperties(mPhysicalDevice, nullptr, &extensionCount,
+-                                                  availableExtensions.data()),
+-            "vkEnumerateDeviceExtensionProperties");
++    const auto availableExtensions = RetunedVulkan::Enumerate<VkExtensionProperties>(
++        "vkEnumerateDeviceExtensionProperties", [&](uint32_t* count, VkExtensionProperties* values) {
++            return vkEnumerateDeviceExtensionProperties(mPhysicalDevice, nullptr, count, values);
++        });
+     const auto hasExtension = [&](const char* name) {
+         return std::any_of(availableExtensions.begin(), availableExtensions.end(),
+@@ -1298,32 +1294,20 @@
+     CheckVk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, mSurface, &result.Capabilities),
+             "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
+-    uint32_t formatCount = 0;
+-    CheckVk(vkGetPhysicalDeviceSurfaceFormatsKHR(device, mSurface, &formatCount, nullptr),
+-            "vkGetPhysicalDeviceSurfaceFormatsKHR(count)");
+-    result.Formats.resize(formatCount);
+-    if (formatCount > 0) {
+-        CheckVk(vkGetPhysicalDeviceSurfaceFormatsKHR(device, mSurface, &formatCount,
+-                                                     result.Formats.data()),
+-                "vkGetPhysicalDeviceSurfaceFormatsKHR");
+-    }
+-    uint32_t modeCount = 0;
+-    CheckVk(vkGetPhysicalDeviceSurfacePresentModesKHR(device, mSurface, &modeCount, nullptr),
+-            "vkGetPhysicalDeviceSurfacePresentModesKHR(count)");
+-    result.PresentModes.resize(modeCount);
+-    if (modeCount > 0) {
+-        CheckVk(vkGetPhysicalDeviceSurfacePresentModesKHR(device, mSurface, &modeCount,
+-                                                          result.PresentModes.data()),
+-                "vkGetPhysicalDeviceSurfacePresentModesKHR");
+-    }
++    result.Formats = RetunedVulkan::Enumerate<VkSurfaceFormatKHR>(
++        "vkGetPhysicalDeviceSurfaceFormatsKHR", [&](uint32_t* count, VkSurfaceFormatKHR* values) {
++            return vkGetPhysicalDeviceSurfaceFormatsKHR(device, mSurface, count, values);
++        });
++    result.PresentModes = RetunedVulkan::Enumerate<VkPresentModeKHR>(
++        "vkGetPhysicalDeviceSurfacePresentModesKHR", [&](uint32_t* count, VkPresentModeKHR* values) {
++            return vkGetPhysicalDeviceSurfacePresentModesKHR(device, mSurface, count, values);
++        });
+     return result;
+ }
+ 
+ bool GfxRenderingAPIVulkan::DeviceSupportsSwapchain(VkPhysicalDevice device) const {
+-    uint32_t extensionCount = 0;
+-    CheckVk(vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr),
+-            "vkEnumerateDeviceExtensionProperties(count)");
+-    std::vector<VkExtensionProperties> extensions(extensionCount);
+-    CheckVk(vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, extensions.data()),
+-            "vkEnumerateDeviceExtensionProperties");
++    const auto extensions = RetunedVulkan::Enumerate<VkExtensionProperties>(
++        "vkEnumerateDeviceExtensionProperties", [&](uint32_t* count, VkExtensionProperties* values) {
++            return vkEnumerateDeviceExtensionProperties(device, nullptr, count, values);
++        });
+     return std::any_of(extensions.begin(), extensions.end(), [](const VkExtensionProperties& extension) {
+         return std::strcmp(extension.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0;

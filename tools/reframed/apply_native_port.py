@@ -14,6 +14,13 @@ def edit(path, before, after):
     path.write_text(source.replace(before, after))
 
 
+def apply_controller_trigger_tests(engine):
+    tests = Path(engine) / 'tools/three_ds/input/three_ds_sdl_controller_tests.cpp'
+    addition = Path(__file__).with_name('controller_trigger_tests.cpp.inc').read_text()
+    point = '    SampleSdlController(controller, state, false);'
+    edit(tests, point, addition + point)
+
+
 def apply_plugin_exports(engine):
     """Keep Windows ABI declarations consistent with the exported adapter definitions."""
     host = Path(engine) / 'tools/oot3d/native_game_runtime'
@@ -109,6 +116,7 @@ def apply(engine):
     actual = subprocess.check_output(['git', '-C', str(engine), 'rev-parse', 'HEAD'], text=True).strip()
     if actual != '17218b0cfdb944645bb5cde5249f313dca7e53ce':
         raise ValueError('Unexpected native runtime revision')
+    apply_controller_trigger_tests(engine)
     root = Path(engine) / 'tools/oot3d/native_a32_runtime'
     apply_translation_support(engine)
     apply_worker_exit(engine)
@@ -156,6 +164,11 @@ def apply(engine):
     test_source = Path(__file__).with_name('irst_tests.cpp.inc').read_text()
     if 'void TestReframedIrst()' not in tests.read_text():
         edit(tests, 'int main() {', test_source + '\nint main() {\n    TestReframedIrst();')
+    else:
+        source = tests.read_text()
+        start = source.index('void TestReframedIrst()')
+        end = source.index('\n}', start) + 2
+        tests.write_text(source[:start] + test_source.rstrip() + source[end:])
     query_tests = Path(__file__).with_name('query_memory_tests.cpp.inc').read_text()
     if 'void TestReframedQueryMemory()' not in tests.read_text():
         edit(tests, 'int main() {', query_tests + '\nint main() {\n    TestReframedQueryMemory();')

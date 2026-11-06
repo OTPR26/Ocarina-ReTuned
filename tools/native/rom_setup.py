@@ -9,6 +9,7 @@ may require the platform tools described in their setup instructions.
 from __future__ import annotations
 
 import argparse
+import errno
 from contextlib import contextmanager
 import hashlib
 import gc
@@ -158,6 +159,30 @@ def load_module(name, path):
     return module
 
 
+def storage_error_message(error, data_root):
+    """Identify the write volume, which may differ from the selected ROM volume."""
+    if not isinstance(error, OSError) or error.errno not in (errno.ENOSPC, getattr(errno, 'EDQUOT', errno.ENOSPC)):
+        return str(error)
+    root = Path(data_root).expanduser().absolute()
+    locations = [('Preparation folder', root), ('Temporary folder', Path(tempfile.gettempdir()))]
+    if error.filename:
+        locations.insert(0, ('Failed write', Path(os.fsdecode(error.filename)).absolute()))
+    message = ['Preparation ran out of storage space or exceeded a storage quota.']
+    for label, location in locations:
+        try:
+            probe = location
+            while not probe.exists() and probe != probe.parent:
+                probe = probe.parent
+            if probe.is_file():
+                probe = probe.parent
+            free = f'{shutil.disk_usage(probe).free / 1048576:.0f} MiB available'
+        except OSError:
+            free = 'available space could not be checked'
+        message.append(f'{label}: {location} ({free})')
+    message.append('The ROM may be on a different drive. Check free space and quotas on the preparation and temporary drives.')
+    return '\n'.join(message)
+
+
 @contextmanager
 def installation_transaction(data_root):
     """Serialize setup and never expose partially prepared game data.
@@ -167,19 +192,24 @@ def installation_transaction(data_root):
     application explains how to remove its stale lock.
     """
     root = Path(data_root).expanduser().absolute()
-    root.mkdir(parents=True, exist_ok=True)
-    lock = root / '.rom-setup.lock'
     try:
-        descriptor = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    except FileExistsError as error:
-        raise SetupError('Another setup is running. If it was interrupted, close the app and remove .rom-setup.lock before retrying.') from error
-    try:
-        with os.fdopen(descriptor, 'w') as stream:
-            json.dump({'pid': os.getpid(), 'started': time.time()}, stream)
-        with tempfile.TemporaryDirectory(prefix='.rom-setup-', dir=root) as temporary:
-            yield root, Path(temporary)
-    finally:
-        lock.unlink(missing_ok=True)
+        root.mkdir(parents=True, exist_ok=True)
+        lock = root / '.rom-setup.lock'
+        try:
+            descriptor = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError as error:
+            raise SetupError('Another setup is running. If it was interrupted, close the app and remove .rom-setup.lock before retrying.') from error
+        try:
+            with os.fdopen(descriptor, 'w') as stream:
+                json.dump({'pid': os.getpid(), 'started': time.time()}, stream)
+            with tempfile.TemporaryDirectory(prefix='.rom-setup-', dir=root) as temporary:
+                yield root, Path(temporary)
+        finally:
+            lock.unlink(missing_ok=True)
+    except OSError as error:
+        if error.errno not in (errno.ENOSPC, getattr(errno, 'EDQUOT', errno.ENOSPC)):
+            raise
+        raise SetupError(storage_error_message(error, root)) from error
 
 
 def activate(root, stage, installation_id, make_profile, profile_root=None):
@@ -725,7 +755,7 @@ def main():
         else:
             setup.prepare(args.rom, args.data_root)
     except (OSError, ValueError, subprocess.SubprocessError) as error:
-        progress({'stage': 'error', 'message': str(error)})
+        progress({'stage': 'error', 'message': storage_error_message(error, args.data_root or tempfile.gettempdir())})
         return 1
     return 0
 

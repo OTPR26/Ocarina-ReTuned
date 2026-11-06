@@ -27,8 +27,12 @@ def apply(engine):
     mark(native + 'oot3d_native_game.cpp',
          '        if (!Oot3dNativeGame::Oot3dWholeAotPluginV2Available()) {',
          '        RetunedStartupStage(1);\n        if (!Oot3dNativeGame::Oot3dWholeAotPluginV2Available()) {')
+    entry = engine / native / 'oot3d_native_game.cpp'
+    entry.write_text(entry.read_text().replace(
+        '    } catch (const std::exception& ex) {\n        RetunedStartupStage(14);',
+        '    } catch (const std::exception& ex) {'))
     mark(native + 'oot3d_native_game.cpp', '    } catch (const std::exception& ex) {',
-         '    } catch (const std::exception& ex) {\n        RetunedStartupStage(14);')
+         '    } catch (const std::exception& ex) {\n        RetunedStartupException(ex.what());')
     mark(setup, 'void NativeA32WindowSession::Setup() {',
          'void NativeA32WindowSession::Setup() {\n  RetunedStartupStage(2);')
     mark(setup, '  manifest = Oot3dNativeGame::LoadNativeA32ProcessImageManifest(',
@@ -46,9 +50,18 @@ def apply(engine):
     mark(setup, '    processResult =\n        RunUntilGuestWait(process, launch.WholeAotBlockBudget);',
          '    RetunedStartupStage(11);\n    processResult =\n        RunUntilGuestWait(process, launch.WholeAotBlockBudget);\n    RetunedStartupStage(12);')
     vulkan = 'runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_lifecycle.cpp'
-    mark(vulkan, '    CreateInstance();', '    RetunedStartupStage(8);\n    CreateInstance();')
+    lifecycle = engine / vulkan
+    lifecycle.write_text(lifecycle.read_text().replace('    RetunedStartupStage(8);\n', '')
+                        .replace('    RetunedStartupStage(15);\n', ''))
     mark(vulkan, '    CreateSwapchainResources();',
          '    RetunedStartupStage(9);\n    CreateSwapchainResources();')
+    for code, operation in enumerate(('CreateInstance', 'CreateSurface', 'PickPhysicalDevice',
+                                      'CreateLogicalDevice', 'CreatePipelineCache', 'CreateCommandResources'), 15):
+        mark(vulkan, f'    {operation}();', f'    RetunedStartupStage({code});\n    {operation}();')
+    mark('runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_device.cpp',
+         '        Oot3d::VulkanAdapterClass adapterClass =',
+         '        RetunedStartupCandidate(properties.apiVersion, properties.vendorID, properties.driverVersion);\n'
+         '        Oot3d::VulkanAdapterClass adapterClass =')
     mark('runtime/three_ds_recomp/src/fast/backends/gfx_vulkan_device.cpp',
          '    // Release logs keep warnings only; the device is what a tester\'s report',
          '    RetunedStartupGraphics(properties.apiVersion, properties.vendorID, properties.driverVersion);\n'

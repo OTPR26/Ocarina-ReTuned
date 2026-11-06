@@ -30,6 +30,8 @@ def apply(root: Path):
         if text.count(entry)!=1:raise ValueError('Input update entry changed')
         text=text.replace(entry,entry+'\n'+sample)
     p.write_text(text)
+    from apply_minimap_toggle import apply as apply_minimap_toggle
+    apply_minimap_toggle(root)
     p=root/'src/native_hud.c';text=p.read_text()
     if '#include "manual_jump_hud.h"' not in text:
         text='#include "manual_jump.h"\n#include "manual_jump_hud.h"\n'+text

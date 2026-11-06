@@ -43,19 +43,28 @@ void TestReframedIrst() {
     state.r[3] = 0x10000000;
     Require(host.HandleSvc(0x1F, state, memory, context).Action == NativeA32HostAction::Resume,
             "map IRRST readonly shared memory");
-    for (uint32_t i = 0; i < 17; ++i) {
+    constexpr uint32_t shoulders[] = {0, 1U << 14U, 1U << 14U, 0,
+        1U << 15U, 1U << 15U, 3U << 14U, 1U << 14U, 0};
+    uint32_t previousHeld = 0;
+    for (uint32_t i = 0; i < 27; ++i) {
+        const uint32_t expected = shoulders[i % 9];
         host.AdvanceSystemTicks(100);
-        Require(host.WriteIrstSample(memory, 154, -100, i % 2 ? 0U : 1U << 14U),
+        Require(host.WriteIrstSample(memory, 154, -100, expected),
                 "publish IRRST sample");
         uint32_t index = 0, held = 0;
         uint16_t x = 0, y = 0;
         Require(memory.Read32(0x10000010, &index) && index == (i + 1) % 8,
                 "IRRST ring index wraps");
         const uint32_t entry = 0x10000018 + index * 16;
-        Require(memory.Read32(entry, &held) && held == (i % 2 ? 0U : 1U << 14U) &&
+        Require(memory.Read32(entry, &held) && held == expected &&
                 memory.Read16(entry + 12, &x) && x == 154 &&
                 memory.Read16(entry + 14, &y) && static_cast<int16_t>(y) == -100,
                 "IRRST axes and shoulder states");
+        uint32_t pressed = 0, released = 0;
+        Require(memory.Read32(entry + 4, &pressed) && pressed == (expected & ~previousHeld) &&
+                memory.Read32(entry + 8, &released) && released == (previousHeld & ~expected),
+                "IRRST keeps ZL and ZR press/release edges independent");
+        previousHeld = expected;
         uint64_t tick = 0, previous = 0;
         Require(memory.Read64(0x10000000, &tick, nullptr) && memory.Read64(0x10000008, &previous, nullptr) && tick != previous,
                 "IRRST update timestamps stay distinguishable");

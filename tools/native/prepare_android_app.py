@@ -32,12 +32,12 @@ def prepare(engine, private_kit=None, preparation_native_stage=None):
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
     text = gradle.read_text()
-    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9', '2.6.0'):
-        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.6.1"')
-    if 'versionName = "0.6.1"' not in text:
+    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9', '2.6.0', '0.6.1'):
+        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.6.2"')
+    if 'versionName = "0.6.2"' not in text:
         raise ValueError('Android Preview version context changed')
-    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 15', text)
-    if 'versionCode = 15' not in text: raise ValueError('Android version code context changed')
+    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 16', text)
+    if 'versionCode = 16' not in text: raise ValueError('Android version code context changed')
     gradle.write_text(text)
     shutil.copy2(Path(__file__).with_name('preparation_identity.py'), root/'preparation_identity.py')
     shutil.copy2(Path(__file__).with_name('android_runtime.py'), root/'android_runtime.py')
@@ -165,6 +165,10 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     if 'void retunedStartupGraphics(int api' not in text:
         text = text.replace('    private TextureFolder retunedTextures;',
             '    public void retunedStartupGraphics(int api,int vendor,int driver){StartupDiagnostics.graphics(this,api,vendor,driver);}\n    private TextureFolder retunedTextures;')
+    for signature, method in (
+        ('void retunedStartupException(', '    public void retunedStartupException(String message){StartupDiagnostics.nativeException(this,message);}'),
+        ('void retunedStartupCandidate(', '    public void retunedStartupCandidate(int api,int vendor,int driver){StartupDiagnostics.candidate(this,api,vendor,driver);}')):
+        if signature not in text:text=text.replace('    private TextureFolder retunedTextures;', method+'\n    private TextureFolder retunedTextures;')
     for signature, method in (
         ('void retunedSaveCommitted()', '    public void retunedSaveCommitted(){SaveFiles.committed(this);}'),
         ('void retunedOpenSaveFiles(', '    public void retunedOpenSaveFiles(String action){SaveFiles.open(this,action);}'),

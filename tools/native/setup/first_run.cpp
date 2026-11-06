@@ -314,7 +314,10 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
         const float margin=40;ImGui::SetCursorPos({margin,50});ImGui::PushFont(heading);ImGui::TextUnformatted("Ocarina ReTuned");ImGui::PopFont();
         if(art){ImGui::SetCursorPos({io.DisplaySize.x-180,35});ImGui::Image((ImTextureID)(intptr_t)art,{140,140});}
         ImGui::SetCursorPos({margin,120});ImGui::TextUnformatted(existingReady?"Update game preparation":"First-time setup");ImGui::Spacing();
-        ImGui::SetCursorPosX(margin);ImGui::PushTextWrapPos(io.DisplaySize.x-margin);ImGui::TextUnformatted(status.c_str());ImGui::PopTextWrapPos();
+        ImGui::SetCursorPosX(margin);
+        if(ImGui::BeginChild("Setup status",{io.DisplaySize.x-margin*2,running?38.f:120.f},false))
+            ImGui::TextWrapped("%s",status.c_str());
+        ImGui::EndChild();
         if(running){
             ImGui::SetCursorPos({margin,185});
             ImGui::ProgressBar(static_cast<float>(preparationStep-1)/9.f,{io.DisplaySize.x-margin*2,12},"");
