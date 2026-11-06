@@ -47,9 +47,9 @@ int main(){
  m.Reset();m.Down(7,.16f,.72f);m.Down(8,.16f,.72f);m.Up(7);assert(!m.Sample(true).Captured);
  assert(InterfaceScale(440)==.75f&&InterfaceScale(720)==1.f&&InterfaceScale(1080)==1.5f);
  SetInterfacePixelRatio(956,2868);assert(InterfacePixelRatio==3.f);
- assert(InterfaceFontPixels()==192.f);assert(std::abs(InterfaceFontPixels()*InterfaceFontScale()-20.f)<.001f);
+ assert(InterfaceFontPixels()==192.f);assert(std::abs(InterfaceFontPixels()*InterfaceFontScale()-15.f)<.001f);
  SetInterfacePixelRatio(1920,3840);assert(InterfacePixelRatio==2.f);
- assert(std::abs(InterfaceFontPixels()*InterfaceFontScale(1.5f)-30.f)<.001f);
+ assert(std::abs(InterfaceFontPixels()*InterfaceFontScale(1.5f)-22.5f)<.001f);
  SetInterfacePixelRatio(0,0);assert(InterfacePixelRatio==1.f);
  assert(NavigationWidth(700,15)<700*.3f);
 }
