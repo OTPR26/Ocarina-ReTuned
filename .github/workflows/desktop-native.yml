@@ -5,7 +5,7 @@ on:
       platform:
         type: choice
         default: both
-        options: [both, windows, linux]
+        options: [both, windows, linux, linux-arm64]
 permissions:
   contents: read
 concurrency:
@@ -13,9 +13,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   linux:
-    name: Linux x86_64
+    name: Linux ${{ inputs.platform == 'linux-arm64' && 'ARM64' || 'x86_64' }}
     if: inputs.platform != 'windows'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ inputs.platform == 'linux-arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v6
@@ -28,14 +28,14 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.cache/ccache
-          key: retuned-linux-x64-v1-${{ github.sha }}
-          restore-keys: retuned-linux-x64-v1-
+          key: retuned-linux-${{ inputs.platform == 'linux-arm64' && 'arm64' || 'x64' }}-v1-${{ github.sha }}
+          restore-keys: retuned-linux-${{ inputs.platform == 'linux-arm64' && 'arm64' || 'x64' }}-v1-
       - name: Install build dependencies
         run: |
           curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor | sudo tee /usr/share/keyrings/llvm-archive-keyring.gpg >/dev/null
           echo 'deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-20 main' | sudo tee /etc/apt/sources.list.d/llvm20.list
           sudo apt-get update
-          sudo apt-get install -y clang-20 ninja-build ccache g++-14 libvulkan-dev libshaderc-dev libsdl2-dev libglew-dev libzip-dev zipcmp zipmerge ziptool libpng-dev nlohmann-json3-dev libtinyxml2-dev libspdlog-dev libogg-dev libvorbis-dev libopus-dev libopusfile-dev libgl1-mesa-dev patchelf
+          sudo apt-get install -y clang-20 ninja-build ccache g++-14 libvulkan-dev libshaderc-dev libsdl2-dev libglew-dev libzip-dev zipcmp zipmerge ziptool libpng-dev nlohmann-json3-dev libtinyxml2-dev libspdlog-dev libogg-dev libvorbis-dev libopus-dev libopusfile-dev libgl1-mesa-dev patchelf libpipewire-0.3-dev libpipewire-0.3-modules libspa-0.2-modules
       - name: Apply shared port
         run: |
           python3 tools/native/apply_desktop_port.py engine
@@ -74,12 +74,13 @@ jobs:
         run: python3 tools/native/stage_desktop_host.py --platform linux --engine engine --build build/runtime --output artifacts
       - uses: actions/upload-artifact@v7
         with:
-          name: Ocarina-ReTuned-Native-Linux-x86_64-${{ github.sha }}
+          name: Ocarina-ReTuned-Native-Linux-${{ inputs.platform == 'linux-arm64' && 'ARM64' || 'x86_64' }}-${{ github.sha }}
           path: artifacts/*
           if-no-files-found: error
+          retention-days: 1
   windows:
     name: Windows x64
-    if: inputs.platform != 'linux'
+    if: inputs.platform == 'windows' || inputs.platform == 'both'
     runs-on: windows-2022
     timeout-minutes: 180
     env:
@@ -175,6 +176,7 @@ jobs:
           name: Ocarina-ReTuned-Native-Windows-x64-${{ github.sha }}
           path: artifacts/*
           if-no-files-found: error
+          retention-days: 1
       - uses: actions/cache/save@v5
         if: always() && steps.vcpkg_cache.outputs.cache-hit != 'true'
         with:

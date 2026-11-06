@@ -16,7 +16,8 @@ def apply(engine):
     marker = '#include "fast/oot3d/retuned_game_save.h"\n'
     if marker not in frame.read_text():
         frame.write_text(marker + frame.read_text())
-    injection = (here / 'game_save_input.cpp.inc').read_text()
+    dual_active = 'RetunedFrontend::ProbeGuestDualActive.load()' if (include/'retuned_screen_probe.h').exists() else 'false'
+    injection = (here / 'game_save_input.cpp.inc').read_text().replace('RetunedFrontend::ProbeGuestDualActive.load()', dual_active)
     contents=frame.read_text()
     anchor='  if (!inputTimeline.Enabled()) {'
     marker='  // Deliver the native Save input after the Settings shortcut is consumed.'
@@ -30,13 +31,18 @@ def apply(engine):
     if marker not in graphics.read_text():
         graphics.write_text(marker + graphics.read_text())
     marker = '#include "fast/oot3d/retuned_screen_probe.h"\n'
-    if marker not in graphics.read_text():
-        graphics.write_text(marker + graphics.read_text())
+    if (include/'retuned_screen_probe.h').exists():
+        if marker not in graphics.read_text():
+            graphics.write_text(marker + graphics.read_text())
+    else:
+        graphics.write_text(graphics.read_text().replace(marker, ''))
     gui = root / 'runtime/three_ds_recomp/src/fast/Fast3dGui.cpp'
     marker = '#include "fast/oot3d/retuned_game_save.h"\n'
     if marker not in gui.read_text():
         gui.write_text(marker + gui.read_text())
+    if dual_active == 'false':
+        graphics.write_text(graphics.read_text().replace('RetunedFrontend::DrawDualGameSave(RetunedFrontend::ProbeGuestDualActive.load(),', 'RetunedFrontend::DrawDualGameSave(false,'))
     edit(graphics, '      case SettingsPage::General: {\n',
          '      case SettingsPage::General: {\n'
-         '        RetunedFrontend::DrawDualGameSave(RetunedFrontend::ProbeGuestDualActive.load(),!RetunedFrontend::StartupVisible);\n')
+         '        RetunedFrontend::DrawDualGameSave(' + dual_active + ',!RetunedFrontend::StartupVisible);\n')
 

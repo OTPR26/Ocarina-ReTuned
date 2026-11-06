@@ -57,6 +57,9 @@ int main(){using namespace RetunedFrontend;
             gui=root/'runtime/three_ds_recomp/src/fast/Fast3dGui.cpp'
             gui.parent.mkdir(parents=True,exist_ok=True)
             gui.write_text('/* existing GUI */\n')
+            probe=root/'runtime/three_ds_recomp/include/fast/oot3d/retuned_screen_probe.h'
+            probe.parent.mkdir(parents=True)
+            probe.write_text('// Dual-display backend is present.\n')
             apply(root)
             first=frame.read_text(),graphics.read_text()
             apply(root)
@@ -65,3 +68,13 @@ int main(){using namespace RetunedFrontend;
             self.assertLess(first[0].index('GameSave.Take'),first[0].index('ObserveNativeA32PolledButton'))
             self.assertIn('AndroidAndDuoControls();',first[1])
             self.assertEqual(first[1].count('DrawDualGameSave('),1)
+
+            self.assertIn('DrawDualGameSave(RetunedFrontend::ProbeGuestDualActive.load(),', first[1])
+            probe.unlink()
+            apply(root)
+            self.assertNotIn('retuned_screen_probe.h', graphics.read_text())
+            self.assertIn('DrawDualGameSave(false,', graphics.read_text())
+            self.assertNotIn('ProbeGuestDualActive', frame.read_text())
+            single=frame.read_text(),graphics.read_text()
+            apply(root)
+            self.assertEqual(single,(frame.read_text(),graphics.read_text()))
