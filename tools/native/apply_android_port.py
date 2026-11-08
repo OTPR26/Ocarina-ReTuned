@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 import subprocess
 from apply_common_port import apply as apply_common
+from apply_android_clock import apply as apply_android_clock
 
 REVISION = '17218b0cfdb944645bb5cde5249f313dca7e53ce'
 
@@ -13,6 +14,7 @@ def apply(root):
     if subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
         raise ValueError('Unexpected native runtime revision.')
     apply_common(root)
+    apply_android_clock(root)
     window=root/'runtime/three_ds_recomp/src/fast/backends/gfx_sdl2.cpp'
     def mobile_window(before,after):
         value=window.read_text()
