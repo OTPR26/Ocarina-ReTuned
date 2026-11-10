@@ -81,6 +81,11 @@ final class GraphicsDriver {
         String error = initialize(context.getApplicationInfo().nativeLibraryDir, paths[0], paths[1]);
         if (!error.isEmpty()) throw new IOException(error);
         loadedId=record.optString("id");
+        if(context.getPackageName().equals(android.app.Application.getProcessName())) {
+            String active=loadedId.isEmpty()?"System driver":loadedId;
+            StartupDiagnostics.prefs(context).edit().putString("active_driver",active).commit();
+            android.util.Log.i("ReTunedDriver","Loaded driver: "+active);
+        }
     }
     static String name(Context context) {
         try { return read(context).optString("name", "System driver"); }

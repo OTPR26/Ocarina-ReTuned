@@ -11,6 +11,9 @@ final class StartupReport {
         if (message.contains("needs Vulkan 1.2") || message.contains("requires Vulkan 1.2"))
             return "The renderer requires Vulkan 1.2 or newer; the candidate device does not meet this requirement.";
         String[] recognized = {
+            "native PICA texture exceeds the per-frame upload arena",
+            "native PICA texture upload size is invalid",
+            "native PICA texture upload region is invalid",
             "no Vulkan physical device is available",
             "no Vulkan adapter supports graphics, presentation and swapchain",
             "Vulkan renderer was paired with a non-Vulkan SDL backend",

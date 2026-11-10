@@ -7,10 +7,12 @@ from apply_font_choices import apply as apply_font_choices
 from apply_nri_lifetime import apply as apply_nri_lifetime
 from apply_spirv_embedding import apply as apply_spirv_embedding
 from apply_runtime_safety import apply as apply_runtime_safety
+from apply_vulkan_texture_upload import apply as apply_vulkan_texture_upload
 
 
 def apply(root):
     apply_runtime_safety(root)
+    apply_vulkan_texture_upload(root)
     apply_nri_lifetime(root)
     apply_spirv_embedding(root)
     apply_neutral_shaders(root)

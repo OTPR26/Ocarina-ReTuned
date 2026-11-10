@@ -19,6 +19,8 @@ public final class StartupReportCheck {
             String safe = StartupReport.nativeException(message);
             if (!safe.equals("Unclassified native exception; message omitted.")) throw new AssertionError(safe);
         }
+        String staging = StartupReport.nativeException("native PICA scheduled presentation failed: native PICA texture exceeds the per-frame upload arena /private/person");
+        if (!staging.equals("native PICA texture exceeds the per-frame upload arena")) throw new AssertionError(staging);
         String loader = StartupReport.exception(new UnsatisfiedLinkError(
             "dlopen failed: cannot locate symbol \"__aarch64_ldadd4_acq_rel\" referenced by /private/person/secret.so"));
         if (!loader.contains("Missing native symbol: __aarch64_ldadd4_acq_rel") || loader.contains("/private") || loader.contains("secret.so")) throw new AssertionError(loader);

@@ -55,6 +55,7 @@ public final class StartupDiagnostics extends Application {
             .putString("native_stage", stages[code]).putString("native_history", history.toString());
         if (code == 14) edit.putBoolean("pending", true).putString("failure",
             "Native runtime returned an exception.\nLast native stage: " + p.getString("native_stage", "not captured")
+                + "\nLoaded graphics driver: " + p.getString("active_driver", "not captured")
                 + "\nRuntime Vulkan: " + p.getString("runtime_vulkan", "not captured")
                 + "\nStartup checkpoints:\n" + history);
         edit.commit();
@@ -77,6 +78,7 @@ public final class StartupDiagnostics extends Application {
                             + "\nLast sampled exit PSS KiB=" + exit.getPss() + ", RSS KiB=" + exit.getRss()
                             + "; these samples are not peak memory."
                             + "\nLast native stage: " + p.getString("native_stage", "not captured")
+                            + "\nLoaded graphics driver: " + p.getString("active_driver", "not captured")
                             + "\nRuntime Vulkan: " + p.getString("runtime_vulkan", "not captured")
                             + "\nVulkan candidates:\n" + p.getString("vulkan_candidates", "not captured")
                             + "\nStartup checkpoints:\n" + p.getString("native_history", "not captured");
@@ -93,7 +95,7 @@ public final class StartupDiagnostics extends Application {
         if (!failure.isEmpty() && p.getLong("java_session", -1) == previous)
             failure += "\n" + p.getString("java_failure", "");
         android.content.SharedPreferences.Editor edit = p.edit().putLong("session", System.currentTimeMillis())
-            .remove("native_stage").remove("native_history").remove("runtime_vulkan").remove("vulkan_candidates");
+            .remove("active_driver").remove("native_stage").remove("native_history").remove("runtime_vulkan").remove("vulkan_candidates");
         if (!failure.isEmpty()) edit.putString("failure", failure).putBoolean("pending", true);
         edit.commit();
         Thread.UncaughtExceptionHandler previousHandler = Thread.getDefaultUncaughtExceptionHandler();
@@ -136,6 +138,7 @@ public final class StartupDiagnostics extends Application {
         }
         out.append("\nVulkan values are system-advertised capabilities, not a driver test.")
             .append("\nSelected graphics driver: ").append(GraphicsDriver.name(c))
+            .append("\nLoaded graphics driver: ").append(prefs(c).getString("active_driver", "not captured"))
             .append("\nROM prepared: ").append(RomSetupActivity.ready(c))
             .append("\nCurrent stage: ").append(prefs(c).getString("stage", "unknown"))
             .append("\nCurrent native stage: ").append(prefs(c).getString("native_stage", "not captured"))
