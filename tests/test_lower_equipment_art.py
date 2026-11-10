@@ -44,6 +44,28 @@ class EquipmentArtworkTests(unittest.TestCase):
             with patch.object(prepare_ui_assets,'RomFs',side_effect=AssertionError('Must reuse cached artwork')):
                 self.assertEqual(entry.ensure_save(td,td),str(target))
 
+    def test_existing_installation_backfills_shields_and_reuses_them(self):
+        spec = importlib.util.spec_from_file_location('lower_art_entry', ROOT/'tools/native/android/retuned_lower_art_entry.py')
+        entry = importlib.util.module_from_spec(spec); spec.loader.exec_module(entry)
+        atlas = bytes(channel for y in range(512) for x in range(512)
+                      for channel in (x % 256, y % 256, 90, 255))
+        class FixtureRom:
+            def __init__(self, path): pass
+            def read(self, name):
+                self_name = 'menu/02_EU_ENGLISH/icon_item_menu00.ctxb'
+                assert name == self_name
+                return b'icons'
+        with tempfile.TemporaryDirectory() as td, patch.object(prepare_ui_assets, 'RomFs', FixtureRom), patch.object(ui_texture, 'decode', lambda data: (512, 512, atlas)):
+            root = Path(td); (root/'save.bin').write_bytes(b'unchanged')
+            directory = Path(entry.ensure_shields(td, td))
+            for i in range(3):
+                width, height, rgba = pixels(directory/f'shield-{i+1}.png')
+                self.assertEqual((width, height), (42, 42))
+                self.assertEqual(rgba[:4], bytes((84+i*42, 210, 90, 255)))
+            self.assertEqual((root/'save.bin').read_bytes(), b'unchanged')
+            with patch.object(prepare_ui_assets, 'RomFs', side_effect=AssertionError('cache should be reused')):
+                self.assertEqual(entry.ensure_shields(td, td), str(directory))
+
     def test_rom_art_is_cropped_and_stone_rotated_without_pillow(self):
         atlases = {size: bytes(channel for y in range(size) for x in range(size)
                                for channel in (x % 256, y % 256, 90, 255))
@@ -58,9 +80,12 @@ class EquipmentArtworkTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td, patch.object(prepare_ui_assets, 'RomFs', FixtureRom), patch.object(ui_texture, 'decode', decode):
             out = Path(td)
             receipt = art.prepare_romfs('fixture', out)
-            self.assertEqual(len(receipt['files']), 10)
+            self.assertEqual(len(receipt['files']), 13)
             self.assertEqual(pixels(out/'save.png')[:2],(120,48))
             self.assertTrue(receipt['private_local_artifact'])
+            self.assertEqual(pixels(out/'shield-1.png')[:2],(42,42))
+            self.assertEqual(pixels(out/'shield-1.png')[2][:4],bytes((84,210,90,255)))
+            self.assertEqual(pixels(out/'shield-3.png')[2][:4],bytes((168,210,90,255)))
             width, height, rgba = pixels(out / 'stone.png')
             self.assertEqual((width, height), (236, 56))
             self.assertEqual(rgba[:4], bytes((253, 2, 90, 255)))

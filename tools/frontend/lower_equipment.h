@@ -22,6 +22,7 @@ inline unsigned PackLowerEquipment(bool ready,bool adult,unsigned owned,unsigned
  return unsigned(ready&&adult) | (unsigned(agonyOwned)<<1) |
    (unsigned(ready&&LowerAgonyPulse(agonyOwned,agonyFrame))<<2) | (unsigned(adult)<<3) |
    (((equipped>>12)&3)<<4) | (((equipped>>8)&3)<<6) |
-   (((owned>>12)&7)<<8) | (((owned>>8)&7)<<11);
+   (((owned>>12)&7)<<8) | (((owned>>8)&7)<<11) |
+   (((equipped>>4)&3)<<15) | (((owned>>4)&7)<<17);
 }
 }

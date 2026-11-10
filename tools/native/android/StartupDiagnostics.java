@@ -135,6 +135,7 @@ public final class StartupDiagnostics extends Application {
             if ("android.hardware.vulkan.version".equals(feature.name) || "android.hardware.vulkan.level".equals(feature.name)) out.append('\n').append(feature.name).append(": ").append(feature.version);
         }
         out.append("\nVulkan values are system-advertised capabilities, not a driver test.")
+            .append("\nSelected graphics driver: ").append(GraphicsDriver.name(c))
             .append("\nROM prepared: ").append(RomSetupActivity.ready(c))
             .append("\nCurrent stage: ").append(prefs(c).getString("stage", "unknown"))
             .append("\nCurrent native stage: ").append(prefs(c).getString("native_stage", "not captured"))

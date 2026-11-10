@@ -53,6 +53,13 @@ def refresh_panel_draw(engine):
     if updated != source:
         path.write_text(updated)
     stage_platform_display_settings(engine)
+    include = Path(engine) / 'runtime/three_ds_recomp/include/fast/oot3d'
+    for name in ('cheats.h', 'cheats_ui.h'):
+        (include / ('retuned_' + name)).write_bytes(Path(__file__).with_name(name).read_bytes())
+    source = path.read_text()
+    header = '#include "fast/oot3d/retuned_cheats_ui.h"\n'
+    if header not in source:
+        path.write_text(header + source)
 
 
 def refresh_mods_page(engine):

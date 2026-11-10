@@ -13,7 +13,7 @@ int main(){
 #endif
  for(const auto& category:SettingsCategories)if(CategoryVisible(category.Page,true,true))mobile.push_back(category.Label);
  const std::vector<std::string_view> expected{"General","Controls","Touch","Graphics","Audio","HUD","Quality of life",
- "Mods",
+ "Cheats", "Models",
  "About"
 #ifdef __ANDROID__
  ,"Saves"
@@ -27,7 +27,7 @@ int main(){
  std::vector<std::string_view> television;
  for(const auto& category:SettingsCategories)if(CategoryVisible(category.Page,true,false))television.push_back(category.Label);
  assert((television==std::vector<std::string_view>{"General","Controls","Graphics","Audio","HUD","Quality of life",
- "Mods",
+ "Cheats", "Models",
  "About"
 #ifdef __ANDROID__
  ,"Saves"

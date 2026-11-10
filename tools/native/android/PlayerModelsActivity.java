@@ -33,7 +33,7 @@ public final class PlayerModelsActivity extends Activity {
         LinearLayout panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL);
         int padding = Math.round(24 * getResources().getDisplayMetrics().density);
         panel.setPadding(padding,padding,padding,padding); scroll.addView(panel); setContentView(scroll);
-        TextView title = new TextView(this); title.setText("Mods — Player appearance");
+        TextView title = new TextView(this); title.setText("Models — Player appearance");
         title.setTextColor(Color.WHITE); InterfaceTypography.heading(title); panel.addView(title);
         message = new TextView(this); message.setTextColor(Color.WHITE); InterfaceTypography.body(message);
         message.setText("Import an OoT human player-model PAK or ZOBJ for child or adult Link. Scripts, custom animations, and sounds are not imported. Your saves and textures stay unchanged.");

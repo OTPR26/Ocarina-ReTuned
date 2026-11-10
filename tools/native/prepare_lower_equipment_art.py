@@ -67,6 +67,7 @@ def prepare_romfs(romfs, output):
     for i in range(3):
         crop('icon_item_menu00', (336 + i * 42, 210, 378 + i * 42, 252), 'boots-' + str(i + 1))
         crop('icon_item_menu00', (210 + i * 42, 210, 252 + i * 42, 252), 'tunic-' + str(i + 1))
+        crop('icon_item_menu00', (84 + i * 42, 210, 126 + i * 42, 252), 'shield-' + str(i + 1))
     crop('icon_item_menu00', (126, 378, 168, 420), 'agony')
     receipt = {'format': 'retuned_local_equipment_art_v1', 'private_local_artifact': True,
                'sources': sources, 'files': {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
@@ -112,6 +113,7 @@ def prepare(background, menu, icons, output):
     for i in range(3):
         crop(image, scale, (336 + i*42, 210, 378 + i*42, 252), 'boots-' + str(i+1))
         crop(image, scale, (210 + i*42, 210, 252 + i*42, 252), 'tunic-' + str(i+1))
+        crop(image, scale, (84 + i*42, 210, 126 + i*42, 252), 'shield-' + str(i+1))
     crop(image, scale, (126, 378, 168, 420), 'agony')
 
 

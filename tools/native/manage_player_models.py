@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Desktop player-model manager, opened before gameplay from Settings → Mods."""
+"""Desktop player-model manager, opened before gameplay from Settings → Models."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path

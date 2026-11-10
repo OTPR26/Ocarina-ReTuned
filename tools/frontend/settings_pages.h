@@ -2,7 +2,7 @@
 #pragma once
 #include <array>
 namespace RetunedFrontend {
-enum class SettingsPage { General, Controls, Touch, Graphics, Audio, Hud, QualityOfLife, About, SaveStates, Advanced, SaveFiles, Mods };
+enum class SettingsPage { General, Controls, Touch, Graphics, Audio, Hud, QualityOfLife, About, SaveStates, Advanced, SaveFiles, Mods, Cheats };
 struct SettingsCategory { SettingsPage Page; const char* Label; const char* Description; };
 inline constexpr std::array SettingsCategories{
  SettingsCategory{SettingsPage::General,"General","Make Ocarina ReTuned comfortable on your screen."},
@@ -12,7 +12,8 @@ inline constexpr std::array SettingsCategories{
  SettingsCategory{SettingsPage::Audio,"Audio","Sound and volume."},
  SettingsCategory{SettingsPage::Hud,"HUD","Adjust the HUD while keeping your chosen layout."},
  SettingsCategory{SettingsPage::QualityOfLife,"Quality of life","Small changes for a more comfortable adventure."},
- SettingsCategory{SettingsPage::Mods,"Mods","Player appearance and imported models."},
+ SettingsCategory{SettingsPage::Cheats,"Cheats","Optional resource cheats and inventory amounts."},
+ SettingsCategory{SettingsPage::Mods,"Models","Player appearance and imported models."},
  SettingsCategory{SettingsPage::About,"About","About Ocarina ReTuned and its contributors."},
  SettingsCategory{SettingsPage::SaveStates,"Save states","Manage save states."},
  SettingsCategory{SettingsPage::Advanced,"Advanced","Additional rendering options."},

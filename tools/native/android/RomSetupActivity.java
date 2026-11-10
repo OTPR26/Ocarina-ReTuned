@@ -31,7 +31,8 @@ public class RomSetupActivity extends Activity {
             if (busy) progressClock.postDelayed(this, 1000);
         }
     };
-    private boolean busy, registered, starting, ignorePreviousStatus;
+    private boolean busy, registered, starting, ignorePreviousStatus, driverChecked;
+    private TextView driverStatus;
     private boolean requiredUpdate, automaticUpdate, pendingAutomaticUpdate, handingOff;
     private final BroadcastReceiver statusReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -94,7 +95,27 @@ public class RomSetupActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        if(getIntent().getBooleanExtra("graphics-driver-return",false))StartupDiagnostics.prefs(this).edit().putBoolean("pending",false).commit();
         if (StartupDiagnostics.recover(this)) return;
+        if (!getIntent().getBooleanExtra("reprepare-rom", false) && GameSession.resume(this)) return;
+        LinearLayout check = new LinearLayout(this); check.setOrientation(LinearLayout.VERTICAL);
+        check.setPadding(dp(24),dp(24),dp(24),dp(24)); check.setBackgroundColor(Color.BLACK);
+        TextView status = text("Checking graphics compatibility…",18,false); driverStatus=status; check.addView(status);
+        Button drivers = button("Choose custom driver");
+        drivers.setOnClickListener(v -> GraphicsDriver.choose(this)); check.addView(drivers);
+        Button system = button("Use system driver");
+        system.setOnClickListener(v -> { GraphicsDriver.useSystem(this); recreate(); }); check.addView(system);
+        setContentView(check);
+        try {
+            GraphicsDriver.check(this,GraphicsDriver.read(this),result -> {
+                if(isDestroyed() || isFinishing())return;
+                if(result.containsKey("error")){status.setText(result.getString("error"));return;}
+                driverChecked=true; showSetup(state); if(!handingOff)resumeSetup();
+            });
+        } catch(Exception error) { status.setText("The selected graphics driver is unavailable. Select System driver to recover."); }
+    }
+
+    private void showSetup(Bundle state) {
         StartupDiagnostics.stage(this, "launcher / checking prepared ROM");
         boolean updating = ready(this);
         boolean requested = getIntent().getBooleanExtra("reprepare-rom", false);
@@ -144,6 +165,7 @@ public class RomSetupActivity extends Activity {
         Button saves = button("Manage save files"); saves.setOnClickListener(view -> { if(!busy)SaveFiles.open(this); }); add(panel, saves, 12);
         add(panel, text("Your original ROM, saves, and controller settings will not be replaced.", 15, false), 18);
         Button diagnostics = button("Startup diagnostics"); diagnostics.setOnClickListener(view -> startActivity(new Intent(this, StartupDiagnosticsActivity.class))); add(panel, diagnostics, 12);
+        Button driver = button("Choose custom driver"); driver.setOnClickListener(view -> { if(!busy)GraphicsDriver.choose(this); }); add(panel, driver, 12);
         setContentView(root); choose.requestFocus();
         StartupDiagnostics.stage(this, "ROM chooser ready");
     }
@@ -210,6 +232,12 @@ public class RomSetupActivity extends Activity {
 
     @Override protected void onActivityResult(int request, int result, Intent intent) {
         super.onActivityResult(request, result, intent);
+        if(request==GraphicsDriver.PICK_REQUEST) {
+            GraphicsDriver.result(intent);
+            if(result==RESULT_OK)recreate();
+            else if(driverStatus!=null)driverStatus.setText(GraphicsDriver.status(this));
+            return;
+        }
         if (request != PICK_ROM || result != RESULT_OK || intent == null || intent.getData() == null) return;
         Uri uri = intent.getData();
         try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
@@ -225,7 +253,10 @@ public class RomSetupActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume();
-        if (message == null) return;
+        if(driverChecked)resumeSetup();
+    }
+    private void resumeSetup() {
+        if (message == null || registered) return;
         IntentFilter filter = new IntentFilter(RomPreparationService.STATUS);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(statusReceiver, filter);
@@ -253,5 +284,5 @@ public class RomSetupActivity extends Activity {
         if (registered) { unregisterReceiver(statusReceiver); registered = false; }
         super.onPause();
     }
-    @Override public void onBackPressed() { if (busy) requestCancel(); else if (canLaunch()) launchGame(); else super.onBackPressed(); }
+    @Override public void onBackPressed() { if (!driverChecked) super.onBackPressed(); else if (busy) requestCancel(); else if (canLaunch()) launchGame(); else super.onBackPressed(); }
 }

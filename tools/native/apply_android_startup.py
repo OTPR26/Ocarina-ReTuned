@@ -66,5 +66,9 @@ def apply(engine):
          '    // Release logs keep warnings only; the device is what a tester\'s report',
          '    RetunedStartupGraphics(properties.apiVersion, properties.vendorID, properties.driverVersion);\n'
          '    // Release logs keep warnings only; the device is what a tester\'s report')
+    frame = engine / native / 'oot3d_native_a32_window_frame.cpp'
+    checkpoint = ('#ifdef __ANDROID__\n  static bool startupFrameReported = false;\n'
+                  '  if (!startupFrameReported) { startupFrameReported = true; RetunedStartupStage(13); }\n#endif\n')
+    frame.write_text(frame.read_text().replace(checkpoint, ''))
     mark(native + 'oot3d_native_a32_window_frame.cpp', 'bool NativeA32WindowSession::RunFrame() {',
          'bool NativeA32WindowSession::RunFrame() {\n#ifdef __ANDROID__\n  static bool startupFrameReported = false;\n  if (!startupFrameReported) { startupFrameReported = true; RetunedStartupStage(13); }\n#endif')

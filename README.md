@@ -99,12 +99,14 @@ Startup and settings support controller navigation. On Apple TV, Back on the rem
 
 Android save import, export, and custom sync-folder setup are described in [Android saves](documentation/Android-saves.md).
 
-Player-model PAK imports and platform-specific setup are described in [Player models](documentation/Player-models.md). Android and desktop use Settings → Mods before gameplay; iOS, tvOS, and Switch include models during desktop preparation.
+Player-model PAK imports and platform-specific setup are described in [Player models](documentation/Player-models.md). Android and desktop use Settings → Models before gameplay; iOS, tvOS, and Switch include models during desktop preparation.
 
 Keep a separate backup of saves before installing a Preview or changing signing channels. For Android updates, stay with the same APK signing channel.
 
 ## What's next
 
+- Expand the Cheats menu toward Ship of Harkinian parity, adding and testing more options.
+- Windows portable mode for the next release: opt in under Settings → General to copy saves, settings, and prepared game data from AppData into a `user` folder beside the app. Keep the original AppData copy, verify the migration before switching, and make the portable folder movable without preparing the ROM again.
 - Regional ROM support: Japan, Korea, and Taiwan, following European support in 0.5.8. See [regional support](documentation/Regional-support.md).
 - Portable player-model library: convert and export models on Mac, Windows, and Linux; import compatible packages into a Models library on iOS, tvOS, and other platforms; select child and adult models before starting gameplay. Include Original Link, compatibility checks, and a transfer flow for Apple TV. On-device raw PAK conversion on Apple platforms is a separate follow-up.
 - Continue investigating Android startup crashes using the new diagnostic reports: [#1](https://github.com/OTPR26/Ocarina-ReTuned/issues/1) and [#3](https://github.com/OTPR26/Ocarina-ReTuned/issues/3).

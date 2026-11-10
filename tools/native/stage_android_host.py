@@ -34,6 +34,8 @@ def stage(engine, build, ndk, output):
         'libtriaevum_title_bootstrap.so': build / 'product/libtriaevum_title_bootstrap.so',
         'libc++_shared.so': llvm / 'sysroot/usr/lib/aarch64-linux-android/libc++_shared.so',
     }
+    for name in ('libretuned_vulkan.so', 'libretuned_driver.so', 'libmain_hook.so', 'libhook_impl.so'):
+        sources[name] = build / 'product' / name
     commands = subprocess.check_output(['ninja', '-C', str(build), '-t', 'commands', 'oot3d_native_game'], text=True)
     verify_runtime(sources)
     verify_frontend_settings(sources['libTriAevum.so'], require_dual=True)

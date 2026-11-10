@@ -1,4 +1,5 @@
 #pragma once
+#include "fast/oot3d/retuned_cheats.h"
 #include "oot3d_native_a32_process.h"
 #include "retuned_ocarina_lifecycle.h"
 #include "fast/oot3d/retuned_game_save.h"
@@ -35,6 +36,20 @@ class Settings {
     void Initialize(const std::filesystem::path& manifest) {
         std::lock_guard lock(mMutex);
         GameSave.SetAvailable(false);
+        {
+            std::lock_guard cheatsLock(Cheats.Mutex);
+            Cheats.Snapshot={};Cheats.Edit={};Cheats.Message.clear();Cheats.Options={};
+            const auto config=Ship::Context::GetRawInstance()->GetConfig()->GetNestedJson();
+            if(config.contains("Cheats")&&config["Cheats"].is_object()) {
+                const auto& saved=config["Cheats"];
+                auto enabled=[&](const char* key){return saved.contains(key)&&saved[key].is_boolean()&&saved[key].get<bool>();};
+                Cheats.Options.Health=enabled("health");Cheats.Options.Magic=enabled("magic");Cheats.Options.Rupees=enabled("rupees");
+                Cheats.Options.Ammo.fill(enabled("ammo"));
+                if(saved.contains("ammo")&&saved["ammo"].is_array()&&saved["ammo"].size()==Cheats.Options.Ammo.size())
+                    for(size_t i=0;i<Cheats.Options.Ammo.size();++i)
+                        Cheats.Options.Ammo[i]=saved["ammo"][i].is_boolean()&&saved["ammo"][i].get<bool>();
+            }
+        }
         try {
             std::ifstream stream(manifest);
             nlohmann::json root;stream>>root;
@@ -85,9 +100,9 @@ class Settings {
     }
     void Apply(Oot3dNativeGame::NativeA32Process& process) {
         std::lock_guard lock(mMutex);
-        if(!mReady){GameSave.SetAvailable(false);GameSave.SetDialog(false);NativeLowerUiReady=false;return;}
+        if(!mReady){GameSave.SetAvailable(false);GameSave.SetDialog(false);NativeLowerUiReady=false;InvalidateCheats();return;}
         auto& memory=process.Memory();uint32_t context=0;
-        if(!memory.Read32(mBridge.at("context_pointer").get<uint32_t>(),&context) || !context){GameSave.SetAvailable(false);GameSave.SetDialog(false);NativeLowerUiReady=false;return;}
+        if(!memory.Read32(mBridge.at("context_pointer").get<uint32_t>(),&context) || !context){GameSave.SetAvailable(false);GameSave.SetDialog(false);NativeLowerUiReady=false;InvalidateCheats();return;}
         const auto save=mBridge.at("save_context").get<uint32_t>();
         uint16_t health=0;uint32_t pause=0;uint8_t type=0,subtype=0;
         const bool gameplay=memory.Read16(save+0x44,&health) && health &&
@@ -97,6 +112,7 @@ class Settings {
         uint8_t trigger=1,transition=1;uint32_t saveMode=0,saveState=0;
         const bool sceneSettled=gameplay && memory.Read8(context+0x5C2D,&trigger) && !trigger &&
             memory.Read8(context+0x7F12,&transition) && !transition;
+        UpdateCheats(memory,save,sceneSettled&&pause==2);
         const bool saveDialog=gameplay && pause==0 && memory.Read32(0x0050A530,&saveMode) && saveMode==2 &&
             memory.Read32(0x0050A52C,&saveState) && saveState<=1;
         NativeLowerUiReady=LowerUiSettled(pause,sceneSettled,saveDialog);

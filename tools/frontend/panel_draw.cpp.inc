@@ -98,6 +98,9 @@ void GraphicsSettingsPanel::Draw() {
         drawTabs("Camera");
         DrawSettingsSections({&GraphicsSettingsPanel::DrawDisplaySettings,&GraphicsSettingsPanel::DrawAntialiasingSettings});
         ImGui::SeparatorText("Custom textures");DrawTextureSettings();
+#ifdef __ANDROID__
+        RetunedFrontend::DrawAndroidGraphicsDriver();
+#endif
         if(ImGui::CollapsingHeader("Lighting")){
             std::vector<std::shared_ptr<GraphicsSettingsPanelTab>> lighting;
             for(const auto& tab:SnapshotPanelTabs())if(tab->Group() && std::string_view(tab->Group())==kLightingSettingsGroup)lighting.push_back(tab);
@@ -136,6 +139,7 @@ void GraphicsSettingsPanel::Draw() {
       }
       case SettingsPage::QualityOfLife:
         ImGui::SeparatorText("Link movement");drawTabs("Quality of life");break;
+      case SettingsPage::Cheats:RetunedFrontend::DrawCheats();break;
       case SettingsPage::Mods:
 #ifdef __ANDROID__
         RetunedFrontend::DrawAndroidMods();
@@ -153,7 +157,7 @@ void GraphicsSettingsPanel::Draw() {
 #endif
         break;
       case SettingsPage::About:
-        ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.6.2 Preview");
+        ImGui::TextUnformatted("Ocarina ReTuned");ImGui::TextDisabled("0.6.3 Preview");
         ImGui::Spacing();ImGui::TextWrapped("Ocarina of Time 3D with the Reframed single-screen HUD.");
         ImGui::SeparatorText("Contributors");
         ImGui::TextWrapped("Upstream engine credits: TriAevum by coccofresco. Uses libultraship, SDL, Dear ImGui and MoltenVK on Apple devices. Interface fonts: Fira Sans, Fira Sans Condensed, and Alegreya SC (SIL Open Font License).");

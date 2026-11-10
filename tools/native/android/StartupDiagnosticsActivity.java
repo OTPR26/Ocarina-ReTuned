@@ -16,6 +16,15 @@ public final class StartupDiagnosticsActivity extends Activity {
         ScrollView scroll = new ScrollView(this); TextView text = new TextView(this); text.setText(report); text.setTypeface(android.graphics.Typeface.MONOSPACE); text.setTextSize(13); text.setTextIsSelectable(true); scroll.addView(text); root.addView(scroll, new LinearLayout.LayoutParams(-1,0,1));
         Button copy = new Button(this); copy.setText("Copy report"); InterfaceTypography.button(copy,false); copy.setOnClickListener(v -> { getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText("Startup report", report)); Toast.makeText(this,"Report copied",Toast.LENGTH_SHORT).show(); }); root.addView(copy);
         Button retry = new Button(this); retry.setText("Continue to app"); InterfaceTypography.button(retry,false); retry.setOnClickListener(v -> { StartupDiagnostics.prefs(this).edit().putBoolean("pending",false).commit(); startActivity(new Intent(this,TriAevumActivity.class)); finish(); }); root.addView(retry);
+        TextView driverStatus = new TextView(this); driverStatus.setText(GraphicsDriver.status(this)); InterfaceTypography.body(driverStatus); root.addView(driverStatus);
+        Button driver = new Button(this); driver.setText("Choose custom driver"); InterfaceTypography.button(driver,false);
+        driver.setOnClickListener(v -> GraphicsDriver.choose(this)); root.addView(driver);
+        Button system = new Button(this); system.setText("Use system driver"); InterfaceTypography.button(system,false);
+        system.setOnClickListener(v -> {GraphicsDriver.useSystem(this);driverStatus.setText(GraphicsDriver.status(this));}); root.addView(system);
         setContentView(root);
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data) {
+        super.onActivityResult(request,result,data);
+        if(request==GraphicsDriver.PICK_REQUEST){GraphicsDriver.result(data);recreate();}
     }
 }

@@ -29,6 +29,28 @@ inline void DrawAndroidRomPreparation(){
  ImGui::EndDisabled();
  if(!StartupVisible)ImGui::TextWrapped("Save your game and reopen the app, then choose this option before starting gameplay.");
 }
+inline void DrawAndroidGraphicsDriver(){
+ ImGui::SeparatorText("Graphics driver");
+ auto* env=static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());auto activity=static_cast<jobject>(SDL_AndroidGetActivity());
+ if(!env||!activity)return;
+ auto type=env->GetObjectClass(activity);
+ auto status=env->GetMethodID(type,"retunedGraphicsDriverStatus","()Ljava/lang/String;");
+ auto value=status?static_cast<jstring>(env->CallObjectMethod(activity,status)):nullptr;
+ if(env->ExceptionCheck())env->ExceptionClear();
+ else if(value){const char* text=env->GetStringUTFChars(value,nullptr);if(text){ImGui::TextWrapped("%s",text);env->ReleaseStringUTFChars(value,text);}}
+ if(value)env->DeleteLocalRef(value);
+ ImGui::BeginDisabled(!StartupVisible);
+ auto action=[&](const char* method){auto callback=env->GetMethodID(type,method,"()V");if(callback)env->CallVoidMethod(activity,callback);if(env->ExceptionCheck())env->ExceptionClear();};
+ if(ImGui::Button("Choose custom driver"))action("retunedOpenGraphicsDriver");
+ if(ImGui::Button("Use system driver"))action("retunedUseSystemDriver");
+ auto pending=env->GetMethodID(type,"retunedDriverNeedsRestart","()Z");
+ bool restart=pending&&env->CallBooleanMethod(activity,pending);
+ if(env->ExceptionCheck())env->ExceptionClear();
+ if(restart&&ImGui::Button("Restart to apply"))action("retunedRestartForDriver");
+ ImGui::EndDisabled();
+ ImGui::TextWrapped("Choose a trusted driver ZIP for a compatible Adreno GPU. Vulkan 1.2 is required. Change drivers before starting gameplay; restart the app to apply.");
+ env->DeleteLocalRef(type);env->DeleteLocalRef(activity);
+}
 inline void DrawAndroidMods(){
  ImGui::SeparatorText("Player appearance");
  ImGui::TextWrapped("Import human player-model PAKs for child or adult Link, or restore the original model.");

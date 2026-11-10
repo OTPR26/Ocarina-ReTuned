@@ -14,6 +14,9 @@ int main(){
  auto s=PackLowerEquipment(true,true,0x7700,0x2300,true,3);
  assert((s&7)==7&&((s>>4)&3)==2&&((s>>6)&3)==3);
  assert(((s>>8)&7)==7&&((s>>11)&7)==7);
+ auto shield=PackLowerEquipment(true,true,0x0060,0x0030,false,0);
+ assert(((shield>>15)&3)==3&&((shield>>17)&7)==6);
+ assert((shield&(1u<<14))==0); // Visibility belongs to the runtime, not shield data.
  assert(!(PackLowerEquipment(true,false,0,0,false,0)&1));
  assert(!(PackLowerEquipment(false,true,0,0,true,0)&5));
 }

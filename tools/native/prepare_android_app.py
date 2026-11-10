@@ -22,6 +22,7 @@ def prepare(engine, private_kit=None, preparation_native_stage=None):
     shutil.copytree(Path(__file__).parent/'android/drawable',root/'app/src/main/res/drawable',dirs_exist_ok=True)
     notices=root/'app/src/main/assets/licenses'
     notices.mkdir(parents=True,exist_ok=True)
+    shutil.copytree(Path(__file__).parents[2]/'resources/licenses/android-driver',notices/'android-driver',dirs_exist_ok=True)
     shutil.copy2(Path(__file__).parents[2]/'resources/fonts/LICENSE.txt',notices/'interface-font-OFL.txt')
     shutil.copytree(Path(__file__).parents[2]/'resources/licenses/player-models', notices/'player-models', dirs_exist_ok=True)
     shutil.copytree(Path(__file__).resolve().parents[2]/'resources/fonts/interface',notices/'interface-fonts',dirs_exist_ok=True,ignore=shutil.ignore_patterns('*.ttf'))
@@ -32,12 +33,12 @@ def prepare(engine, private_kit=None, preparation_native_stage=None):
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
     text = gradle.read_text()
-    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9', '2.6.0', '0.6.1'):
-        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.6.2"')
-    if 'versionName = "0.6.2"' not in text:
+    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9', '2.6.0', '0.6.1', '0.6.2'):
+        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.6.3"')
+    if 'versionName = "0.6.3"' not in text:
         raise ValueError('Android Preview version context changed')
-    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 16', text)
-    if 'versionCode = 16' not in text: raise ValueError('Android version code context changed')
+    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 17', text)
+    if 'versionCode = 17' not in text: raise ValueError('Android version code context changed')
     gradle.write_text(text)
     shutil.copy2(Path(__file__).with_name('preparation_identity.py'), root/'preparation_identity.py')
     shutil.copy2(Path(__file__).with_name('android_runtime.py'), root/'android_runtime.py')
@@ -113,7 +114,7 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
 
 
     # The Java bootstrap can run before SDL/title loading on a clean install.
-    for name in ('RomSetupActivity.java', 'RomPreparationActivity.java', 'RomPreparationService.java', 'PreparationSession.java', 'PreparationProgress.java', 'GameSession.java', 'PreparationUpdate.java', 'PreparationKit.java', 'SaveFilesCore.java', 'SaveDocumentStore.java', 'SaveFiles.java', 'SaveFilesActivity.java', 'PlayerModelsActivity.java', 'StartupReport.java', 'NativeCrashReport.java', 'StartupDiagnostics.java', 'StartupDiagnosticsActivity.java'):
+    for name in ('GraphicsDriver.java', 'GraphicsDriverRestartActivity.java', 'GraphicsDriverPickerActivity.java', 'GraphicsDriverProbeService.java', 'RomSetupActivity.java', 'RomPreparationActivity.java', 'RomPreparationService.java', 'PreparationSession.java', 'PreparationProgress.java', 'GameSession.java', 'PreparationUpdate.java', 'PreparationKit.java', 'SaveFilesCore.java', 'SaveDocumentStore.java', 'SaveFiles.java', 'SaveFilesActivity.java', 'PlayerModelsActivity.java', 'StartupReport.java', 'NativeCrashReport.java', 'StartupDiagnostics.java', 'StartupDiagnosticsActivity.java'):
         shutil.copy2(Path(__file__).parent/'android'/name, activity.parent/name)
     manifest = root/'app/src/main/AndroidManifest.xml'
     text = manifest.read_text()
@@ -152,6 +153,16 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
         ET.SubElement(application, 'activity', {attribute('name'): '.SaveFilesActivity', attribute('exported'): 'false', attribute('screenOrientation'): 'sensorLandscape'})
     if not any(node.get(attribute('name')) == '.RomPreparationService' for node in application.findall('service')):
         ET.SubElement(application, 'service', {attribute('name'): '.RomPreparationService', attribute('exported'): 'false', attribute('process'): ':preparation', attribute('foregroundServiceType'): 'dataSync'})
+    for kind, name, process in (('activity', '.GraphicsDriverPickerActivity', ':drivers'), ('activity', '.GraphicsDriverRestartActivity', ':driverrestart'), ('service', '.GraphicsDriverProbeService', ':driverprobe')):
+        if not any(node.get(attribute('name')) == name for node in application.findall(kind)):
+            ET.SubElement(application, kind, {attribute('name'): name, attribute('exported'): 'false', attribute('process'): process})
+    for node in list(application.findall('activity')):
+        if node.get(attribute('name')) == '.GraphicsDriverActivity': application.remove(node)
+        if node.get(attribute('name')) in ('.GraphicsDriverPickerActivity', '.GraphicsDriverRestartActivity'):
+            node.set(attribute('theme'), '@android:style/Theme.Translucent.NoTitleBar')
+            node.set(attribute('configChanges'), 'orientation|screenSize|keyboardHidden')
+    old_driver_ui = activity.parent/'GraphicsDriverActivity.java'
+    if old_driver_ui.exists(): old_driver_ui.unlink()
     document.write(manifest, encoding='unicode', xml_declaration=True)
     text = activity.read_text()
     start = text.index('    @Override protected String[] getArguments() {')
@@ -202,6 +213,26 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
             '        StartupDiagnostics.stage(this, "SDL activity created");\n        GameSession.attach(this);')
     text=text.replace('new android.content.Intent(this,PlayerModelsActivity.class).putExtra("choose-pak",true)',
         'new android.content.Intent(this,PlayerModelsActivity.class)')
+    text = re.sub(r'    public void retunedOpenGraphicsDriver\(\)\{[^\n]*\}\n', '', text)
+    if 'String retunedGraphicsDriverStatus()' not in text:
+        text=text.replace('    @Override public void loadLibraries() {',
+            '    public String retunedGraphicsDriverStatus(){return GraphicsDriver.status(this);}\n'
+            '    public void retunedUseSystemDriver(){runOnUiThread(()->GraphicsDriver.useSystem(this));}\n'
+            '    @Override public void loadLibraries() {')
+    text=text.replace('    @Override public void loadLibraries() {',
+        '    public void retunedOpenGraphicsDriver(){runOnUiThread(()->GraphicsDriver.choose(this));}\n'
+        '    @Override public void loadLibraries() {')
+    if 'request==GraphicsDriver.PICK_REQUEST' not in text:
+        text=text.replace('        if(request==TextureFolder.REQUEST',
+            '        if(request==GraphicsDriver.PICK_REQUEST){GraphicsDriver.result(data);return;}\n        if(request==TextureFolder.REQUEST')
+    if 'boolean retunedDriverNeedsRestart()' not in text:
+        text=text.replace('    @Override public void loadLibraries() {',
+            '    public boolean retunedDriverNeedsRestart(){return GraphicsDriver.needsRestart(this);}\n'
+            '    public void retunedRestartForDriver(){runOnUiThread(()->GraphicsDriver.restart(this));}\n'
+            '    @Override public void loadLibraries() {')
+    if 'GraphicsDriver.load(this' not in text:
+        text = text.replace('    @Override public void loadLibraries() {',
+            '    @Override public void loadLibraries() {\n        try { GraphicsDriver.load(this,GraphicsDriver.read(this)); android.system.Os.setenv("SDL_VULKAN_LIBRARY",getApplicationInfo().nativeLibraryDir+"/libretuned_vulkan.so",true); }\n        catch(Exception | LinkageError error){StartupDiagnostics.failure(this,error);throw new IllegalStateException("Graphics driver initialization failed",error);}')
     gameplay.write_text(text)
     activity.write_text('package org.triaevum.android;\n/** Stable launcher component preserves existing home-screen shortcuts. */\npublic final class TriAevumActivity extends RomSetupActivity {}\n')
     asset = root/'app/src/main/assets/retuned'
@@ -211,6 +242,7 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     shutil.copy2(Path(__file__).parents[2]/'resources/artwork/ocarina-illustration.png', asset/'ocarina-illustration.png')
     python = root/'app/src/main/python'
     python.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(Path(__file__).parent/'android/driver_package.py', python/'driver_package.py')
     shutil.copy2(Path(__file__).parent/'android/retuned_setup_entry.py', python/'retuned_setup_entry.py')
     shutil.copy2(Path(__file__).parent/'android/retuned_models_entry.py', python/'retuned_models_entry.py')
     shutil.copy2(Path(__file__).parent/'android/retuned_lower_art_entry.py', python/'retuned_lower_art_entry.py')

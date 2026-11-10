@@ -13,6 +13,8 @@ def apply(root):
     if subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
         raise ValueError('Unexpected native runtime revision.')
     apply_common(root)
+    from apply_android_driver import apply as apply_driver
+    apply_driver(root)
     window=root/'runtime/three_ds_recomp/src/fast/backends/gfx_sdl2.cpp'
     def mobile_window(before,after):
         value=window.read_text()

@@ -1,6 +1,6 @@
 # Player models
 
-Open **Settings → Mods → PAK Importer** before starting gameplay on Android, Windows, Mac, or Linux. Choose Child or Adult, then import a human-rig OoT `.pak` or `.zobj`. Each age has its own selection. **Original Link** restores that age’s original appearance while retaining its imported model for later use.
+Open **Settings → Models → PAK Importer** before starting gameplay on Android, Windows, Mac, or Linux. Choose Child or Adult, then import a human-rig OoT `.pak` or `.zobj`. Each age has its own selection. **Original Link** restores that age’s original appearance while retaining its imported model for later use.
 
 On desktop, the game closes before opening the model manager and reopens when you finish. The complete Preview includes the conversion tools; no separate Python packages are needed.
 

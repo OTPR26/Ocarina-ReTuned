@@ -5,8 +5,8 @@
 using namespace RetunedFrontend;
 @implementation RetunedDuoEquipmentStrip {
     UIImage* _stone; UIImage* _skin; UIImage* _agony;
-    UIImage* _boots[3]; UIImage* _tunics[3];
-    unsigned _snapshot; NSInteger _pressed; CGRect _cells[3];
+    UIImage* _boots[3]; UIImage* _tunics[3]; UIImage* _shields[3];
+    unsigned _snapshot; NSInteger _pressed; CGRect _cells[4];
 }
 - (UIImage*)art:(NSString*)name {
     NSString* relative=[@"lower-equipment" stringByAppendingPathComponent:[name stringByAppendingString:@".png"]];
@@ -22,13 +22,14 @@ using namespace RetunedFrontend;
     for(int i=0;i<3;i++) {
         _boots[i]=[self art:[NSString stringWithFormat:@"boots-%d",i+1]];
         _tunics[i]=[self art:[NSString stringWithFormat:@"tunic-%d",i+1]];
+        _shields[i]=[self art:[NSString stringWithFormat:@"shield-%d",i+1]];
     }
-    self.accessibilityLabel=@"Quick boots, tunic, and Shard of Agony";
+    self.accessibilityLabel=@"Quick boots, tunic, shield, and Shard of Agony";
     return self;
 }
 - (BOOL)enabled:(int)n {
-    const unsigned owned=(_snapshot>>(n==0?8:11))&7;
-    return (_snapshot&1)&&n<2&&(__builtin_popcount(owned)+(n==0&&!(owned&1)?1:0)>1);
+    const unsigned owned=(_snapshot>>(n==0?8:n==1?11:17))&(n==2?6:7);
+    return (_snapshot&1)&&n<3&&(__builtin_popcount(owned)+(n==0&&!(owned&1)?1:0)>1);
 }
 - (void)refresh {
     UIView* parent=self.superview;
@@ -51,18 +52,18 @@ using namespace RetunedFrontend;
     const CGFloat bevel=MIN(1.0,h*.02);
     [[UIColor colorWithWhite:0 alpha:90.0/255]setFill];UIRectFill(CGRectMake(0,0,w,bevel));
     [[UIColor colorWithWhite:1 alpha:40.0/255]setFill];UIRectFill(CGRectMake(0,bevel,w,1.0/MAX(1.0,self.contentScaleFactor)));
-    const CGFloat cell=MIN(w/3,h*1.65),start=(w-cell*3)/2,edge=h*.9;
-    for(int n=0;n<3;n++) {
+    const CGFloat cell=MIN(w/4,h*1.65),start=(w-cell*4)/2,edge=MIN(h*.9,cell*.9);
+    for(int n=0;n<4;n++) {
         _cells[n]=CGRectMake(start+n*cell,0,cell,h);
-        if(n==2&&!(_snapshot&2))continue;
+        if(n==3&&!(_snapshot&2))continue;
         CGRect button=CGRectMake(CGRectGetMidX(_cells[n])-edge/2,(h-edge)/2,edge,edge);
         [_skin drawInRect:button];
-        const unsigned member=(_snapshot>>(n==0?4:6))&3;
+        const unsigned member=(_snapshot>>(n==0?4:n==1?6:15))&3;
         const unsigned index=member?MIN(2u,member-1):0;
-        UIImage* image=n==2?_agony:(n==0?_boots[index]:_tunics[index]);
-        const BOOL active=n==2?(_snapshot&4)!=0:[self enabled:n];
-        [image drawInRect:CGRectInset(button,edge*.15,edge*.15) blendMode:kCGBlendModeNormal alpha:active?1:(n==2?185.0/255:130.0/255)];
-        if(n==2&&active) {
+        UIImage* image=n==3?_agony:(n==0?_boots[index]:n==1?_tunics[index]:_shields[index]);
+        const BOOL active=n==3?(_snapshot&4)!=0:[self enabled:n];
+        [image drawInRect:CGRectInset(button,edge*.15,edge*.15) blendMode:kCGBlendModeNormal alpha:active?1:(n==3?185.0/255:130.0/255)];
+        if(n==3&&active) {
             [[UIColor colorWithRed:160.0/255 green:235.0/255 blue:1 alpha:1]setStroke];
             UIBezierPath* path=[UIBezierPath bezierPathWithRoundedRect:button cornerRadius:10/MAX(1.0,self.contentScaleFactor)];
             path.lineWidth=3/MAX(1.0,self.contentScaleFactor);[path stroke];
@@ -71,7 +72,7 @@ using namespace RetunedFrontend;
 }
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
     _pressed=-1;CGPoint point=[touches.anyObject locationInView:self];
-    for(int n=0;n<2;n++)if(CGRectContainsPoint(_cells[n],point)&&[self enabled:n])_pressed=n;
+    for(int n=0;n<3;n++)if(CGRectContainsPoint(_cells[n],point)&&[self enabled:n])_pressed=n;
 }
 - (void)touchesEnded:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
     CGPoint point=[touches.anyObject locationInView:self];

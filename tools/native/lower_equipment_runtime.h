@@ -25,10 +25,11 @@ inline void UpdateLowerEquipment(Oot3dNativeGame::NativeA32Process& process,bool
  const bool ready=NativeLowerUiReady.load()&&!hostMenu&&health&&pause==2&&type==3&&subtype==2;
  LowerEquipmentState=PackLowerEquipment(ready,age==0,owned,equipped,
                                          (quest&(1u<<21))!=0,pulse) | ((NativeLowerUiReady.load()&&health&&type==3&&subtype==2)?(1u<<14):0u);
- if(!ready||age!=0||(request!=1&&request!=2))return;
+ if(!ready||age!=0||(request<1||request>3))return;
  Oot3dNativeGame::TopScreenDpadActionState actions;
  const auto action=request==1?Oot3dNativeGame::TopScreenDpadAction::AllBootsToggle:
-                             Oot3dNativeGame::TopScreenDpadAction::TunicToggle;
+                             request==2?Oot3dNativeGame::TopScreenDpadAction::TunicToggle:
+                                        Oot3dNativeGame::TopScreenDpadAction::ShieldToggle;
  actions.Pressed[static_cast<unsigned>(action)]=true;
  Oot3dNativeGame::TopScreenGameplayActionConsumerRuntime runtime;
  std::string error;
