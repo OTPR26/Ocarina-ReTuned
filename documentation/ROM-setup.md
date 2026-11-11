@@ -245,3 +245,11 @@ atomic activation. Older unstamped desktop kits keep their legacy compatibility 
 In Settings → Graphics → Custom textures, choose **Choose texture folder**, browse to your extracted pack, and select **Select this folder**. The app enables custom textures, saves the folder, and searches its subfolders. No ROM preparation is needed when changing packs. Cancel leaves your current selection unchanged. The browser includes Home, parent-folder, drive, and typed-path navigation; use `/Volumes` on Mac or `/run/media`, `/media`, and `/mnt` on Linux for mounted drives.
 
 Generated source trees and compiled objects use separate bounded caches. Updating source code therefore cannot evict compiled objects merely by storing a new source tree. Existing verified source-cache entries migrate when they are reused. Compiler, header, and per-unit content checks still determine whether an object is safe to reuse.
+
+Android first-time preparation writes generated sources incrementally and uses
+the existing 64 stable source chunks so updates can reuse compiled objects.
+Compilation still uses at most four workers, with fewer on low-memory devices.
+While a chunk is compiling, the preparation screen refreshes every five seconds.
+Five minutes without measured compiler CPU activity produces a warning, not an
+automatic cancellation. Diagnostic reports include preparation activity counters
+without ROM paths or generated code.

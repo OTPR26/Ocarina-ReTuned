@@ -1,5 +1,23 @@
 # Android startup diagnostics
 
+## Custom graphics drivers
+
+Settings → Graphics → Choose custom driver imports a compatible ARM64 Android
+driver ZIP. Adreno drivers do not work on Mali. Experimental Mali support accepts
+Android-compatible PanVK packages for the device's GPU and kernel; ordinary Linux
+Mesa drivers are not suitable. We have not tested this feature on Mali hardware.
+
+The app copies the driver into private storage and tests it in a separate process
+before changing the selection. Failed checks leave the previous selection intact.
+A successful startup check does not guarantee correct rendering or performance.
+Restart to apply a selection, or choose Use system driver to revert. The existing
+startup-recovery screen also offers system-driver recovery after a crash.
+
+Vulkan 1.2 is still required. A Vulkan 1.1 driver exposing newer extensions is not
+currently supported by the renderer's initialization path.
+
+## Reporting startup failures
+
 If Ocarina ReTuned closes unexpectedly, open it again. On supported Android versions, a recovery screen offers **Copy report** and **Continue to app**.
 
 You can also open **Startup diagnostics** from first-time setup or the save-file manager. Paste the copied report into your GitHub issue, along with whether the ROM chooser appeared and what you last saw.

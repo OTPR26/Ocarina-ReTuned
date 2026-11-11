@@ -48,7 +48,7 @@ inline void DrawAndroidGraphicsDriver(){
  if(env->ExceptionCheck())env->ExceptionClear();
  if(restart&&ImGui::Button("Restart to apply"))action("retunedRestartForDriver");
  ImGui::EndDisabled();
- ImGui::TextWrapped("Choose a trusted driver ZIP for a compatible Adreno GPU. Vulkan 1.2 is required. Change drivers before starting gameplay; restart the app to apply.");
+ ImGui::TextWrapped("Choose a trusted Android driver ZIP for your GPU. Mali support is experimental and has not been hardware-tested. Vulkan 1.2 is required. Change drivers before starting gameplay; restart the app to apply.");
  env->DeleteLocalRef(type);env->DeleteLocalRef(activity);
 }
 inline void DrawAndroidMods(){

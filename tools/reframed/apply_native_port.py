@@ -37,9 +37,42 @@ def apply_plugin_exports(engine):
              'extern "C"\n#ifdef TRIAEVUM_TITLE_AOT_EXPORT\nTRIAEVUM_TITLE_AOT_EXPORT\n#endif\nconst ' + program + ' *')
 
 
+def apply_streaming_generation(engine):
+    """Write source shards as they finish instead of retaining the entire title."""
+    path = Path(engine) / 'tools/oot3d/native_a32_runtime/whole_aot_cpp.py'
+    edit(path, '    local_state: bool = False,\n) -> dict[str, object]:',
+         '    local_state: bool = False,\n    progress=None,\n) -> dict[str, object]:')
+    edit(path, '    functions, external_entries = _load_functions(program, selection, code)',
+         '    functions, external_entries = _load_functions(program, selection, code)\n'
+         '    del program, program_bytes, selection, selection_bytes')
+    edit(path, '    generated_files: dict[str, bytes] = {HEADER_NAME: header}',
+         '    output.mkdir(parents=True, exist_ok=True)\n'
+         '    class GeneratedFiles(dict):\n'
+         '        def __setitem__(self, name, data):\n'
+         "            if memory_entries and b'#include \"oot3d_native_a32_memory_region.h\"' in data:\n"
+         '                data = f"// memory-region contract: {memory_contract}\\n".encode() + data\n'
+         '            _write_if_different(output / name, data)\n'
+         '            super().__setitem__(name, _sha256(data))\n'
+         '            if progress is not None and name.startswith(SHARD_PREFIX):\n'
+         '                progress(sum(key.startswith(SHARD_PREFIX) for key in self), shard_count)\n'
+         '    generated_files = GeneratedFiles()\n'
+         '    generated_files[HEADER_NAME] = header')
+    edit(path, '''    if memory_entries:
+        for name, data in generated_files.items():
+            if b'#include "oot3d_native_a32_memory_region.h"' in data:
+                generated_files[name] = f"// memory-region contract: {memory_contract}\\n".encode() + data
+    manifest = {''', '    manifest = {')
+    edit(path, '''        "files": {
+            name: _sha256(data) for name, data in generated_files.items()
+        },''', '        "files": dict(generated_files),')
+    edit(path, '    for name, data in generated_files.items():\n        _write_if_different(output / name, data)\n',
+         '    # Source files were written incrementally; the manifest commits completion.\n')
+
+
 def apply_translation_support(engine):
     """Generic ARM lowering and memory support, also used by preparation kits."""
     apply_plugin_exports(engine)
+    apply_streaming_generation(engine)
     root = Path(engine) / 'tools/oot3d/native_a32_runtime'
     edit(root / 'whole_aot_cpp.py',
          '    if unary in {0x0EB10B40, 0x0EB10BC0, 0x0EB40B40, 0x0EB40BC0}:',

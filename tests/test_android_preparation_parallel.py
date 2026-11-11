@@ -205,3 +205,30 @@ class AndroidPreparationCache(unittest.TestCase):
             worker.compile_title(root, generated)
             self.assertEqual(len(worker.launched), 1)
             self.assertEqual(worker.compilation_statistics['reused_units'] + len(worker.launched), 8)
+
+class PreparationActivity(unittest.TestCase):
+    def test_process_counters_and_missing_process(self):
+        fields = ['S'] + ['0'] * 21
+        fields[11], fields[12], fields[21] = '12', '8', '3'
+        with patch.object(android.Path, 'read_text', return_value='12 (compiler (worker)) ' + ' '.join(fields)), patch.object(android.os, 'sysconf', return_value=4096):
+            self.assertEqual(android.process_activity(12),
+                             {'cpu_ticks': 20, 'resident_bytes': 12288, 'state': 'S'})
+        with patch.object(android.Path, 'read_text', side_effect=FileNotFoundError):
+            self.assertIsNone(android.process_activity(12)['cpu_ticks'])
+
+    def test_idle_warning_requires_measured_inactivity_and_preserves_counts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            worker, _, events = AndroidParallelPreparation().fixture(Path(temporary))
+            worker._workers = {1: {'cpu_ticks': 10, 'last_active': 0, 'sampled_at': 300,
+                                    'resident_bytes': 100, 'unit': '2', 'state': 'S'}}
+            worker.diagnostic_root = Path(temporary)
+            with patch.object(android.time, 'monotonic', return_value=301):
+                worker.compilation_heartbeat(3, 66, 1)
+                self.assertIn('No compiler CPU activity', events[-1][1]['message'])
+                self.assertEqual(events[-1][1]['completed'], 3)
+                worker._workers[1]['cpu_ticks'] = None
+                worker.compilation_heartbeat(3, 66, 1)
+                self.assertNotIn('No compiler CPU activity', events[-1][1]['message'])
+                worker._workers[1].update(cpu_ticks=11, last_active=300)
+                worker.compilation_heartbeat(3, 66, 1)
+                self.assertNotIn('No compiler CPU activity', events[-1][1]['message'])

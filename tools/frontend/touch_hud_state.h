@@ -5,6 +5,7 @@
 #include <atomic>
 namespace RetunedFrontend {
 inline std::atomic<int> TouchManualJumpMode{0};
+inline std::atomic<int> TouchHudPreset{0};
 inline std::mutex TouchHudMutex;
 inline TouchHudAnchors TouchHudLayout;
 inline std::atomic<bool> TouchHudRequested{true},TouchHudActive{false};

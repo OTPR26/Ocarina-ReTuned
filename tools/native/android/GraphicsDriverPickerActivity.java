@@ -20,8 +20,8 @@ public final class GraphicsDriverPickerActivity extends Activity {
             if(state.getBoolean("importing",false))complete("Driver import was interrupted. Your previous driver is unchanged.",false);
             return;
         }
-        if (!new File("/dev/kgsl-3d0").exists()) {
-            complete("Custom Adreno drivers are unavailable on this device. They do not support Mali GPUs.",false); return;
+        if (!new File("/dev/kgsl-3d0").exists() && !new File("/dev/mali0").exists()) {
+            complete("Custom drivers require a compatible Adreno or Mali device.",false); return;
         }
         try { startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*")
             .addCategory(Intent.CATEGORY_OPENABLE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), PICK); }
@@ -61,12 +61,14 @@ public final class GraphicsDriverPickerActivity extends Activity {
                         if(checked.containsKey("error")){complete(checked.getString("error"),false);return;}
                         try {
                             GraphicsDriver.select(this,record);
-                            complete("Driver checked and selected.",true);
+                            complete(new File("/dev/mali0").exists()
+                                ? "Driver selected. Mali support is experimental; the startup check does not verify gameplay."
+                                : "Driver checked and selected.",true);
                         } catch(Exception error) { complete("Could not save the driver selection. Your previous driver is unchanged.",false); }
                     });
                 });
             } catch(Exception error) {
-                runOnUiThread(() -> complete("Driver import failed. Choose a compatible ARM64 Adreno driver ZIP with valid meta.json. Your current driver is unchanged.",false));
+                runOnUiThread(() -> complete("Driver import failed. Choose an ARM64 Android driver ZIP for your GPU with valid meta.json. Your current driver is unchanged.",false));
             } finally { if(input!=null)input.delete(); }
         },"graphics-driver-import").start();
     }

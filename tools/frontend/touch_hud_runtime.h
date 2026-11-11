@@ -27,7 +27,7 @@ struct TouchHudBridge {
   if(!Gameplay(memory))return;
   std::array<float,33*12> positions{};
   if(!memory.ReadBytes(Positions,std::span(reinterpret_cast<uint8_t*>(positions.data()),sizeof(positions))))return;
-  if(!PlaceTouchHud(positions,SnapshotTouchHud(),TouchHudAspect.load(),TouchManualJumpMode.load()))return;
+  if(!PlaceTouchHud(positions,SnapshotTouchHud(),TouchHudAspect.load(),TouchManualJumpMode.load(),TouchHudPreset.load()))return;
   ItemPositions=positions;HaveItems=true;
   for(unsigned q:{5u,6u,7u,8u,9u,10u,11u,12u,23u,28u,29u})for(unsigned v=0;v<4;++v){positions[q*12+v*3]=0;positions[q*12+v*3+1]=0;}
   memory.WriteBytes(Positions,std::span(reinterpret_cast<const uint8_t*>(positions.data()),sizeof(positions)));

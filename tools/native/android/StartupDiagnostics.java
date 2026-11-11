@@ -145,6 +145,33 @@ public final class StartupDiagnostics extends Application {
             .append("\nRuntime Vulkan: ").append(prefs(c).getString("runtime_vulkan", "not captured"))
             .append("\nVulkan candidates:\n").append(prefs(c).getString("vulkan_candidates", "not captured"))
             .append("\nPrevious failure: ").append(prefs(c).getString("failure", "No failure captured. Android 10 cannot report prior native exit reasons."));
+        appendPreparation(out, c);
         return out.toString();
+    }
+
+    private static void appendPreparation(StringBuilder out, Context context) {
+        try {
+            java.io.File file = new java.io.File(context.getFilesDir(), "native-data/setup-activity.json");
+            if (file.length() > 65536) return;
+            org.json.JSONObject activity = new org.json.JSONObject(new String(
+                java.nio.file.Files.readAllBytes(file.toPath()), java.nio.charset.StandardCharsets.UTF_8));
+            String stage = activity.optString("stage");
+            if (!stage.matches("[a-z]{1,24}")) return;
+            out.append("\nPreparation stage: ").append(stage)
+                .append("; completed: ").append(activity.optLong("completed", -1))
+                .append('/').append(activity.optLong("total", -1))
+                .append("; workers: ").append(activity.optInt("workers", 0))
+                .append("; available MiB: ").append(activity.optLong("available_bytes", 0) / 1048576)
+                .append("; snapshot age seconds: ").append(Math.max(0,
+                    System.currentTimeMillis() / 1000 - activity.optLong("updated_at", 0)))
+                .append("; no CPU activity warning: ").append(activity.optBoolean("no_cpu_activity_warning"));
+            org.json.JSONArray processes = activity.optJSONArray("processes");
+            if (processes != null) for (int i = 0; i < Math.min(4, processes.length()); i++) {
+                org.json.JSONObject worker = processes.getJSONObject(i);
+                out.append("\nCompiler ").append(i + 1).append(": CPU ticks ")
+                    .append(worker.optLong("cpu_ticks", -1)).append("; resident MiB ")
+                    .append(worker.optLong("resident_bytes", 0) / 1048576);
+            }
+        } catch (Exception ignored) { }
     }
 }

@@ -105,6 +105,8 @@ Keep a separate backup of saves before installing a Preview or changing signing 
 
 ## What's next
 
+- R/ZR item selection: use R to open an item-selection menu and ZR to use the selected item, building on the optional Remake HUD preset.
+
 - Expand the Cheats menu toward Ship of Harkinian parity, adding and testing more options.
 - Windows portable mode for the next release: opt in under Settings → General to copy saves, settings, and prepared game data from AppData into a `user` folder beside the app. Keep the original AppData copy, verify the migration before switching, and make the portable folder movable without preparing the ROM again.
 - Regional ROM support: Japan, Korea, and Taiwan, following European support in 0.5.8. See [regional support](documentation/Regional-support.md).

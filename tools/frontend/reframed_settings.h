@@ -36,6 +36,7 @@ class Settings {
     void Initialize(const std::filesystem::path& manifest) {
         std::lock_guard lock(mMutex);
         GameSave.SetAvailable(false);
+        mHudPreset=0;mHudPresetApplied=-1;TouchHudPreset=0;
         {
             std::lock_guard cheatsLock(Cheats.Mutex);
             Cheats.Snapshot={};Cheats.Edit={};Cheats.Message.clear();Cheats.Options={};
@@ -60,12 +61,15 @@ class Settings {
                 if(stored.at("schema")!=1)throw std::runtime_error("Unsupported Reframed settings version");
                 for(size_t i=0;i<Keys.size();++i)mValues[i]=stored.at(Keys[i]).get<int>();
                 if(!Valid(mValues))throw std::runtime_error("Invalid Reframed settings");
+                mHudPreset=stored.value("hud_preset",0);
+                if(mHudPreset<0 || mHudPreset>1)mHudPreset=0;
                 mManualJump=stored.value("manual_jump",0);
                 if(mManualJump<0 || mManualJump>2)mManualJump=0;
                 mConfigured=true;
             }
             mReady=true;
             TouchManualJumpMode=0;
+            TouchHudPreset=0;
         } catch(const std::exception& e){mError=e.what();}
     }
     bool Ready()const{std::lock_guard lock(mMutex);return mReady;}
@@ -78,6 +82,7 @@ class Settings {
         nlohmann::json saved{{"schema",1}};
         for(size_t i=0;i<Keys.size();++i)saved[Keys[i]]=changed[i];
         saved["manual_jump"]=mManualJump;
+        saved["hud_preset"]=mHudPreset;
         if(!Ship::Context::GetRawInstance()->GetConfig()->SetBlock("Reframed",saved)) {
             mError="Could not save settings. Your previous selection remains active.";return;
         }
@@ -91,12 +96,28 @@ class Settings {
     void SetManualJump(int value) {
         std::lock_guard lock(mMutex);
         if(value<0 || value>2)return;
-        nlohmann::json saved{{"schema",1},{"manual_jump",value}};
+        nlohmann::json saved{{"schema",1},{"manual_jump",value},{"hud_preset",mHudPreset}};
         for(size_t i=0;i<Keys.size();++i)saved[Keys[i]]=mValues[i];
         if(!Ship::Context::GetRawInstance()->GetConfig()->SetBlock("Reframed",saved)) {
             mError="Could not save settings. Your previous selection remains active.";return;
         }
         mManualJump=value;mError.clear();
+    }
+    bool HasHudPreset()const {
+        std::lock_guard lock(mMutex);
+        return mReady && mBridge.at("functions").contains("HudPreset_Set") && HasManualJump();
+    }
+    int HudPreset()const{std::lock_guard lock(mMutex);return mHudPreset;}
+    void SetHudPreset(int value) {
+        std::lock_guard lock(mMutex);
+        if(value<0 || value>1 || value==mHudPreset || !HasHudPreset())return;
+        const int jump=value==1?2:mManualJump;
+        nlohmann::json saved{{"schema",1},{"hud_preset",value},{"manual_jump",jump}};
+        for(size_t i=0;i<Keys.size();++i)saved[Keys[i]]=mValues[i];
+        if(!Ship::Context::GetRawInstance()->GetConfig()->SetBlock("Reframed",saved)) {
+            mError="Could not save settings. Your previous selection remains active.";return;
+        }
+        mHudPreset=value;mManualJump=jump;mError.clear();
     }
     void Apply(Oot3dNativeGame::NativeA32Process& process) {
         std::lock_guard lock(mMutex);
@@ -158,6 +179,11 @@ class Settings {
                 uint32_t value=static_cast<uint32_t>(mManualJump);
                 invoke("ManualJump_Set",{&value,1});mManualJumpApplied=mManualJump;
             }
+            if(mBridge.at("functions").contains("HudPreset_Set") && mHudPresetApplied!=mHudPreset) {
+                uint32_t value=static_cast<uint32_t>(mHudPreset);
+                invoke("HudPreset_Set",{&value,1});mHudPresetApplied=mHudPreset;
+            }
+            TouchHudPreset=mHudPresetApplied>=0?mHudPresetApplied:0;
             // Native inventory/instrument controls retain their original meaning.
             uint8_t touchPause=1,touchInstrument=1;
             const bool jumpGameplay=NativeTouchHud.Ready() &&
@@ -178,6 +204,7 @@ class Settings {
     nlohmann::json mBridge;
     std::array<int,9> mValues{0,0,0,2,2,0,0,0,0},mPrevious{};
     int mManualJump=0,mManualJumpApplied=-1;
+    int mHudPreset=0,mHudPresetApplied=-1;
     bool mReady=false,mConfigured=false,mApplied=false,mTouchHudApplied=false;
     std::string mError;
 };
@@ -206,6 +233,16 @@ class Panel final:public Fast::Oot3d::GraphicsSettingsPanelTab {
             combo(2,"Motion control","On\0Off\0","Motion aiming when a supported device supplies it.");
             combo(5,"Free-camera inversion","Normal\0Invert X\0Invert Y\0Invert both\0","Right-stick exploration camera.");
         }else if(mPage=="HUD") {
+            int preset=settings.HudPreset();
+            ImGui::TextUnformatted("HUD preset");
+            ImGui::SetNextItemWidth(std::min(ImGui::GetContentRegionAvail().x,ImGui::GetFontSize()*24));
+            ImGui::BeginDisabled(!settings.HasHudPreset());
+            if(ImGui::Combo("##hud_preset",&preset,"ReFramed\0Remake\0"))settings.SetHudPreset(preset);
+            ImGui::EndDisabled();
+            if(settings.HasHudPreset())
+                ImGui::TextWrapped("Remake: Ocarina left, Navi right, Item I up, and Item II down. Selecting it sets manual jump to X and moves the X item to ZR. Manual jump can still be changed under Quality of life.");
+            else ImGui::TextWrapped("Update game preparation to enable HUD presets.");
+            ImGui::Spacing();
             combo(3,"HUD size","Hidden\0 75%\0 100%\0 125%\0","Changes gameplay HUD size independently of this menu.");
         }else if(mPage=="Quality of life") {
             combo(6,"Movement speed","Normal\0+10%\0+20%\0","Walking and running; other actions stay normal.");

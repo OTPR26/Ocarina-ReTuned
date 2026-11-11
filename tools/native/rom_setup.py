@@ -289,6 +289,9 @@ class RomSetup:
         with subprocess.Popen(list(map(str, command)), cwd=cwd, stdout=self.log,
                               stderr=subprocess.STDOUT, env=self.environment, start_new_session=os.name != 'nt') as process:
             while process.poll() is None:
+                observer = getattr(self, 'observe_process', None)
+                if observer is not None:
+                    observer(process, command)
                 if self.cancel.wait(0.2):
                     if os.name == 'nt':
                         subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],

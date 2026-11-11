@@ -91,3 +91,5 @@ static void NativeHud_PositionJumpBumper(void) {
         rows=['    '+', '.join(str(n) for n in indices[i:i+16])+',' for i in range(0,len(indices),16)]
         text=text[:opening+1]+'\n'+'\n'.join(rows)+'\n'+text[end:]
         p.write_text(text)
+    from apply_hud_preset import apply as apply_hud_preset
+    apply_hud_preset(root)

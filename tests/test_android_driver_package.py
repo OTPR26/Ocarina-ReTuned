@@ -61,16 +61,19 @@ class DriverPackageTests(unittest.TestCase):
                 driver.install(root / 'driver.zip', root / 'drivers', 35)
             self.assertEqual(b'damaged', library.read_bytes())
 
-    def test_accept_standard_turnip_library_name(self):
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            self.archive(root / 'driver.zip')
-            with zipfile.ZipFile(root / 'driver.zip') as source:
-                data = source.read('libtest.so')
-            with zipfile.ZipFile(root / 'driver.zip', 'w') as archive:
-                archive.writestr('meta.json', json.dumps(dict(schemaVersion=1, minApi=27, libraryName='vulkan.ad07xx.so')))
-                archive.writestr('vulkan.ad07xx.so', data)
-            self.assertEqual('vulkan.ad07xx.so', driver.install(root/'driver.zip',root/'drivers',33)['library'])
+    def test_accept_standard_driver_library_names(self):
+        for library in ('vulkan.ad07xx.so', 'vulkan.mali.so', 'libvulkan_panfrost.so'):
+            with self.subTest(library=library), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                self.archive(root / 'driver.zip')
+                with zipfile.ZipFile(root / 'driver.zip') as source:
+                    data = source.read('libtest.so')
+                with zipfile.ZipFile(root / 'driver.zip', 'w') as archive:
+                    archive.writestr('meta.json', json.dumps(dict(schemaVersion=1, minApi=29, libraryName=library)))
+                    archive.writestr(library, data)
+                result = driver.install(root/'driver.zip',root/'drivers',33)
+                self.assertEqual(library, result['library'])
+                self.assertEqual(data, (root/'drivers'/result['id']/library).read_bytes())
 
     def test_reject_symlink_and_special_file(self):
         for mode in (stat.S_IFLNK, stat.S_IFIFO, stat.S_IFCHR):

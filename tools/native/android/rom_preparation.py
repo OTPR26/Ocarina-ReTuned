@@ -38,6 +38,16 @@ def memory_snapshot():
         return 0, 0
 
 
+def process_activity(pid):
+    """Read only counters, never command lines or private file paths."""
+    try:
+        stat = Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()
+        return {'cpu_ticks': int(stat[11]) + int(stat[12]),
+                'resident_bytes': int(stat[21]) * os.sysconf('SC_PAGE_SIZE'), 'state': stat[0]}
+    except (OSError, ValueError, IndexError):
+        return {'cpu_ticks': None, 'resident_bytes': None, 'state': 'unknown'}
+
+
 def compilation_workers(cpu_count, total, available, requested=4):
     """Keep small devices serial; cap the foreground compiler at four workers."""
     reserve = max(768 * MIB, total // 8)
@@ -73,6 +83,10 @@ class AndroidRomSetup(RomSetup):
         self.linker = Path(linker).resolve()
         self.runtime_library = Path(runtime_library).resolve()
         self.environment['LD_LIBRARY_PATH'] = str(self.sdk / 'compiler-libraries')
+        self.title_shards = 64
+        self.title_shard_strategy = 'stable'
+        self._worker_lock = threading.Lock()
+        self._workers = {}
         self.specification = None
         self._timed_stage = None
         self.stage_timings = []
@@ -82,6 +96,14 @@ class AndroidRomSetup(RomSetup):
         if getattr(self, '_collect_timings', False) and stage != self._timed_stage:
             self.finish_stage()
             self._timed_stage, self._stage_started = stage, time.monotonic()
+        root = getattr(self, 'diagnostic_root', None)
+        if root is not None:
+            try:
+                write_json(root / 'setup-activity.json', {
+                    'format': 'retuned_preparation_activity_v1', 'stage': stage,
+                    'updated_at': time.time(), 'completed': completed, 'total': total})
+            except OSError:
+                pass
         if completed is None:
             super().checkpoint(stage, message)
         else:
@@ -100,6 +122,7 @@ class AndroidRomSetup(RomSetup):
 
     def _prepare(self, rom, root, work):
         self.stage_timings = []
+        self.diagnostic_root = root
         self._collect_timings = True
         outcome = 'failed'
         started = time.monotonic()
@@ -108,6 +131,14 @@ class AndroidRomSetup(RomSetup):
             outcome = 'complete'
             return result
         finally:
+            try:
+                write_json(root / 'setup-activity.json', {
+                    'format': 'retuned_preparation_activity_v1',
+                    'stage': 'complete' if outcome == 'complete' else
+                             'cancelled' if self.cancel.is_set() else 'error',
+                    'updated_at': time.time()})
+            except OSError:
+                pass
             self.finish_stage()
             self._collect_timings = False
             # Diagnostic timings contain no ROM paths, source, or game data.
@@ -163,13 +194,60 @@ class AndroidRomSetup(RomSetup):
                     def option(flag):
                         return Path(arguments[arguments.index(flag) + 1])
                     generate(option('--program'), option('--selection'), option('--code'),
-                        option('--output'), shard_count=64, shard_strategy='stable',
-                        region_entries=frozenset(), memory_entries=frozenset(), local_state=False)
+                        option('--output'), shard_count=self.title_shards, shard_strategy=self.title_shard_strategy,
+                        region_entries=frozenset(), memory_entries=frozenset(), local_state=False,
+                        progress=lambda done, total: self.report_units('generating',
+                            f'Generating native game code: {done} of {total}…', done, total))
                 else:
                     raise SetupError('Unsupported preparation stage')
             gc.collect()
             return
         return super().run(command, cwd)
+
+    def observe_process(self, process, command):
+        if Path(command[0]) != self.compiler:
+            return
+        ident = threading.get_ident()
+        now = time.monotonic()
+        with self._worker_lock:
+            previous = self._workers.get(ident, {})
+            if now - previous.get('sampled_at', -10) < 5:
+                return
+        sample = process_activity(process.pid)
+        activity = sample.get('cpu_ticks')
+        last_active = previous.get('last_active', now)
+        if activity is None or activity != previous.get('cpu_ticks'):
+            last_active = now
+        sample.update(sampled_at=now, last_active=last_active,
+                      unit=Path(command[command.index('-o') + 1]).stem)
+        with self._worker_lock:
+            self._workers[ident] = sample
+
+    def compilation_heartbeat(self, completed, total, workers):
+        now = time.monotonic()
+        with self._worker_lock:
+            samples = [dict(value) for value in self._workers.values()]
+        stalled = bool(samples) and all(
+            value.get('cpu_ticks') is not None and now - value['last_active'] >= 300
+            for value in samples)
+        message = f'Building native game module: {completed} of {total} ({workers} at a time)…'
+        if stalled:
+            message += ' No compiler CPU activity for 5 minutes. You can cancel and retry.'
+        elif samples:
+            message += ' Compiler is running; waiting for the next file to finish.'
+        self.report_units('compiling', message, completed, total)
+        root = getattr(self, 'diagnostic_root', None)
+        if root is not None:
+            try:
+                write_json(root / 'setup-activity.json', {
+                    'format': 'retuned_preparation_activity_v1', 'stage': 'compiling',
+                    'updated_at': time.time(), 'completed': completed, 'total': total,
+                    'workers': workers, 'available_bytes': memory_snapshot()[1],
+                    'no_cpu_activity_warning': stalled,
+                    'processes': [{k: v for k, v in sample.items()
+                                   if k not in ('sampled_at', 'last_active')} for sample in samples]})
+            except OSError:
+                pass
 
     def compile_title(self, work, generated):
         build = work / 'build'
@@ -231,7 +309,11 @@ class AndroidRomSetup(RomSetup):
                 '-DOOT3D_NATIVE_GENERATED_WHOLE_AOT=1', '-c', source, '-o', target]
             for include in includes:
                 command += ['-I', include]
-            self.run(command)
+            try:
+                self.run(command)
+            finally:
+                with self._worker_lock:
+                    self._workers.pop(threading.get_ident(), None)
             if cache is not None:
                 cache.store(key, {'unit.o': target})
             return False
@@ -248,7 +330,9 @@ class AndroidRomSetup(RomSetup):
                                 self.checkpoint('compiling', 'Stopping setup...')
                             active.add(pool.submit(compile_one, next_source))
                             next_source += 1
-                        done, active = wait(active, return_when=FIRST_COMPLETED)
+                        done, active = wait(active, timeout=5, return_when=FIRST_COMPLETED)
+                        if not done:
+                            self.compilation_heartbeat(completed, len(sources), workers)
                         for future in done:
                             if future.result():
                                 self.compilation_statistics['reused_units'] += 1

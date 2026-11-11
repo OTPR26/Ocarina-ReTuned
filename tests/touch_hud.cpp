@@ -28,6 +28,16 @@ int main(){
  assert(std::abs((jumpGeometry[28*12]-jumpGeometry[6*12])-(original[28*12]-original[6*12]))<.001f);
  auto zrJump=original;assert(PlaceTouchHud(zrJump,anchors,400.f/240.f,1));
  assert(std::abs(HudQuadCenter(zrJump,6)[0]-anchors[2].X*400)<.001f);
+ // Remake keeps each action and its ammo on the newly assigned direction.
+ for(int jump:{0,2})for(float aspect:{4.f/3.f,16.f/9.f,2868.f/1320.f}) {
+  auto remake=original;assert(PlaceTouchHud(remake,jumpAnchors,aspect,jump,1));
+  for(const auto [quad,slot]:std::array{std::pair{8u,6u},std::pair{9u,7u},std::pair{10u,4u},std::pair{11u,5u},std::pair{6u,jump==2?8u:2u}}) {
+   const auto actual=HudQuadCenter(remake,quad),expected=TouchHudPoint(jumpAnchors[slot],aspect);
+   assert(std::abs(actual[0]-expected[0])<.001f&&std::abs(actual[1]-expected[1])<.001f);
+  }
+  assert(std::abs((remake[12*12]-remake[10*12])-(original[12*12]-original[10*12]))<.001f);
+  assert(std::abs((remake[12*12+1]-remake[10*12+1])-(original[12*12+1]-original[10*12+1]))<.001f);
+ }
  // A west touch arm outside the legacy HUD must survive in the window overlay.
  const float phoneAspect=2868.f/1320.f;
  const TouchHudAnchor west{.05f,.7f,true};
