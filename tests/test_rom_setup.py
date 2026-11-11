@@ -15,6 +15,26 @@ spec.loader.exec_module(setup)
 
 
 class RomSetupTransactions(unittest.TestCase):
+    def test_mac_finder_environment_discovers_tools_without_changing_parent(self):
+        import os
+        import shutil
+        with tempfile.TemporaryDirectory() as temporary:
+            tools = Path(temporary) / 'tools'
+            tools.mkdir()
+            for name in ('cmake', 'ninja'):
+                executable = tools / name
+                executable.write_text('#!/bin/sh\nexit 0\n')
+                executable.chmod(0o755)
+            parent = {'PATH': '/usr/bin:/bin', 'CUSTOM': 'preserved'}
+            with patch.object(setup, 'MAC_BUILD_TOOL_PATHS', (str(tools),)):
+                result = setup.mac_build_environment(parent)
+                self.assertEqual(setup.mac_build_environment(result), result)
+            self.assertEqual(parent['PATH'], '/usr/bin:/bin')
+            self.assertEqual(result['CUSTOM'], 'preserved')
+            self.assertTrue(result['PATH'].startswith(parent['PATH'] + os.pathsep))
+            for name in ('cmake', 'ninja'):
+                self.assertEqual(shutil.which(name, path=result['PATH']), str(tools / name))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

@@ -46,6 +46,20 @@ class SetupCancelled(SetupError):
     pass
 
 
+MAC_BUILD_TOOL_PATHS = ('/opt/homebrew/bin', '/usr/local/bin', '/Applications/CMake.app/Contents/bin')
+
+
+def mac_build_environment(environment):
+    """Finder launches do not inherit shell-configured tool paths."""
+    result = dict(environment)
+    paths = result.get('PATH', os.defpath).split(os.pathsep)
+    for directory in MAC_BUILD_TOOL_PATHS:
+        if directory not in paths and Path(directory).is_dir():
+            paths.append(directory)
+    result['PATH'] = os.pathsep.join(paths)
+    return result
+
+
 def windows_build_environment(environment):
     """Discover installed C++ tools for normal GUI launches, without global changes."""
     result = {name.upper(): value for name, value in environment.items()}
@@ -270,7 +284,7 @@ class RomSetup:
         self.log = None
         self.profile_root = Path(profile_root).resolve() if profile_root is not None else None
         self.windows_tools = Path(windows_tools).resolve() if windows_tools is not None else None
-        self.environment = dict(os.environ)
+        self.environment = mac_build_environment(os.environ) if sys.platform == 'darwin' else dict(os.environ)
         self.environment['PYTHONDONTWRITEBYTECODE'] = '1'
         if sys.platform == 'win32':
             self.environment = (portable_windows_environment(self.environment, windows_tools)

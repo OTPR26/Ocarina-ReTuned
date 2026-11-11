@@ -1,6 +1,7 @@
 #include "first_run.h"
 #include "rom_picker.h"
 #include "preparation_version.h"
+#include "macos_profile.h"
 #include <SDL.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
@@ -187,6 +188,10 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
     else if(argc==1)profile=DefaultRoot()/"native-launch.json";
     else if(argc==3&&std::string(argv[1])=="--launch-profile")profile=FromText(argv[2]);
     else return true;
+#if defined(__APPLE__)
+    RetunedSetup::RepairMacResourcePath(profile,
+        std::filesystem::weakly_canonical(ExecutablePath()).parent_path().parent_path()/"Resources");
+#endif
     preparationProfile=std::filesystem::absolute(profile);
     RetunedFrontend::RequestGamePreparation=[] {
         preparationRequested=true;
