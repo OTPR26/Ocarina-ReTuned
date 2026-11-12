@@ -60,6 +60,18 @@ def mac_build_environment(environment):
     return result
 
 
+def linux_build_environment(environment, tools):
+    """Resolve packaged tools even when Steam launches the binary directly."""
+    result = dict(environment)
+    directories = [Path(tools) / 'cmake/bin', Path(tools) / 'ninja']
+    for directory, name in zip(directories, ('cmake', 'ninja')):
+        executable = directory / name
+        if not executable.is_file() or not os.access(executable, os.X_OK):
+            raise SetupError(f'Bundled build tool is missing or not executable: {executable}. Re-extract the complete Linux package.')
+    result['PATH'] = os.pathsep.join([*map(str, directories), result.get('PATH', os.defpath)])
+    return result
+
+
 def windows_build_environment(environment):
     """Discover installed C++ tools for normal GUI launches, without global changes."""
     result = {name.upper(): value for name, value in environment.items()}
@@ -267,7 +279,7 @@ def activate(root, stage, installation_id, make_profile, profile_root=None):
 class RomSetup:
     def __init__(self, *, engine, ips, elf, host, readelf='arm-none-eabi-readelf',
                  cmake='cmake', cmake_args=(), jobs=2, progress=None, cancel=None, profile_root=None,
-                 windows_tools=None, ui_resources=None, hd_font_coverage=None, dialogue_font=None, preparation_identity=None):
+                 windows_tools=None, linux_tools=None, ui_resources=None, hd_font_coverage=None, dialogue_font=None, preparation_identity=None):
         if preparation_identity is not None and (len(preparation_identity) != 64 or any(c not in "0123456789abcdef" for c in preparation_identity)):
             raise SetupError("Invalid preparation identity")
         self.preparation_identity = preparation_identity
@@ -285,6 +297,10 @@ class RomSetup:
         self.profile_root = Path(profile_root).resolve() if profile_root is not None else None
         self.windows_tools = Path(windows_tools).resolve() if windows_tools is not None else None
         self.environment = mac_build_environment(os.environ) if sys.platform == 'darwin' else dict(os.environ)
+        if linux_tools is not None:
+            if not sys.platform.startswith('linux'):
+                raise SetupError('This preparation kit requires Linux.')
+            self.environment = linux_build_environment(self.environment, linux_tools)
         self.environment['PYTHONDONTWRITEBYTECODE'] = '1'
         if sys.platform == 'win32':
             self.environment = (portable_windows_environment(self.environment, windows_tools)
@@ -691,6 +707,11 @@ def load_kit(path, host=None):
         root = asset('windows_tools')
         tools = {'windows_tools': root, 'cmake': root / 'cmake/bin/cmake.exe'}
         cmake_args.append('-DCMAKE_TOOLCHAIN_FILE=' + str(root / 'windows-toolchain.cmake'))
+    if sys.platform.startswith('linux') and (path.parent / 'build-tools').exists():
+        kit['linux_tools'] = 'build-tools'
+        root = asset('linux_tools')
+        tools = {'linux_tools': root, 'cmake': root / 'cmake/bin/cmake'}
+        cmake_args.append('-DCMAKE_MAKE_PROGRAM=' + str(root / 'ninja/ninja'))
     optional = {name: asset(name) for name in ('ui_resources', 'hd_font_coverage', 'dialogue_font') if name in kit}
     if kit.get('preparation_identity') is not None:
         optional['preparation_identity'] = kit['preparation_identity']

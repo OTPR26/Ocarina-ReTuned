@@ -218,6 +218,52 @@ class PreparationSourceIntegrity(unittest.TestCase):
 
 
 class PreparationKitHost(unittest.TestCase):
+    def test_linux_direct_launch_and_relocation_find_bundled_tools(self):
+        import os
+        import shutil
+        with tempfile.TemporaryDirectory(prefix='Linux app ') as temporary:
+            app = Path(temporary).resolve() / 'Original app'
+            kit = app / 'setup/kit.json'
+            kit.parent.mkdir(parents=True)
+            kit.write_text(json.dumps({'format': 'retuned_rom_preparation_kit_v1',
+                'engine': 'engine', 'ips': 'hud.ips', 'elf': 'hud.elf'}))
+            for relative in ('cmake/bin/cmake', 'ninja/ninja'):
+                tool = kit.parent / 'build-tools' / relative
+                tool.parent.mkdir(parents=True)
+                tool.write_text('#!/bin/sh\nexit 0\n')
+                tool.chmod(0o755)
+            parent = {'PATH': '/usr/bin:/bin', 'CUSTOM': 'unchanged'}
+            for folder in (app, app.with_name('Moved app')):
+                if folder != app:
+                    app.rename(folder)
+                with patch.object(setup.sys, 'platform', 'linux'), patch.dict(os.environ, parent, clear=True):
+                    options = setup.load_kit(folder / 'setup/kit.json', host=folder / 'OcarinaReTuned')
+                    runner = setup.RomSetup(**options)
+                tools = folder / 'setup/build-tools'
+                self.assertEqual(Path(runner.cmake), tools / 'cmake/bin/cmake')
+                self.assertIn('-DCMAKE_MAKE_PROGRAM=' + str(tools / 'ninja/ninja'), runner.cmake_args)
+                self.assertEqual(shutil.which('ninja', path=runner.environment['PATH']), str(tools / 'ninja/ninja'))
+                self.assertEqual(runner.environment['CUSTOM'], 'unchanged')
+                self.assertEqual(parent['PATH'], '/usr/bin:/bin')
+                runner.run([runner.cmake, '--version'])
+
+    def test_linux_incomplete_tools_fail_before_preparation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(setup.SetupError, 'Re-extract'):
+                setup.linux_build_environment({'PATH': '/usr/bin'}, Path(temporary))
+
+    def test_linux_bundled_tool_links_cannot_escape_kit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            kit = root / 'setup/kit.json'
+            kit.parent.mkdir()
+            (root / 'outside').mkdir()
+            (kit.parent / 'build-tools').symlink_to(root / 'outside', target_is_directory=True)
+            kit.write_text(json.dumps({'format': 'retuned_rom_preparation_kit_v1',
+                'engine': 'engine', 'ips': 'hud.ips', 'elf': 'hud.elf'}))
+            with patch.object(setup.sys, 'platform', 'linux'), self.assertRaisesRegex(setup.SetupError, 'escapes'):
+                setup.load_kit(kit, host=root / 'app')
+
     def test_running_host_override_needs_no_duplicate_binary_in_kit(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
