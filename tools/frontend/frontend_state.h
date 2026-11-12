@@ -6,6 +6,8 @@
 #include "retuned_settings_pages.h"
 namespace RetunedFrontend {
 inline std::function<void()> RequestGamePreparation;
+inline std::function<void()> RequestPortableMode;
+inline bool PortableModeActive=false;
 inline std::function<void()> RequestPlayerModels;
 inline bool StartupVisible = true;
 inline bool SetupVisible = false;

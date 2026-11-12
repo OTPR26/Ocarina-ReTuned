@@ -44,12 +44,16 @@ Path preparationProfile;
 Path preparationKit;
 bool preparationRequested=false;
 bool playerModelsRequested=false;
+bool portableRequested=false;
 std::string Text(const Path& path) { auto s=path.u8string();return {s.begin(),s.end()}; }
 Path FromText(const std::string& s) {return Path(std::u8string(s.begin(),s.end()));}
 Json Read(const Path& p) {std::ifstream f(p);return Json::parse(f);}
 using RetunedSetup::PreparedIdentityMatches;
+Path ExecutablePath();
 Path DefaultRoot() {
 #if defined(_WIN32)
+    const auto portable=ExecutablePath().parent_path()/"user";
+    if(std::filesystem::is_regular_file(portable/"portable.json"))return portable;
     const char* base=std::getenv("LOCALAPPDATA");
     if(!base)throw std::runtime_error("Windows app data directory is unavailable");
     return FromText(base)/"Ocarina ReTuned";
@@ -105,6 +109,27 @@ int Run(const std::vector<std::string>& arguments,bool wait=true) {
     return WIFEXITED(status)?WEXITSTATUS(status):-1;
 #endif
 }
+#if defined(_WIN32)
+int RunPortableMigration(const std::vector<std::string>& arguments) {
+    HWND window=CreateWindowExW(0,L"STATIC",L"Ocarina ReTuned - Portable mode",
+        WS_OVERLAPPED|WS_CAPTION|WS_VISIBLE, CW_USEDEFAULT,CW_USEDEFAULT,500,150,
+        nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
+    if(!window)throw std::runtime_error("Cannot open portable migration status.");
+    HWND label=CreateWindowExW(0,L"STATIC",
+        L"Copying and verifying game data...\nLarge texture packs may take several minutes.\nThe app will reopen when finished.",
+        WS_CHILD|WS_VISIBLE,20,20,450,85,window,nullptr,GetModuleHandleW(nullptr),nullptr);
+    SendMessageW(label,WM_SETFONT,reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)),TRUE);
+    std::atomic<bool> finished=false;int result=-1;
+    std::thread worker([&]{try{result=Run(arguments);}catch(...){result=-1;}finished=true;});
+    while(!finished) {
+        MSG message;while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE)) {
+            TranslateMessage(&message);DispatchMessageW(&message);
+        }
+        Sleep(20);
+    }
+    worker.join();DestroyWindow(window);return result;
+}
+#endif
 std::string ChooseRom() {
 #if defined(_WIN32)
     wchar_t file[32768]{};OPENFILENAMEW dialog{};dialog.lStructSize=sizeof(dialog);
@@ -191,6 +216,31 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
 #if defined(__APPLE__)
     RetunedSetup::RepairMacResourcePath(profile,
         std::filesystem::weakly_canonical(ExecutablePath()).parent_path().parent_path()/"Resources");
+#endif
+#if defined(_WIN32)
+    const auto app=ExecutablePath().parent_path();
+    const auto portable=app/"user";
+    const bool portableActive=std::filesystem::is_regular_file(portable/"portable.json") &&
+        std::filesystem::weakly_canonical(profile.parent_path())==std::filesystem::weakly_canonical(portable);
+    if(portableActive) {
+        const auto metadata=Read(portable/"portable.json");
+        if(metadata.value("format","")!="retuned_portable_data_v1")
+            throw std::runtime_error("Unsupported portable data format.");
+        if(FromText(metadata.at("data_root").get<std::string>())!=portable ||
+           FromText(metadata.at("app_root").get<std::string>())!=app) {
+            const auto kitPath=app/"setup/kit.json";
+            const auto kit=Read(kitPath);
+            const auto python=kitPath.parent_path()/FromText(kit.at("python").get<std::string>());
+            const auto script=kitPath.parent_path()/"project/tools/native/portable_data.py";
+            if(Run({Text(python),"-B",Text(script),"--app",Text(app)})!=0)
+                throw std::runtime_error("Portable paths could not be updated. Check folder permissions and the complete preparation kit.");
+        }
+    }
+    RetunedFrontend::PortableModeActive=portableActive;
+    RetunedFrontend::RequestPortableMode=[] {
+        portableRequested=true;
+        SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);
+    };
 #endif
     preparationProfile=std::filesystem::absolute(profile);
     RetunedFrontend::RequestGamePreparation=[] {
@@ -373,6 +423,23 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
 }
 
 int RetunedFinishPreparationRequest(int result) {
+#if defined(_WIN32)
+    if(portableRequested) {
+        auto target=preparationProfile;
+        try {
+            const auto kit=Read(preparationKit);
+            const auto python=preparationKit.parent_path()/FromText(kit.at("python").get<std::string>());
+            const auto script=preparationKit.parent_path()/"project/tools/native/portable_data.py";
+            if(RunPortableMigration({Text(python),"-B",Text(script),"--source",Text(preparationProfile.parent_path()),
+                    "--app",Text(ExecutablePath().parent_path())})!=0)
+                throw std::runtime_error("Portable migration could not finish. Check free space and folder permissions, close other app instances, and ensure no user folder already exists. Your original data is unchanged.");
+            target=ExecutablePath().parent_path()/"user/native-launch.json";
+        } catch(const std::exception& error) {
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Ocarina ReTuned",error.what(),nullptr);
+        }
+        return Run({Text(ExecutablePath()),"--launch-profile",Text(target)},false);
+    }
+#endif
     if(playerModelsRequested) {
         try {
             const auto kit=Read(preparationKit);

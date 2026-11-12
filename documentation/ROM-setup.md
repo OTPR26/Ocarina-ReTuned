@@ -71,15 +71,16 @@ Compiler SDK notices and platform package audits remain separate release gates.
 ## Desktop build tools
 
 The staged desktop toolkits include a platform-specific Python runtime,
-Capstone and neutral JSON headers. The portable Windows candidate additionally
-bundles pinned LLVM-MinGW, CMake and Ninja. Its compiler is used for both the
+Capstone and neutral JSON headers. Windows packages additionally
+bundle pinned LLVM-MinGW, CMake, and Ninja. The bundled compiler is used for both the
 host and the game module because their C++ memory interfaces must match.
 Preparation uses only the bundled tools and Windows system executables, ignoring
 installed Visual Studio environments. Users select a ROM and wait in the setup
 screen; no developer-tool installation or Developer Command Prompt is intended.
 
-The portable Windows candidate is being validated and is not a release asset.
-Older Windows test kits still discover installed Visual Studio Build Tools.
+Mac Preview 0.6.6 includes CMake and Ninja. Apple C++ command-line tools
+are still required for compilation. Windows bundled preparation tools are
+separate from the optional portable data-storage mode.
 Linux packages include portable CMake and Ninja, with their original license notices.
 Linux game modules must use libstdc++ with its C++11 ABI, matching the packaged
 host. Use the distribution's GCC or Clang with libstdc++ development headers.

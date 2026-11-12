@@ -44,6 +44,26 @@ void GraphicsSettingsPanel::Draw() {
       case SettingsPage::General: {
         RetunedFrontend::DrawDualGameSave(RetunedFrontend::ProbeGuestDualActive.load(),!RetunedFrontend::StartupVisible);
         drawTabs("Language");ImGui::Spacing();
+#if defined(_WIN32)
+        if(RetunedFrontend::RequestPortableMode) {
+            ImGui::SeparatorText("Portable mode");
+            if(RetunedFrontend::PortableModeActive) {
+                ImGui::TextWrapped("Portable mode is on. Game data is stored in the user folder beside the app. Move the whole app folder to keep your game with it.");
+            } else {
+                ImGui::TextWrapped("Copy saves, settings, and prepared game data to a user folder beside the app. Your original data stays in AppData. External texture folders remain in their current locations.");
+                ImGui::BeginDisabled(!RetunedFrontend::StartupVisible);
+                if(ImGui::Button("Enable portable mode..."))ImGui::OpenPopup("Enable portable mode?");
+                ImGui::EndDisabled();
+                if(!RetunedFrontend::StartupVisible)ImGui::TextWrapped("Save and restart the app before changing data storage.");
+                if(ImGui::BeginPopupModal("Enable portable mode?",nullptr,ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::TextUnformatted("The app will close, copy and verify your data, then reopen.\nClose any other Ocarina ReTuned instances first.\nCopying large texture packs may take several minutes.");
+                    if(ImGui::Button("Copy data and restart")) {ImGui::CloseCurrentPopup();RetunedFrontend::RequestPortableMode();}
+                    ImGui::SameLine();if(ImGui::Button("Cancel"))ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+            }
+        }
+#endif
 #ifdef __ANDROID__
         RetunedFrontend::DrawAndroidRomPreparation();
 #endif

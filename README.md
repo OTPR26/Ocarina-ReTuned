@@ -55,13 +55,13 @@ For iOS and Apple TV, use the unsigned packages included in the latest Preview. 
 
 | Platform | Download | Requirements and setup |
 | --- | --- | --- |
-| Windows x64 | `Ocarina-ReTuned-0.6.5-Windows-x64.zip` | Extract and run `OcarinaReTuned.exe`. Compiler and preparation tools are included: select your ROM and wait for preparation to finish. |
-| Mac | `Ocarina-ReTuned-0.6.5-Mac.zip` | Apple silicon, macOS 15 or later. Extract `Ocarina ReTuned.app`. ROM preparation requires Apple C++ command-line tools, CMake, and Ninja. The app is ad-hoc signed and is not notarized. |
+| Windows x64 | `Ocarina-ReTuned-0.6.7-Windows-x64.zip` | Extract and run `OcarinaReTuned.exe`. Compiler and preparation tools are included: select your ROM and wait for preparation to finish. |
+| Mac | `Ocarina-ReTuned-0.6.6-Mac.zip` | Apple silicon, macOS 15 or later. Extract `Ocarina ReTuned.app`. ROM preparation requires Apple C++ command-line tools. CMake and Ninja are included. The app is ad-hoc signed and is not notarized. |
 | Linux x86_64 | `Ocarina-ReTuned-0.6.5-Linux-x86_64.tar.gz` | Extract and run `Ocarina-ReTuned.sh`. Requires glibc 2.38 or later, system graphics drivers, and a C++20 compiler with system headers. CMake and Ninja are included. Audio uses your desktop audio session. |
 | Android ARM64 | `Ocarina-ReTuned-0.6.5-Android-arm64.apk` | Install the APK and select your ROM. Preparation runs entirely on the device; no desktop companion is needed. |
 | iOS | `Ocarina-ReTuned-0.6.5-iOS-Unsigned.ipa` | Unsigned; requires ROM preparation on a Mac with Xcode, then signing and installation. See below. |
 | tvOS | `Ocarina-ReTuned-0.6.5-tvOS-Unsigned.ipa` | Unsigned; requires ROM preparation on a Mac with Xcode, then signing and installation. See below. |
-| Windows ARM64 | `Ocarina-ReTuned-0.6.5-Windows-ARM64.zip` | Experimental; Windows on ARM with a Vulkan driver. Preparation tools are included. Native ARM64 gameplay is unverified. |
+| Windows ARM64 | `Ocarina-ReTuned-0.6.7-Windows-ARM64.zip` | Experimental; Windows on ARM with a Vulkan driver. Preparation tools are included. Native ARM64 gameplay is unverified. |
 | Linux ARM64 | `Ocarina-ReTuned-0.6.5-Linux-ARM64.tar.gz` | Experimental; Ubuntu 24.04 / glibc 2.39 or newer, Vulkan drivers and a C++20 compiler with system headers. CMake and Ninja are included. ROM preparation passed in an ARM64 VM; physical GPU gameplay is unverified. |
 | Switch | `Ocarina-ReTuned-0.6.5-Switch-Experimental.zip` | Experimental; desktop ROM preparation required. Tested in emulation only. See the [Switch setup guide](documentation/Switch-setup.md). Use the mobile version of optional texture packs. |
 
@@ -94,7 +94,7 @@ Startup and settings support controller navigation. On Apple TV, Back on the rem
 - High resolutions, interpolated frame rates, and large texture packs depend on your hardware. Texture-memory limits can leave some textures at their original resolution, especially on Apple TV.
 - First preparation can take a long time, particularly on slower devices.
 - Font-style changes require an app restart.
-- Mac and Linux preparation require the external build tools listed above.
+- Mac preparation requires Apple C++ command-line tools; Linux requires a compatible C++20 compiler and system headers. CMake and Ninja are included in both packages.
 - Apple installation currently requires the Mac preparation and signing steps above.
 
 Android save import, export, and custom sync-folder setup are described in [Android saves](documentation/Android-saves.md).
@@ -108,7 +108,7 @@ Keep a separate backup of saves before installing a Preview or changing signing 
 - R/ZR item selection: use R to open an item-selection menu and ZR to use the selected item, building on the optional Remake HUD preset.
 
 - Expand the Cheats menu toward Ship of Harkinian parity, adding and testing more options.
-- Windows portable mode for the next release: opt in under Settings → General to copy saves, settings, and prepared game data from AppData into a `user` folder beside the app. Keep the original AppData copy, verify the migration before switching, and make the portable folder movable without preparing the ROM again.
+- Windows portable mode ([implementation and testing notes](documentation/Windows-portable-mode.md)) for the next release: opt in under Settings → General to copy saves, settings, and prepared game data from AppData into a `user` folder beside the app. Keep the original AppData copy, verify the migration before switching, and make the portable folder movable without preparing the ROM again.
 - Regional ROM support: Japan, Korea, and Taiwan, following European support in 0.5.8. See [regional support](documentation/Regional-support.md).
 - Portable player-model library: convert and export models on Mac, Windows, and Linux; import compatible packages into a Models library on iOS, tvOS, and other platforms; select child and adult models before starting gameplay. Include Original Link, compatibility checks, and a transfer flow for Apple TV. On-device raw PAK conversion on Apple platforms is a separate follow-up.
 - Continue investigating Android startup crashes using the new diagnostic reports: [#1](https://github.com/OTPR26/Ocarina-ReTuned/issues/1) and [#3](https://github.com/OTPR26/Ocarina-ReTuned/issues/3).
