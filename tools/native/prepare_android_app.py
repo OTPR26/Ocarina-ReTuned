@@ -33,12 +33,12 @@ def prepare(engine, private_kit=None, preparation_native_stage=None):
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
     text = gradle.read_text()
-    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9', '2.6.0', '0.6.1', '0.6.2', '0.6.3', '0.6.4', '0.6.5'):
-        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.6.9"')
-    if 'versionName = "0.6.9"' not in text:
+    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9', '2.6.0', '0.6.1', '0.6.2', '0.6.3', '0.6.4', '0.6.5', '0.6.6', '0.6.7', '0.6.8', '0.6.9', '0.6.10'):
+        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.7.0"')
+    if 'versionName = "0.7.0"' not in text:
         raise ValueError('Android Preview version context changed')
-    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 23', text)
-    if 'versionCode = 23' not in text: raise ValueError('Android version code context changed')
+    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 24', text)
+    if 'versionCode = 24' not in text: raise ValueError('Android version code context changed')
     gradle.write_text(text)
     shutil.copy2(Path(__file__).with_name('preparation_identity.py'), root/'preparation_identity.py')
     shutil.copy2(Path(__file__).with_name('android_runtime.py'), root/'android_runtime.py')
@@ -73,7 +73,7 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     gameplay = activity.with_name('RetunedGameActivity.java')
     if gameplay.exists():
         activity.write_text(gameplay.read_text().replace('class RetunedGameActivity extends SDLActivity', 'class TriAevumActivity extends SDLActivity'))
-    for name in ('TouchOverlay.java','TouchLayout.java','TextureFolder.java','InterfaceTypography.java'):
+    for name in ('TouchOverlay.java','TouchLayout.java','ControllerMotion.java','ControllerMotionState.java','TextureFolder.java','InterfaceTypography.java'):
         shutil.copy2(Path(__file__).parent/'android'/name,activity.parent/name)
     if 'private TextureFolder retunedTextures;' not in activity.read_text():
         replace(activity,'public final class TriAevumActivity extends SDLActivity {',
@@ -84,6 +84,9 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     if 'private TouchOverlay touchOverlay;' not in activity.read_text():
         replace(activity,'public final class TriAevumActivity extends SDLActivity {',
                 'public final class TriAevumActivity extends SDLActivity {\n    private TouchOverlay touchOverlay;')
+    if 'retunedControllerMotion(' not in activity.read_text():
+        replace(activity,'    private TouchOverlay touchOverlay;',
+                '    private TouchOverlay touchOverlay;\n    public double[] retunedControllerMotion(String name,int vendor,int product){return touchOverlay==null?null:touchOverlay.controllerMotion.sample(name,vendor,product);}')
     if 'public void retunedEditTouchLayout()' not in activity.read_text():
         replace(activity,'    private TouchOverlay touchOverlay;',
                 '    private TouchOverlay touchOverlay;\n    public void retunedEditTouchLayout(){runOnUiThread(()->{if(touchOverlay!=null)touchOverlay.startEditing();});}')

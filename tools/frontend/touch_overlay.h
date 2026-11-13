@@ -24,6 +24,8 @@ extern "C" void RetunedIOS_SetTouchControlsEnabled(int enabled);
 extern "C" void RetunedIOS_EditTouchLayout(void);
 extern "C" void RetunedIOS_SetTouchOpacity(float opacity);
 extern "C" void RetunedIOS_SetTouchScale(float scale);
+extern "C" void RetunedIOS_SetTouchOptions(int labels,int drag);
+extern "C" void RetunedIOS_SetControlSize(int control,float scale);
 extern "C" void RetunedIOS_SetExtraShoulders(int enabled);
 extern "C" void RetunedIOS_SetManualJump(int mode);
 extern "C" void RetunedIOS_SetTouchHudIcons(int enabled);
@@ -53,6 +55,10 @@ inline bool TouchSettingsWasDown=false;
 inline float TouchOpacity=.28f;
 inline std::atomic<float> NativeTouchOpacity{.28f},TouchSize{1.f};
 inline std::atomic<bool> TouchFloating{true};
+inline std::atomic<bool> TouchShoulderLabels{false},TouchDragLook{false};
+inline constexpr const char* TouchControlNames[]={"A","B","X","Y","L","R","ZL","ZR","Start","Settings","Dpad","Move","Look","Eye","Map"};
+inline std::array<std::atomic<float>,15> TouchControlSizes{1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f};
+inline float ControlSize(int index){return index>=0&&index<15?TouchControlSizes[index].load():1.f;}
 inline std::atomic<int> TouchFaceLayout{0};
 inline std::atomic<bool> TouchExtraShoulders{false};
 inline std::atomic<int> TouchZLAction{-1},TouchZRAction{-1};
@@ -87,6 +93,9 @@ inline void InitializeTouch() {
  TouchOpacity=std::clamp(config->GetFloat("Touch.Opacity",.28f),.1f,.75f);
  TouchSize=std::clamp(config->GetFloat("Touch.Scale",1.f),.75f,1.25f);
  TouchFloating=config->GetBool("Touch.Floating",true);
+ TouchShoulderLabels=config->GetBool("Touch.ShoulderLabels",false);
+ TouchDragLook=config->GetBool("Touch.DragLook",false);
+ for(int i=0;i<15;++i){float value=config->GetFloat(std::string("Touch.ControlSize.")+TouchControlNames[i],1.f);TouchControlSizes[i]=std::isfinite(value)?std::clamp(value,.5f,1.5f):1.f;}
  TouchExtraShoulders=config->GetBool("Touch.ExtraShoulders",false);
  TouchZLAction=std::clamp(config->GetInt("Touch.ZLAction",-1),-1,15);
  TouchZRAction=std::clamp(config->GetInt("Touch.ZRAction",-1),-1,15);
@@ -145,6 +154,12 @@ inline void DrawTouch(bool settingsVisible) {
  if(nativeSize!=TouchSize.load()){nativeSize=TouchSize.load();RetunedIOS_SetTouchScale(nativeSize);}
  if(nativeFace!=TouchFaceLayout.load()){nativeFace=TouchFaceLayout.load();RetunedIOS_SetFaceButtonLayout(nativeFace);}
  if(nativeFloating!=static_cast<int>(TouchFloating.load())){nativeFloating=TouchFloating.load();RetunedIOS_SetTouchLeftStickFloating(nativeFloating);}
+ static std::array<float,15> nativeControlSizes{};
+ for(int i=0;i<15;++i)if(nativeControlSizes[i]!=ControlSize(i)){nativeControlSizes[i]=ControlSize(i);RetunedIOS_SetControlSize(i,nativeControlSizes[i]);}
+ static int nativeLabels=-1,nativeDrag=-1;
+ if(nativeLabels!=int(TouchShoulderLabels.load())||nativeDrag!=int(TouchDragLook.load())){
+  nativeLabels=TouchShoulderLabels.load();nativeDrag=TouchDragLook.load();RetunedIOS_SetTouchOptions(nativeLabels,nativeDrag);
+ }
  static int nativeJump=-1;
  const int jump=menu?0:TouchManualJumpMode.load();
  if(nativeJump!=jump){nativeJump=jump;RetunedIOS_SetManualJump(jump);}
@@ -199,15 +214,19 @@ inline void DrawTouchSettings() {
    env->DeleteLocalRef(type);env->DeleteLocalRef(activity);
   }
  }
- ImGui::TextWrapped("Drag controls to reposition them. Single-screen and dual-screen layouts are saved separately. Map toggles the minimap without extra shoulder buttons.");
+ ImGui::TextWrapped("Drag controls to move them; pinch to resize. Single-screen and dual-screen layouts are saved separately. Map toggles the minimap without extra shoulder buttons.");
 #endif
 #if defined(__APPLE__) && TARGET_OS_IOS && !TARGET_OS_TV
  if(ImGui::Button("Edit touch layout"))RetunedIOS_EditTouchLayout();
- ImGui::TextWrapped("Drag controls to reposition them. Single-screen and dual-screen layouts are saved separately. Map toggles the minimap without extra shoulder buttons.");
+ ImGui::TextWrapped("Drag controls to move them; pinch to resize. Single-screen and dual-screen layouts are saved separately. Map toggles the minimap without extra shoulder buttons.");
 #endif
  float size=TouchSize.load();
  if(ImGui::SliderFloat("Control size",&size,.75f,1.25f,"%.2fx"))TouchSize=size;
  commit|=ImGui::IsItemDeactivatedAfterEdit();
+ bool labels=TouchShoulderLabels.load(),drag=TouchDragLook.load();
+ if(Toggle("Shoulder labels",&labels)){TouchShoulderLabels=labels;commit=true;}
+ if(Toggle("Drag to look",&drag)){TouchDragLook=drag;commit=true;}
+ ImGui::TextWrapped("Drag to look replaces the Look stick with swiping on the right side. Buttons keep priority. Individual sizes multiply Control size.");
  ImGui::SliderFloat("Opacity",&TouchOpacity,.1f,.75f,"%.2f");commit|=ImGui::IsItemDeactivatedAfterEdit();
  if(Toggle("Floating movement stick",&floating)){TouchFloating=floating;commit=true;}
  int layout=TouchFaceLayout.load();
@@ -234,6 +253,8 @@ inline void DrawTouchSettings() {
  ImGui::Spacing();ImGui::TextWrapped("L: targeting. R: shield. D-pad: item shortcuts. Start: inventory. Settings: app options.");
  if(commit){
   {std::lock_guard lock(TouchMutex);NativeTouch.Reset();}
+  config->SetBool("Touch.ShoulderLabels",TouchShoulderLabels.load());config->SetBool("Touch.DragLook",TouchDragLook.load());
+  for(int i=0;i<15;++i)config->SetFloat(std::string("Touch.ControlSize.")+TouchControlNames[i],ControlSize(i));
   config->SetFloat("Touch.IconOpacity",TouchIconOpacity.load());
   config->SetBool("Touch.ItemIcons",TouchHudRequested.load());
   config->SetBool("Touch.ExtraShoulders",TouchExtraShoulders.load());config->SetInt("Touch.ZLAction",TouchZLAction.load());config->SetInt("Touch.ZRAction",TouchZRAction.load());

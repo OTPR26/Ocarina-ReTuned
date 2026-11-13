@@ -29,3 +29,5 @@ inline int SDL_SensorGetData(SDL_Sensor* sensor,float* data,int){if(sensor->fail
 inline SDL_DisplayOrientation SDL_GetDisplayOrientation(int){return FakeMotion::orientation;}
 inline void SDL_AddEventWatch(int(*callback)(void*,SDL_Event*),void* context){FakeMotion::watches.push_back({callback,context});}
 inline void SDL_DelEventWatch(int(*callback)(void*,SDL_Event*),void* context){std::erase_if(FakeMotion::watches,[&](auto w){return w.call==callback && w.context==context;});}
+
+struct SDL_GameController;

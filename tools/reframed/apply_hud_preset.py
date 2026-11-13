@@ -97,20 +97,22 @@ def apply(root: Path):
         NativeHud_TranslateQuad(7, 17.0f, 17.0f); /* Y item: south */
         NativeHud_TranslateQuad(29, 17.0f, 17.0f); /* Y item ammo */
     }''')
-            text = replace_once(text,
-                '        NativeHud_ScaleQuadRange(8, 12, 40.0f, 78.5f, 0.65f);',
-                '''        for (u32 quad=8; quad<=11; ++quad) {
-            const float* p = gNativeHudPositions + quad * 12;
-            NativeHud_ScaleQuad(quad, (p[0]+p[3])*0.5f,
-                                (p[1]+p[7])*0.5f, 1.1f);
-        }
-        NativeHud_ScaleQuadRange(8, 12, 40.0f, 78.5f, 0.65f);''')
-            text = replace_once(text,
-                '        NativeHud_ScaleQuad(23, 40.0f, 78.5f, 0.65f);',
-                '        NativeHud_ScaleQuad(23, 40.0f, 78.5f, 0.65f);\n'
-                '        NativeHud_TranslateQuad(4, 0.0f, -11.0f);\n'
-                '        for (u32 quad=8; quad<=12; ++quad) NativeHud_TranslateQuad(quad, 0.0f, -11.0f);\n'
-                '        NativeHud_TranslateQuad(23, 0.0f, -11.0f);')
+            if '(p[1]+p[7])*0.5f, 1.1f);' not in text:
+                text = replace_once(text,
+                    '        NativeHud_ScaleQuadRange(8, 12, 40.0f, 78.5f, 0.65f);',
+                    '''        for (u32 quad=8; quad<=11; ++quad) {
+                const float* p = gNativeHudPositions + quad * 12;
+                NativeHud_ScaleQuad(quad, (p[0]+p[3])*0.5f,
+                                    (p[1]+p[7])*0.5f, 1.1f);
+            }
+            NativeHud_ScaleQuadRange(8, 12, 40.0f, 78.5f, 0.65f);''')
+            if 'NativeHud_TranslateQuad(4, 0.0f, -11.0f);' not in text:
+                text = replace_once(text,
+                    '        NativeHud_ScaleQuad(23, 40.0f, 78.5f, 0.65f);',
+                    '        NativeHud_ScaleQuad(23, 40.0f, 78.5f, 0.65f);\n'
+                    '        NativeHud_TranslateQuad(4, 0.0f, -11.0f);\n'
+                    '        for (u32 quad=8; quad<=12; ++quad) NativeHud_TranslateQuad(quad, 0.0f, -11.0f);\n'
+                    '        NativeHud_TranslateQuad(23, 0.0f, -11.0f);')
         p.write_text(text)
 
     from apply_hud_sizes import apply as apply_hud_sizes

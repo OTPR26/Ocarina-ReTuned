@@ -8,6 +8,8 @@ int RetunedIOS_TouchControlsAvailable(void);
 void RetunedIOS_SetTouchControlsEnabled(int enabled);
 void RetunedIOS_SetTouchOpacity(float opacity);
 void RetunedIOS_SetTouchScale(float scale);
+void RetunedIOS_SetTouchOptions(int labels,int drag);
+void RetunedIOS_SetControlSize(int control,float scale);
 void RetunedIOS_SetExtraShoulders(int enabled);
 void RetunedIOS_SetTouchHudIcons(int enabled);
 void RetunedIOS_SetFaceButtonLayout(int layout);

@@ -42,6 +42,9 @@ Sint16 ClampAxis(CGFloat value) {
                    static_cast<CGFloat>(SDL_MAX_SINT16)));
 }
 
+static float sIndividualSizes[15]={1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+static BOOL sShoulderLabels=NO,sDragLook=NO;
+static NSArray<NSString*>* ControlKeys(){return @[@"A",@"B",@"X",@"Y",@"L",@"R",@"ZL",@"ZR",@"Start",@"Settings",@"D-pad",@"Move",@"Look",@"Eye",@"Map"];}
 CGFloat sArtworkOpacity=.28;
 CGFloat ArtworkAlpha(CGFloat alpha){return MIN(1.0,alpha*sArtworkOpacity/.28);}
 UIColor* AndroidControlFill() {
@@ -223,6 +226,10 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 @property(nonatomic) int controllerAxisY;
 @property(nonatomic) BOOL floating;
 @property(nonatomic) BOOL customPlaced;
+@property(nonatomic) BOOL dragLook;
+@property(nonatomic) CGPoint lastPoint;
+@property(nonatomic) NSTimeInterval lastMove;
+@property(nonatomic) NSUInteger dragGeneration;
 - (void)cancelInput;
 
 @end
@@ -275,6 +282,18 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 }
 
 - (void)updateForPoint:(CGPoint)point {
+    if(self.dragLook){
+        NSTimeInterval now=NSProcessInfo.processInfo.systemUptime,seconds=MAX(.008,now-self.lastMove);
+        SetVirtualAxis(self.controllerAxisX,ClampAxis((point.x-self.lastPoint.x)/seconds/600.0*SDL_MAX_SINT16));
+        SetVirtualAxis(self.controllerAxisY,ClampAxis((point.y-self.lastPoint.y)/seconds/600.0*SDL_MAX_SINT16));
+        self.lastPoint=point;self.lastMove=now;
+        NSUInteger generation=++self.dragGeneration;
+        __weak RetunedTouchStick* weakSelf=self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,50*NSEC_PER_MSEC),dispatch_get_main_queue(),^{
+            RetunedTouchStick* stick=weakSelf;
+            if(stick&&stick.dragGeneration==generation){SetVirtualAxis(stick.controllerAxisX,0);SetVirtualAxis(stick.controllerAxisY,0);}
+        });return;
+    }
     CGPoint center = self.stickCenter;
     CGFloat knobRadius = CGRectGetWidth(self.knob.bounds) * 0.5;
     CGFloat radius = self.stickDiameter * 0.5 - knobRadius;
@@ -296,11 +315,12 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
     UITouch* touch = touches.anyObject;
     if (touch != nil) {
         CGPoint point = [touch locationInView:self];
+        self.lastPoint=point;self.lastMove=NSProcessInfo.processInfo.systemUptime;
         if (self.floating) {
             self.stickCenter = point;
             self.base.center = self.stickCenter;
         }
-        self.base.hidden = NO;
+        self.base.hidden = self.dragLook;
         [self updateForPoint:point];
     }
 }
@@ -321,11 +341,12 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 }
 
 - (void)cancelInput {
+    ++self.dragGeneration;
     SetVirtualAxis(self.controllerAxisX, 0);
     SetVirtualAxis(self.controllerAxisY, 0);
     self.knob.center =
         CGPointMake(self.stickDiameter * 0.5, self.stickDiameter * 0.5);
-    self.base.hidden = self.floating;
+    self.base.hidden = self.floating || self.dragLook;
 }
 
 - (void)setFloating:(BOOL)floating {
@@ -390,6 +411,8 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 @property(nonatomic, strong) RetunedTouchLayoutEditor* layoutEditor;
 @property(nonatomic, strong) NSMutableDictionary<NSString*, NSArray<NSNumber*>*>* placements;
 @property(nonatomic) BOOL dualLayout;
+@property(nonatomic, strong) NSMutableDictionary<NSString*, NSNumber*>* sizes;
+- (CGFloat)sizeForControl:(NSString*)key;
 - (NSDictionary<NSString*, UIView*>*)placementControls;
 - (CGRect)placementRect:(NSString*)key;
 - (void)startLayoutEditing;
@@ -546,7 +569,16 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 - (NSString*)placementPreference {
     return self.dualLayout?@"Retuned.TouchLayout.Dual.v1":@"Retuned.TouchLayout.Single.v1";
 }
+- (CGFloat)sizeForControl:(NSString*)key {
+    NSUInteger index=[ControlKeys() indexOfObject:key];
+    return self.sizes[key]?self.sizes[key].doubleValue:(index<15?sIndividualSizes[index]:1);
+}
 - (void)loadPlacements {
+    self.sizes=[NSMutableDictionary dictionary];
+    id sizes=[NSUserDefaults.standardUserDefaults objectForKey:[[self placementPreference] stringByAppendingString:@".sizes"]];
+    if([sizes isKindOfClass:NSDictionary.class]&&[sizes count]<=15)for(NSString* key in ControlKeys()){
+        id value=sizes[key];if([value isKindOfClass:NSNumber.class]&&std::isfinite([value doubleValue]))self.sizes[key]=@(std::clamp([value doubleValue],.5,1.5));
+    }
     self.placements=[NSMutableDictionary dictionary];
     id saved=[NSUserDefaults.standardUserDefaults objectForKey:[self placementPreference]];
     if(![saved isKindOfClass:NSDictionary.class] || [saved count]>16)return;
@@ -581,8 +613,27 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
     self.leftStick.customPlaced=self.placements[@"Move"]!=nil;
     self.rightStick.customPlaced=self.placements[@"Look"]!=nil;
     NSDictionary* controls=[self placementControls];
+    NSArray* keys=ControlKeys();
+    for(NSUInteger i=0;i<keys.count;++i){
+        UIView* view=controls[keys[i]];CGFloat factor=[self sizeForControl:keys[i]];
+        if([view isKindOfClass:RetunedTouchStick.class]){((RetunedTouchStick*)view).stickDiameter*=factor;continue;}
+        CGPoint center=view.center;CGSize size=view.bounds.size;
+        view.bounds=CGRectMake(0,0,size.width*factor,size.height*factor);view.center=center;
+        if(view==self.cCross)for(UIView* button in self.cButtons){
+            CGPoint old=button.center;CGSize b=button.bounds.size;
+            button.bounds=CGRectMake(0,0,b.width*factor,b.height*factor);
+            button.center=CGPointMake(center.x+(old.x-center.x)*factor,center.y+(old.y-center.y)*factor);
+        }
+        UIEdgeInsets safe=self.safeAreaInsets;
+        CGPoint parent=[view.superview convertPoint:view.center toView:self];
+        CGFloat x=std::clamp(parent.x,safe.left+view.bounds.size.width/2,MAX(safe.left+view.bounds.size.width/2,self.bounds.size.width-safe.right-view.bounds.size.width/2));
+        CGFloat y=std::clamp(parent.y,safe.top+view.bounds.size.height/2,MAX(safe.top+view.bounds.size.height/2,self.bounds.size.height-safe.bottom-view.bounds.size.height/2));
+        if(factor!=1){view.center=[self convertPoint:CGPointMake(x,y) toView:view.superview];
+            if(view==self.cCross)for(UIView* button in self.cButtons)button.center=CGPointMake(button.center.x+x-parent.x,button.center.y+y-parent.y);}
+    }
+    self.rightStick.dragLook=sDragLook;
     for(NSString* key in self.placements) {
-        UIView* view=controls[key];if(!view)continue;
+        UIView* view=controls[key];if(!view || (view==self.rightStick&&sDragLook&&!self.layoutEditor))continue;
         NSArray* pair=self.placements[key];CGFloat w=self.bounds.size.width,h=self.bounds.size.height;
         CGSize size=view.bounds.size;
         if([view isKindOfClass:RetunedTouchStick.class])size=CGSizeMake(((RetunedTouchStick*)view).stickDiameter,((RetunedTouchStick*)view).stickDiameter);
@@ -607,7 +658,10 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 }
 - (void)finishLayoutEditing:(BOOL)save {
     if(!self.layoutEditor)return;
-    if(save)[NSUserDefaults.standardUserDefaults setObject:self.placements forKey:[self placementPreference]];
+    if(save){
+        [NSUserDefaults.standardUserDefaults setObject:self.placements forKey:[self placementPreference]];
+        [NSUserDefaults.standardUserDefaults setObject:self.sizes forKey:[[self placementPreference] stringByAppendingString:@".sizes"]];
+    }
     else [self loadPlacements];
     [self.layoutEditor removeFromSuperview];self.layoutEditor=nil;
     self.hidden=self.menuVisible;[self setNeedsLayout];
@@ -774,7 +828,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
     [self.buttonX setTitle:@"X" forState:UIControlStateNormal];
     self.buttonX.accessibilityLabel=self.manualJump==2?@"Jump":@"X";
     for(RetunedTouchButton* shoulder in @[self.buttonL,self.buttonR,self.buttonZL,self.buttonZR])
-        [shoulder setTitle:@"" forState:UIControlStateNormal];
+        [shoulder setTitle:sShoulderLabels?(shoulder==self.buttonL?@"L":shoulder==self.buttonR?@"R":shoulder==self.buttonZL?@"ZL":@"ZR"):@"" forState:UIControlStateNormal];
     self.buttonZR.accessibilityLabel=self.manualJump==1?@"Jump":@"ZR item";
     for(RetunedTouchButton* button in @[self.buttonA,self.buttonB,self.buttonX,self.buttonY,self.buttonZR]){
         button.hudIcon=self.hudIcons && (button==self.buttonZR?self.manualJump==2:!(button==self.buttonX && self.manualJump==2));
@@ -785,11 +839,13 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
     [self applyPlacements];
     const CGPoint zr=[self.buttonZR.superview convertPoint:self.buttonZR.center toView:self];
     RetunedTouchSetHudAnchor(8,zr.x/width,zr.y/height);
+    RetunedTouchSetHudScale(8,[self sizeForControl:@"ZR"]);
     RetunedTouchSetHudDisplay(width,height);
     for(unsigned slot=0;slot<8;++slot) {
         UIView* view=slot<4?@[self.buttonA,self.buttonB,self.buttonX,self.buttonY][slot]:self.cButtons[slot-4];
         const CGPoint center=[view.superview convertPoint:view.center toView:self];
         RetunedTouchSetHudAnchor(slot,center.x/width,center.y/height);
+        RetunedTouchSetHudScale(slot,[self sizeForControl:ControlKeys()[slot<4?slot:10]]);
     }
     [self applyVisibility];
 }
@@ -971,5 +1027,19 @@ void RetunedIOS_SetTouchDualLayout(int dual) {
         if(sTouchOverlay.layoutEditor)[sTouchOverlay finishLayoutEditing:NO];
         sTouchOverlay.dualLayout=dual!=0;[sTouchOverlay loadPlacements];
         [sTouchOverlay cancelAllInputs];[sTouchOverlay setNeedsLayout];
+    });
+}
+
+void RetunedIOS_SetTouchOptions(int labels,int drag) {
+    dispatch_async(dispatch_get_main_queue(),^{
+        [sTouchOverlay cancelAllInputs];sShoulderLabels=labels!=0;sDragLook=drag!=0;
+        [sTouchOverlay setNeedsLayout];
+    });
+}
+void RetunedIOS_SetControlSize(int control,float scale) {
+    if(control<0||control>=15||!std::isfinite(scale))return;
+    dispatch_async(dispatch_get_main_queue(),^{
+        [sTouchOverlay cancelAllInputs];sIndividualSizes[control]=std::clamp(scale,.5f,1.5f);
+        [sTouchOverlay setNeedsLayout];
     });
 }

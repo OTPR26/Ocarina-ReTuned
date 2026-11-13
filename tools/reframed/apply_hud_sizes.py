@@ -11,23 +11,25 @@ def apply(root: Path):
     marker = 'static void NativeHud_RebuildPositions(void) {'
     helper = '''static u32 sNativeHudGroupScale[2] = {100, 100};
 static float NativeHud_GroupScale(u32 group) {
-    if (sNativeHudDualMenuLayout || sNativeHudOcarinaLayout) return 1.0f;
+    if (sNativeHudDualMenuLayout || (sNativeHudOcarinaLayout && group == 1)) return 1.0f;
     return sNativeHudGroupScale[group] / 100.0f;
 }
 static void NativeHud_ScaleGroups(void) {
-    if (sNativeHudDualMenuLayout || sNativeHudOcarinaLayout) return;
+    if (sNativeHudDualMenuLayout) return;
     const float dpad = NativeHud_GroupScale(0);
-    const u32 dpadQuads[] = {4, 8, 9, 10, 11, 12, 23};
+    const u32 dpadQuads[] = {4, 8, 9, 10, 11, 23, 12};
+    const u32 count = sNativeHudOcarinaLayout ? 6 : 7;
     float left = gNativeHudPositions[4 * 12];
-    for (u32 i = 0; i < 7; ++i)
+    for (u32 i = 0; i < count; ++i)
         for (u32 v = 0; v < 4; ++v) {
             const float x = gNativeHudPositions[dpadQuads[i] * 12 + v * 3];
             if (x < left) left = x;
         }
-    for (u32 i = 0; i < 7; ++i) {
+    for (u32 i = 0; i < count; ++i) {
         NativeHud_ScaleQuad(dpadQuads[i], left, 67.5f, dpad);
         NativeHud_TranslateQuad(dpadQuads[i], 8.0f - left, 0.0f);
     }
+    if (sNativeHudOcarinaLayout) return;
     const float actions = NativeHud_GroupScale(1);
     NativeHud_ScaleQuadRange(1, 3, 400.0f, 0.0f, actions);
     NativeHud_ScaleQuadRange(5, 7, 400.0f, 0.0f, actions);
@@ -58,4 +60,10 @@ void NativeHud_SetGroupScale(u32 group, u32 percent) {
     text = replace_once(text, marker, exports + marker)
     text = replace_once(text, '        const float hudScale = NativeHud_GetScale();',
                         '        const float hudScale = NativeHud_GetScale() * NativeHud_GroupScale(1);')
+    text = text.replace('if (!sNativeHudDualMenuLayout && !sNativeHudOcarinaLayout) {\n        // Restoration-sized gameplay cluster; retain the menu diagrams.',
+                        'if (!sNativeHudDualMenuLayout) {\n        // Restoration-sized gameplay cluster; retain the menu diagrams.')
+    text = text.replace('        NativeHud_ScaleQuadRange(8, 12, 40.0f, 78.5f, 0.65f);',
+                        '        NativeHud_ScaleQuadRange(8, 11, 40.0f, 78.5f, 0.65f);\n        if (!sNativeHudOcarinaLayout) NativeHud_ScaleQuad(12, 40.0f, 78.5f, 0.65f);')
+    text = text.replace('        for (u32 quad=8; quad<=12; ++quad) NativeHud_TranslateQuad(quad, 0.0f, -11.0f);',
+                        '        for (u32 quad=8; quad<=11; ++quad) NativeHud_TranslateQuad(quad, 0.0f, -11.0f);\n        if (!sNativeHudOcarinaLayout) NativeHud_TranslateQuad(12, 0.0f, -11.0f);')
     p.write_text(text)

@@ -44,7 +44,7 @@ extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_button(
 extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_axis(JNIEnv*,jclass,jint axis,jint value) {RetunedTouchSetAxis(axis,value);}
 extern "C" JNIEXPORT jint JNICALL Java_org_triaevum_android_TouchOverlay_state(JNIEnv*,jclass) {
  using namespace RetunedFrontend;
- return (AndroidGuestDualActive.load()?4096:0)|(NativeFrontendEnabled?1:0)|(TouchHostMenu.load()?2:0)|(TouchVisibility.ControlsVisible()?4:0)|(TouchVisibility.ButtonVisible()?512:0)|((TouchHostMode.load()==0?TouchManualJumpMode.load():0)<<10)|(TouchFaceLayout.load()<<3)|(TouchHostMode.load()!=0?32:0)|(TouchFloating.load()?64:0)|(TouchExtraShoulders.load()?128:0)|(TouchHudActive.load()&&TouchHudLive.load()?256:0);
+ return (TouchShoulderLabels.load()?8192:0)|(TouchDragLook.load()?16384:0)|(AndroidGuestDualActive.load()?4096:0)|(NativeFrontendEnabled?1:0)|(TouchHostMenu.load()?2:0)|(TouchVisibility.ControlsVisible()?4:0)|(TouchVisibility.ButtonVisible()?512:0)|((TouchHostMode.load()==0?TouchManualJumpMode.load():0)<<10)|(TouchFaceLayout.load()<<3)|(TouchHostMode.load()!=0?32:0)|(TouchFloating.load()?64:0)|(TouchExtraShoulders.load()?128:0)|(TouchHudActive.load()&&TouchHudLive.load()?256:0);
 }
 #endif
 
@@ -57,4 +57,13 @@ extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_display
 #ifdef __ANDROID__
 extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_hudAnchor(JNIEnv*,jclass,jint slot,jfloat x,jfloat y){RetunedTouchSetHudAnchor(slot,x,y);}
 extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_hudDisplay(JNIEnv*,jclass,jfloat width,jfloat height){RetunedTouchSetHudDisplay(width,height);}
+#endif
+
+#ifdef __ANDROID__
+extern "C" JNIEXPORT jfloat JNICALL Java_org_triaevum_android_TouchOverlay_controlScale(JNIEnv*,jclass,jint control){return RetunedFrontend::ControlSize(control);}
+#endif
+
+extern "C" void RetunedTouchSetHudScale(int slot,float scale){RetunedFrontend::SetTouchHudScale(slot,scale);}
+#ifdef __ANDROID__
+extern "C" JNIEXPORT void JNICALL Java_org_triaevum_android_TouchOverlay_hudScale(JNIEnv*,jclass,jint slot,jfloat scale){RetunedTouchSetHudScale(slot,scale);}
 #endif

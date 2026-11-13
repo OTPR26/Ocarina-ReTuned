@@ -17,7 +17,11 @@ inline void SetTouchHudDisplay(float width,float height) {
 }
 inline void SetTouchHudAnchor(int slot,float x,float y) {
  if(slot<0||slot>=9)return;
- std::lock_guard lock(TouchHudMutex);TouchHudLayout[slot]={x,y,true};
+ std::lock_guard lock(TouchHudMutex);TouchHudLayout[slot]={x,y,true,TouchHudLayout[slot].Scale};
+}
+inline void SetTouchHudScale(int slot,float scale){
+ if(slot<0||slot>=9||!std::isfinite(scale))return;
+ std::lock_guard lock(TouchHudMutex);TouchHudLayout[slot].Scale=std::clamp(scale,.5f,1.5f);
 }
 inline TouchHudAnchors SnapshotTouchHud(){std::lock_guard lock(TouchHudMutex);return TouchHudLayout;}
 }

@@ -52,7 +52,12 @@ int main(void){
  NativeHud_SetGroupScale(0,150);NativeHud_SetGroupScale(1,150);NativeHud_SetGroupScale(1,99);NativeHud_SetGroupScale(2,50);
  assert(NativeHud_GetGroupScale(0)==125&&NativeHud_GetGroupScale(1)==125&&NativeHud_GetGroupScale(2)==100);
  sNativeHudDualMenuLayout=1;NativeHud_RebuildPositions();for(u32 q=0;q<97;++q)assert(p[q][0]==100&&p[q][1]==100);
- sNativeHudDualMenuLayout=0;sNativeHudOcarinaLayout=1;NativeHud_RebuildPositions();for(u32 q=0;q<97;++q)assert(p[q][0]==100&&p[q][1]==100);
+ sNativeHudDualMenuLayout=0;sNativeHudOcarinaLayout=1;NativeHud_RebuildPositions();
+ for(u32 q=0;q<97;++q){const int dp=q==4||(q>=8&&q<=11)||q==23;
+  assert(fabsf((p[q][3]-p[q][0])-2*(dp?1.25f:1.f))<.001f);
+  assert(fabsf(p[q][0]-(dp?8:100))<.001f);
+ }
+ assert(p[12][0]==100); // Ocarina reuses this cell for the action-button base.
  return 0;
 }
 ''')

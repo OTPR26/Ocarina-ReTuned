@@ -10,6 +10,17 @@ int main(){
  std::array<float,33*12> geometry{};
  for(unsigned q=0;q<33;++q)for(unsigned v=0;v<4;++v){geometry[q*12+v*3]=q*2+(v%2)*12;geometry[q*12+v*3+1]=q*3+(v/2)*14;geometry[q*12+v*3+2]=7;}
  const auto original=geometry;
+ for(float scale:{.5f,1.f,1.5f}) {
+  auto sized=original;auto target=anchors;target[2].Scale=scale;
+  assert(PlaceTouchHud(sized,target));
+  assert(std::abs((sized[6*12+3]-sized[6*12])-12*scale)<.001f);
+  assert(std::abs((sized[28*12]-sized[6*12])-(original[28*12]-original[6*12])*scale)<.001f);
+  assert(sized[5*12+3]-sized[5*12]==12);
+  assert(std::abs(HudQuadCenter(sized,6)[0]-target[2].X*400)<.001f);
+ }
+ SetTouchHudScale(2,.75f);SetTouchHudAnchor(2,.8f,.6f);
+ assert(SnapshotTouchHud()[2].Scale==.75f);
+ SetTouchHudScale(2,NAN);assert(SnapshotTouchHud()[2].Scale==.75f);
  auto invalid=anchors;invalid[4].Valid=false;assert(!PlaceTouchHud(geometry,invalid)&&geometry==original);
  assert(PlaceTouchHud(geometry,anchors));
  assert(geometry[13*12]==original[13*12]); // Vitals unchanged.

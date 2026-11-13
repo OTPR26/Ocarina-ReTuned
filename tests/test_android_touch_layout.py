@@ -22,6 +22,18 @@ class AndroidTouchLayoutTests(unittest.TestCase):
             subprocess.run([str(Path(javac).with_name('java')), '-cp', output,
                 'org.triaevum.android.TouchLayoutCheck'], check=True, capture_output=True)
 
+    def test_controller_motion_samples(self):
+        java_home = os.environ.get('JAVA_HOME')
+        javac = str(Path(java_home) / 'bin/javac') if java_home else shutil.which('javac')
+        if not javac or subprocess.run([javac, '-version'], capture_output=True).returncode:
+            self.skipTest('Set JAVA_HOME to an installed JDK')
+        with tempfile.TemporaryDirectory(prefix='retuned-controller-motion-') as output:
+            subprocess.run([javac, '-d', output,
+                str(ROOT/'tools/native/android/ControllerMotionState.java'),
+                str(ROOT/'tests/android/ControllerMotionCheck.java')], check=True, capture_output=True)
+            subprocess.run([str(Path(javac).with_name('java')), '-cp', output,
+                'org.triaevum.android.ControllerMotionCheck'], check=True, capture_output=True)
+
     def test_reapplying_native_input_does_not_duplicate_touch_sampling(self):
         sys.path[:0]=[str(ROOT/'tools/frontend'),str(ROOT/'tools/reframed')]
         from apply_mobile_frontend import stage_touch_input

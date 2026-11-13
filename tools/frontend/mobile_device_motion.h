@@ -4,6 +4,9 @@
 #include "three_ds_input.h"
 #include <array>
 #include <mutex>
+#if defined(__ANDROID__)
+#include "retuned_android_controller_motion.h"
+#endif
 
 namespace RetunedFrontend {
 inline std::array<float,3> OrientDeviceMotion(std::array<float,3> value,
@@ -73,7 +76,12 @@ public:
     }
 };
 
-inline void SampleMobileDeviceMotion(ThreeDsRecomp::Input::MotionObservation& motion,bool enabled) {
+inline void SampleMobileDeviceMotion(ThreeDsRecomp::Input::MotionObservation& motion,bool enabled,SDL_GameController* controller=nullptr) {
+#if defined(__ANDROID__)
+    SampleAndroidControllerMotion(motion,controller,enabled);
+#else
+    (void)controller;
+#endif
 #if defined(__ANDROID__) || defined(__IPHONEOS__)
     static MobileDeviceMotion device;
     device.Sample(motion,enabled);

@@ -6,7 +6,7 @@
 #include <span>
 #include <cmath>
 namespace RetunedFrontend {
-struct TouchHudAnchor {float X=0,Y=0;bool Valid=false;};
+struct TouchHudAnchor {float X=0,Y=0;bool Valid=false;float Scale=1.f;};
 using TouchHudAnchors=std::array<TouchHudAnchor,9>; // A B X Y Up Down Left Right ZR
 inline std::array<float,2> TouchHudPoint(const TouchHudAnchor& anchor,float aspect) {
  // The game HUD preserves its native aspect inside the full-screen viewport.
@@ -29,6 +29,11 @@ inline void TranslateHudQuad(std::span<float> positions,unsigned quad,float dx,f
 inline std::array<float,2> HudQuadCenter(std::span<const float> positions,unsigned quad) {
  float x=0,y=0;for(unsigned v=0;v<4;++v){x+=positions[quad*12+v*3];y+=positions[quad*12+v*3+1];}return {x*.25f,y*.25f};
 }
+inline void ScaleTouchQuad(std::span<float> positions,unsigned quad,const TouchHudAnchor& anchor,float aspect) {
+ const float scale=std::isfinite(anchor.Scale)?std::clamp(anchor.Scale,.5f,1.5f):1.f;
+ const auto center=TouchHudPoint(anchor,aspect);
+ for(unsigned v=0;v<4;++v){auto p=quad*12+v*3;positions[p]=center[0]+(positions[p]-center[0])*scale;positions[p+1]=center[1]+(positions[p+1]-center[1])*scale;}
+}
 inline bool PlaceTouchHud(std::span<float> positions,const TouchHudAnchors& anchors,float aspect=400.f/240.f,int jumpMode=0,int hudPreset=0) {
  if(jumpMode==2 && (!anchors[8].Valid||!std::isfinite(anchors[8].X)||!std::isfinite(anchors[8].Y)||anchors[8].X<0||anchors[8].X>1||anchors[8].Y<0||anchors[8].Y>1))return false;
  if(positions.size()<33*12 || !ValidTouchHudAnchors(anchors)||!std::isfinite(aspect)||aspect<=0)return false;
@@ -38,6 +43,8 @@ inline bool PlaceTouchHud(std::span<float> positions,const TouchHudAnchors& anch
  std::array<std::array<float,2>,8> delta{};
  for(unsigned i=0;i<icons.size();++i){const auto c=HudQuadCenter(positions,icons[i]);const auto slot=slots[i];const auto target=TouchHudPoint(anchors[jumpMode==2&&slot==2?8:slot],aspect);delta[slot]={target[0]-c[0],target[1]-c[1]};TranslateHudQuad(positions,icons[i],delta[slot][0],delta[slot][1]);}
  for(const auto [quad,slot]:std::array{std::pair{12u,hudPreset==1?4u:6u},std::pair{23u,5u},std::pair{28u,2u},std::pair{29u,hudPreset==1?1u:3u}})TranslateHudQuad(positions,quad,delta[slot][0],delta[slot][1]);
+ for(unsigned i=0;i<icons.size();++i){const auto slot=slots[i];ScaleTouchQuad(positions,icons[i],anchors[jumpMode==2&&slot==2?8:slot],aspect);}
+ for(const auto [quad,slot]:std::array{std::pair{12u,hudPreset==1?4u:6u},std::pair{23u,5u},std::pair{28u,2u},std::pair{29u,hudPreset==1?1u:3u}})ScaleTouchQuad(positions,quad,anchors[jumpMode==2&&slot==2?8:slot],aspect);
  // The native touch controller supplies these button bases and D-pad cross.
  for(unsigned q=1;q<=4;++q)for(unsigned v=0;v<4;++v){positions[q*12+v*3]=0;positions[q*12+v*3+1]=0;}
  return true;
@@ -50,6 +57,7 @@ inline bool PlaceTouchAction(std::span<float> positions,const TouchHudAnchor& an
   if(maxY-minY>=1 && maxX-minX>(maxY-minY)*1.35f) {
    const auto center=HudQuadCenter(positions,q);
    TranslateHudQuad(positions,q,target[0]-center[0],target[1]-center[1]);
+   ScaleTouchQuad(positions,q,anchor,aspect);
   } else {
    // UIKit/Android already draws the touch button. Keep the action verb only.
    for(unsigned v=0;v<4;++v){positions[q*12+v*3]=target[0];positions[q*12+v*3+1]=target[1];}
