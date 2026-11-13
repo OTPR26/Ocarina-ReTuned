@@ -90,6 +90,9 @@ def stamp_desktop(kit):
             collect(path)
     if 'windows_tools' in metadata:
         collect(base / metadata['windows_tools'] / 'toolchain-manifest.json')
+    linux_manifest = base / 'build-tools/toolchain/toolchain-manifest.json'
+    if linux_manifest.is_file():
+        collect(linux_manifest)
     payload = {'files': files, 'cmake_args': metadata.get('cmake_args', [])}
     identity = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     metadata['preparation_identity'] = identity

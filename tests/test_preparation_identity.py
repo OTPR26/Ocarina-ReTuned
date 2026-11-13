@@ -92,3 +92,11 @@ class PreparationIdentityTests(unittest.TestCase):
             metadata = json.loads(kit.read_text()); metadata['cmake_args'] = ['-DNEW_BUILD_OPTION=ON']
             kit.write_text(json.dumps(metadata))
             self.assertNotEqual(changed, stamp_desktop(kit))
+            before_compiler = stamp_desktop(kit)
+            compiler = root / 'build-tools/toolchain/toolchain-manifest.json'
+            compiler.parent.mkdir(parents=True)
+            compiler.write_text('{"compiler":"first"}')
+            with_compiler = stamp_desktop(kit)
+            self.assertNotEqual(before_compiler, with_compiler)
+            compiler.write_text('{"compiler":"updated"}')
+            self.assertNotEqual(with_compiler, stamp_desktop(kit))

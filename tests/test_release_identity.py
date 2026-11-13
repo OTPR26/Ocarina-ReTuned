@@ -5,6 +5,9 @@ from pathlib import Path
 import tempfile
 import unittest
 import zipfile
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools/native'))
 
 spec = importlib.util.spec_from_file_location('identity_audit', Path(__file__).parents[1] / 'tools/native/audit_release_identity.py')
 identity = importlib.util.module_from_spec(spec)

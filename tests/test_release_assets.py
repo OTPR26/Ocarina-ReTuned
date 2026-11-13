@@ -7,6 +7,9 @@ import tempfile
 import tarfile
 import unittest
 import zipfile
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools/native'))
 
 spec = importlib.util.spec_from_file_location('release_assets', Path(__file__).parents[1] / 'tools/native/audit_release_assets.py')
 release_assets = importlib.util.module_from_spec(spec)
@@ -57,7 +60,7 @@ class ReleaseAssetAuditTests(unittest.TestCase):
                 entry.type = tarfile.SYMTYPE
                 entry.linkname = '../../private'
                 archive.addfile(entry)
-            with self.assertRaisesRegex(ValueError, 'Unsafe, linked'):
+            with self.assertRaisesRegex(ValueError, 'escapes'):
                 release_assets.audit([package], contract)
 
     def test_private_resource_is_rejected_even_when_renamed_and_nested(self):

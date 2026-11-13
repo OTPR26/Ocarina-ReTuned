@@ -68,6 +68,23 @@ def linux_build_environment(environment, tools):
         executable = directory / name
         if not executable.is_file() or not os.access(executable, os.X_OK):
             raise SetupError(f'Bundled build tool is missing or not executable: {executable}. Re-extract the complete Linux package.')
+    compiler = Path(tools) / 'toolchain'
+    if compiler.exists():
+        try:
+            manifest = json.loads((compiler / 'toolchain-manifest.json').read_text())
+            machine = {'amd64': 'x86_64', 'arm64': 'aarch64'}.get(platform.machine().lower(), platform.machine().lower())
+            if manifest['format'] != 'retuned_linux_toolchain_v1' or manifest['architecture'] != machine:
+                raise ValueError('Compiler architecture mismatch')
+            for name in ('cc', 'c++'):
+                if not (compiler / 'bin' / name).is_file() or not os.access(compiler / 'bin' / name, os.X_OK):
+                    raise ValueError('Compiler missing')
+        except (OSError, KeyError, ValueError) as error:
+            raise SetupError('The bundled Linux compiler is missing, damaged, or for a different architecture. Re-extract the complete matching package.') from error
+        for name in ('CC', 'CXX', 'CFLAGS', 'CXXFLAGS', 'CPPFLAGS', 'LDFLAGS', 'CPATH',
+                     'C_INCLUDE_PATH', 'CPLUS_INCLUDE_PATH', 'LIBRARY_PATH', 'GCC_EXEC_PREFIX', 'COMPILER_PATH'):
+            result.pop(name, None)
+        result['CC'], result['CXX'] = str(compiler / 'bin/cc'), str(compiler / 'bin/c++')
+        directories.insert(0, compiler / 'bin')
     result['PATH'] = os.pathsep.join([*map(str, directories), result.get('PATH', os.defpath)])
     return result
 
@@ -296,11 +313,14 @@ class RomSetup:
         self.log = None
         self.profile_root = Path(profile_root).resolve() if profile_root is not None else None
         self.windows_tools = Path(windows_tools).resolve() if windows_tools is not None else None
+        self.linux_tools = Path(linux_tools).resolve() if linux_tools is not None else None
         self.environment = mac_build_environment(os.environ) if sys.platform == 'darwin' else dict(os.environ)
         if linux_tools is not None:
             if not sys.platform.startswith('linux'):
                 raise SetupError('This preparation kit requires Linux.')
             self.environment = linux_build_environment(self.environment, linux_tools)
+            if (Path(linux_tools) / 'toolchain').exists():
+                self.cmake_args.append('-DCMAKE_CXX_COMPILER=' + self.environment['CXX'])
         self.environment['PYTHONDONTWRITEBYTECODE'] = '1'
         if sys.platform == 'win32':
             self.environment = (portable_windows_environment(self.environment, windows_tools)
@@ -383,6 +403,8 @@ class RomSetup:
 
     def verify_linux_compiler(self):
         # Use CMake so compiler wrappers, toolchains, and flags match the title build.
+        log = getattr(self, 'log', None) or sys.stderr
+        diagnostic = 'setup.log' if getattr(self, 'log', None) else 'the diagnostic output'
         with tempfile.TemporaryDirectory(prefix='retuned-compiler-check-') as temporary:
             command = [self.cmake, '-S', PROJECT / 'tools/native/title', '-B', temporary,
                 '-G', 'Ninja', '-DCMAKE_BUILD_TYPE=Release', *self.cmake_args,
@@ -391,9 +413,17 @@ class RomSetup:
                 result = subprocess.run(list(map(str, command)), env=self.environment,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
             except (OSError, subprocess.TimeoutExpired) as error:
-                raise SetupError('Could not check the Linux C++ compiler. Install your distribution\'s C++20 compiler and development headers.') from error
+                output = getattr(error, 'output', None) or b''
+                if isinstance(output, bytes):
+                    output = output.decode('utf-8', errors='replace')
+                log.write('Linux compiler check failed: ' + str(error) + '\n' + output + '\n')
+                log.flush()
+                raise SetupError('Could not run the Linux C++ compiler check. See ' + diagnostic + ' for the actual error.') from error
+            output = result.stdout.decode('utf-8', errors='replace')
+            log.write('Linux compiler check:\n' + output + '\n')
+            log.flush()
             if result.returncode:
-                raise SetupError('Linux preparation requires GCC or Clang with libstdc++ and its C++11 ABI. Zig\'s default libc++ is incompatible. Select your distribution\'s g++ or clang++ and install its development headers.')
+                raise SetupError('Linux C++ compiler check failed. A compatible GCC or Clang with libstdc++ and development headers is required. See ' + diagnostic + ' for the actual compiler error.')
 
     def verify_host(self):
         subprocess.run([str(self.host), '--product-info'], check=True, env=self.environment,
@@ -401,16 +431,16 @@ class RomSetup:
 
     def prepare(self, rom, data_root):
         self.checkpoint('checking', 'Checking the ROM and local preparation tools…')
-        self.preflight()
         rom = Path(rom).expanduser().resolve() if rom is not None else None
         if rom is not None and not rom.is_file():
             raise SetupError('Choose a supported decrypted Ocarina of Time 3D cartridge dump (.3ds or .cci).')
         with installation_transaction(data_root) as (root, work):
-            self.cache = LocalCache(root / 'preparation-cache', limit=768 * 1024 * 1024)
-            self.source_cache = LocalCache(root / 'preparation-sources', limit=512 * 1024 * 1024)
-            self.input_cache = LocalCache(root / 'verified-inputs', limit=512 * 1024 * 1024)
             with (root / 'setup.log').open('w', encoding='utf-8') as log:
                 self.log = log
+                self.preflight()
+                self.cache = LocalCache(root / 'preparation-cache', limit=768 * 1024 * 1024)
+                self.source_cache = LocalCache(root / 'preparation-sources', limit=512 * 1024 * 1024)
+                self.input_cache = LocalCache(root / 'verified-inputs', limit=512 * 1024 * 1024)
                 return self._prepare(rom, root, work)
 
     def _prepare(self, rom, root, work):
@@ -623,6 +653,8 @@ class RomSetup:
                 'platform': platform.system(), 'machine': platform.machine(),
                 'compiler': digest(executable) if executable else compiler,
                 'windows_tools': digest(self.windows_tools / 'toolchain-manifest.json') if self.windows_tools else None,
+                **({'linux_tools': digest(self.linux_tools / 'toolchain/toolchain-manifest.json')}
+                   if self.linux_tools and (self.linux_tools / 'toolchain/toolchain-manifest.json').is_file() else {}),
                 'environment': {name: self.environment.get(name) for name in
                     ('CXX', 'CC', 'CXXFLAGS', 'LDFLAGS', 'SDKROOT', 'MACOSX_DEPLOYMENT_TARGET')},
                 'cmake_args': self.cmake_args, 'runtime_sources': sources,

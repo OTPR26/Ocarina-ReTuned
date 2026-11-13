@@ -220,6 +220,30 @@ class PreparationSourceIntegrity(unittest.TestCase):
 
 
 class PreparationKitHost(unittest.TestCase):
+    def test_linux_compiler_is_relocatable_and_ignores_external_toolchain_settings(self):
+        with tempfile.TemporaryDirectory(prefix='Linux tools ') as temporary:
+            root = Path(temporary).resolve() / 'original'
+            for name in ('cmake/bin/cmake', 'ninja/ninja', 'toolchain/bin/cc', 'toolchain/bin/c++'):
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('#!/bin/sh\nexit 0\n')
+                path.chmod(0o755)
+            manifest = root / 'toolchain/toolchain-manifest.json'
+            manifest.write_text(json.dumps({'format': 'retuned_linux_toolchain_v1', 'architecture': 'x86_64'}))
+            parent = {'PATH': '/unavailable', 'CXX': 'wrong-c++', 'CPATH': '/wrong-headers', 'CXXFLAGS': '-stdlib=libc++'}
+            for folder in (root, root.with_name('moved with spaces')):
+                if folder != root:
+                    root.rename(folder)
+                with patch.object(setup.platform, 'machine', return_value='x86_64'):
+                    env = setup.linux_build_environment(parent, folder)
+                self.assertEqual(env['CXX'], str(folder / 'toolchain/bin/c++'))
+                self.assertNotIn('CPATH', env)
+                self.assertNotIn('CXXFLAGS', env)
+                self.assertEqual(parent['CXX'], 'wrong-c++')
+                with patch.object(setup.platform, 'machine', return_value='aarch64'):
+                    with self.assertRaisesRegex(setup.SetupError, 'architecture'):
+                        setup.linux_build_environment(parent, folder)
+
     def test_linux_direct_launch_and_relocation_find_bundled_tools(self):
         import os
         import shutil

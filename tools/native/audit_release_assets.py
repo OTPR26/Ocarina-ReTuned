@@ -7,6 +7,7 @@ import json
 import tarfile
 from pathlib import Path, PurePosixPath
 import zipfile
+from archive_links import validate_tar_links
 
 
 def preparation_findings(archive, parent):
@@ -73,11 +74,12 @@ def audit(paths, contract=None):
             raise ValueError('Release archive nesting exceeds audit limit')
         if is_tar:
             with tarfile.open(fileobj=io.BytesIO(data), mode='r:*') as archive:
+                validate_tar_links(archive.getmembers())
                 seen = set()
                 for entry in archive:
                     path = PurePosixPath(entry.name)
                     if (entry.name in seen or path.is_absolute() or '..' in path.parts or
-                            '\\' in entry.name or not (entry.isfile() or entry.isdir())):
+                            '\\' in entry.name or not (entry.isfile() or entry.isdir() or entry.issym())):
                         raise ValueError('Unsafe, linked or duplicate release archive path')
                     seen.add(entry.name)
                     if entry.size > 512 * 1024**2:
@@ -86,6 +88,8 @@ def audit(paths, contract=None):
                         if total + entry.size > 3 * 1024**3:
                             raise ValueError('Release archive exceeds audit expansion limit')
                         visit(archive.extractfile(entry).read(), name + '/' + entry.name, depth + 1)
+                    elif entry.issym():
+                        visit(entry.linkname.encode(), name + '/' + entry.name, depth + 1)
             return
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             findings.extend(preparation_findings(archive, name))

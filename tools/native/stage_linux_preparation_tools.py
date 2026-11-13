@@ -4,10 +4,11 @@ from pathlib import Path
 import argparse
 import hashlib
 import json
+import os
 import shutil
 
 
-def stage(cmake_package, ninja_package, output):
+def stage(cmake_package, ninja_package, output, compiler=None):
     cmake_package, ninja_package, output = map(Path, (cmake_package, ninja_package, output))
     cmake = cmake_package / 'cmake/data'
     ninja = ninja_package / 'bin/ninja'
@@ -26,6 +27,20 @@ def stage(cmake_package, ninja_package, output):
         return machine
     if architecture(cmake / 'bin/cmake') != architecture(ninja):
         raise ValueError('CMake and Ninja architectures do not match')
+    if compiler is not None:
+        compiler = Path(compiler)
+        manifest = json.loads((compiler / 'toolchain-manifest.json').read_text())
+        expected = {62: 'x86_64', 183: 'aarch64'}[architecture(ninja)]
+        if manifest.get('format') != 'retuned_linux_toolchain_v1' or manifest.get('architecture') != expected:
+            raise ValueError('Compiler and build-tool architectures do not match')
+        for name, checksum in manifest['files'].items():
+            path = (compiler / name).resolve()
+            if not path.is_relative_to(compiler.resolve()) or hashlib.sha256(path.read_bytes()).hexdigest() != checksum:
+                raise ValueError('Compiler manifest mismatch: ' + name)
+        for name, target in manifest['links'].items():
+            path = compiler / name
+            if not path.is_symlink() or os.readlink(path) != target or not path.resolve().is_relative_to(compiler.resolve()):
+                raise ValueError('Compiler link mismatch: ' + name)
     licenses = {}
     for name, root in (('cmake', cmake_package), ('ninja', ninja_package)):
         records = list(root.glob(name + '-*.dist-info'))
@@ -42,6 +57,8 @@ def stage(cmake_package, ninja_package, output):
                     ignore=shutil.ignore_patterns('*.pfx', '*.p12'))
     (output / 'ninja').mkdir(exist_ok=True)
     shutil.copy2(ninja, output / 'ninja/ninja')
+    if compiler is not None:
+        shutil.copytree(compiler, output / 'toolchain', symlinks=True)
     for name, (record, notices) in licenses.items():
         destination = output / 'licenses' / name
         for path in [*notices, record / 'METADATA', record / 'WHEEL']:
@@ -58,5 +75,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('cmake-package', 'ninja-package', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
+    parser.add_argument('--compiler', type=Path, help='Staged GCC sysroot from stage_linux_compiler.py')
     args = parser.parse_args()
-    stage(args.cmake_package, args.ninja_package, args.output)
+    stage(args.cmake_package, args.ninja_package, args.output, args.compiler)

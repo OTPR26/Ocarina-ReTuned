@@ -10,6 +10,7 @@ import re
 import stat
 import tarfile
 import zipfile
+from archive_links import validate_tar_links
 
 
 def audit(paths, markers):
@@ -95,16 +96,19 @@ def audit(paths, markers):
                     visit(payload, name + '/' + entry.filename, depth + 1)
         elif low.endswith(('.tar', '.tar.gz', '.tgz', '.tar.xz')):
             with tarfile.open(fileobj=io.BytesIO(data), mode='r:*') as archive:
+                validate_tar_links(archive.getmembers())
                 seen = set()
                 for entry in archive:
                     check_path(entry.name)
-                    if entry.name in seen or not (entry.isfile() or entry.isdir()):
+                    if entry.name in seen or not (entry.isfile() or entry.isdir() or entry.issym()):
                         raise ValueError('Duplicate, linked or unsupported tar entry')
                     seen.add(entry.name)
                     if entry.size > 600 * 1024**2 or total + entry.size > 4 * 1024**3:
                         raise ValueError('Identity audit entry limit exceeded')
                     if entry.isfile():
                         visit(archive.extractfile(entry).read(), name + '/' + entry.name, depth + 1)
+                    elif entry.issym():
+                        visit(entry.linkname.encode(), name + '/' + entry.name, depth + 1)
 
     for path in map(Path, paths):
         data = path.read_bytes()

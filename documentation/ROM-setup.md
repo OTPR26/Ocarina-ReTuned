@@ -82,6 +82,9 @@ Mac Preview 0.6.6 includes CMake and Ninja. Apple C++ command-line tools
 are still required for compilation. Windows bundled preparation tools are
 separate from the optional portable data-storage mode.
 Linux packages include portable CMake and Ninja, with their original license notices.
+The packages published through 0.7.0 still require a system C++ compiler. New
+toolkits can include GCC and its headers under `setup/build-tools/toolchain`;
+preparation selects that compiler automatically, including after moving the app.
 Linux game modules must use libstdc++ with its C++11 ABI, matching the packaged
 host. Use the distribution's GCC or Clang with libstdc++ development headers.
 Zig's default libc++ and libstdc++ debug containers have incompatible C++ object
@@ -93,6 +96,25 @@ Real Bazzite/Linux ROM preparation, gameplay, controller input, HUD, HD dialogue
 and audio have also passed. Complete toolchain notices/provenance and final
 package audits remain release gates. Wine compiler
 checks alone do not establish real Windows gameplay compatibility.
+
+To stage the bundled Linux compiler, extract the matching GCC 13, binutils,
+libstdc++ development, libc development, kernel-header, and compiler-runtime
+packages into a sysroot. Retain their copyright notices and record each package's
+name, version, source package, and archive SHA-256 in a JSON array. Run
+`tools/native/stage_linux_compiler.py --sysroot <root> --packages <receipts.json>
+--architecture <x86_64|aarch64> --output <compiler>`, then pass that directory as
+`--compiler` to `stage_linux_preparation_tools.py`. The stager verifies tool
+architecture and rejects links outside the sysroot. Compiler manifests enter both
+the preparation identity and module-cache key. Test relocation, the runtime
+glibc requirement, and compilation without system development tools before
+packaging. Run `audit_linux_compiler_sources.py` against both compiler manifests and the
+matching distribution source archives. Publish the verified toolchain-source
+archive alongside the Linux application downloads; retain the original package
+notices and common license texts in each compiler sysroot.
+
+Compiler-check failures, including partial output on timeout, are retained in
+`setup.log`. A configuration failure is no longer reported as proof of a C++ ABI
+mismatch.
 
 ## Installation transaction
 

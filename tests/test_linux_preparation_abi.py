@@ -1,4 +1,5 @@
 import importlib.util
+import io
 import os
 from pathlib import Path
 import shutil
@@ -7,11 +8,33 @@ import sys
 import tempfile
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 PROJECT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('linux_rom_setup', PROJECT / 'tools/native/rom_setup.py')
 setup = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(setup)
+
+
+class CompilerDiagnostics(unittest.TestCase):
+    def test_configuration_error_is_retained_without_inventing_an_abi_cause(self):
+        log = io.StringIO()
+        instance = SimpleNamespace(cmake='cmake', cmake_args=[], environment={}, log=log)
+        result = subprocess.CompletedProcess([], 1, b'The compiler /missing/g++ does not exist\n')
+        with patch.object(setup.subprocess, 'run', return_value=result):
+            with self.assertRaisesRegex(setup.SetupError, 'setup.log') as error:
+                setup.RomSetup.verify_linux_compiler(instance)
+        self.assertIn('/missing/g++', log.getvalue())
+        self.assertNotIn('Zig', str(error.exception))
+
+    def test_timeout_retains_partial_compiler_output(self):
+        log = io.StringIO()
+        instance = SimpleNamespace(cmake='cmake', cmake_args=[], environment={}, log=log)
+        with patch.object(setup.subprocess, 'run', side_effect=subprocess.TimeoutExpired(
+                'cmake', 60, output=b'Compiler identification started')):
+            with self.assertRaisesRegex(setup.SetupError, 'setup.log'):
+                setup.RomSetup.verify_linux_compiler(instance)
+        self.assertIn('Compiler identification started', log.getvalue())
 
 
 @unittest.skipUnless(sys.platform.startswith('linux') and shutil.which('cmake') and
