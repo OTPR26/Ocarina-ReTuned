@@ -69,10 +69,33 @@ def apply_streaming_generation(engine):
          '    # Source files were written incrementally; the manifest commits completion.\n')
 
 
+def apply_update_sharding(engine):
+    """Keep injected ReFramed code from invalidating every game-code shard."""
+    path = Path(engine) / 'tools/oot3d/native_a32_runtime/whole_aot_cpp.py'
+    edit(path, '    if strategy == "stable":', '''    if strategy == "retuned-update":
+        if shard_count == 1:
+            return [list(functions)]
+        # Reserve one eighth for ReFramed's injected executable region.
+        injected_count = max(1, shard_count // 8)
+        game_count = shard_count - injected_count
+        for function in functions:
+            if function.entry >= 0x5C7000:
+                index = game_count + _stable_shard_index(function.entry, injected_count)
+            else:
+                index = _stable_shard_index(function.entry, game_count)
+            buckets[index].append(function)
+        return buckets
+    if strategy == "stable":''')
+    edit(path, '{"stable", "balanced", "incremental", "affinity"}',
+         '{"stable", "balanced", "incremental", "affinity", "retuned-update"}')
+    edit(path, '            "or affinity"', '            "affinity, or retuned-update"')
+
+
 def apply_translation_support(engine):
     """Generic ARM lowering and memory support, also used by preparation kits."""
     apply_plugin_exports(engine)
     apply_streaming_generation(engine)
+    apply_update_sharding(engine)
     root = Path(engine) / 'tools/oot3d/native_a32_runtime'
     edit(root / 'whole_aot_cpp.py',
          '    if unary in {0x0EB10B40, 0x0EB10BC0, 0x0EB40B40, 0x0EB40BC0}:',

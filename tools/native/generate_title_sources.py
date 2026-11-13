@@ -25,7 +25,7 @@ def main(argv=None):
     for name in ('engine', 'program', 'selection', 'code', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--shards', type=int, default=64)
-    parser.add_argument('--shard-strategy', choices=('stable', 'affinity'), default='stable')
+    parser.add_argument('--shard-strategy', choices=('stable', 'affinity', 'retuned-update'), default='stable')
     parser.add_argument('--observed-sites', type=Path)
     args = parser.parse_args(argv)
     if args.shards < 1:

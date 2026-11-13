@@ -17,6 +17,9 @@
 
 int RetunedNativeMain(int argc, char** argv);
 extern "C" bool RetunedSaveSyncRecoverLocal(const char* saves);
+#if TARGET_OS_TV
+extern "C" void RetunedTVStartMotionDiagnostics();
+#endif
 #if TARGET_OS_IOS && !TARGET_OS_TV
 extern "C" void RetunedInitializeTextureFolder(const char* dataDirectory);
 #endif
@@ -110,6 +113,9 @@ static int RunPreparedAppleGame() {
         std::freopen([[data stringByAppendingPathComponent:@"logs/stdout.log"] UTF8String],"w",stdout);
         std::freopen([[data stringByAppendingPathComponent:@"logs/stderr.log"] UTF8String],"w",stderr);
         std::setvbuf(stdout,nullptr,_IOLBF,0);
+#if TARGET_OS_TV
+        RetunedTVStartMotionDiagnostics();
+#endif
         NSString* privateRoot=[bundle stringByAppendingPathComponent:@"PrivateGame"];
         for (NSString* name in @[@"process-manifest.json",@"native-launch.json"]) {
             NSData* input=[NSData dataWithContentsOfFile:[privateRoot stringByAppendingPathComponent:name]];

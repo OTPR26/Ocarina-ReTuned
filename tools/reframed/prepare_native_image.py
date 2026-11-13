@@ -290,6 +290,23 @@ def manual_jump_bridge(named):
     return functions
 
 
+def hud_group_size_bridge(named):
+    names = ('NativeHud_GetGroupScale', 'NativeHud_SetGroupScale')
+    if not any(name in named for name in names):
+        return {}
+    if not all(name in named for name in names):
+        raise ValueError('Incomplete HUD group-size bridge')
+    functions = {}
+    for name in names:
+        address, size, kind, _ = named[name]
+        if kind != 'FUNC' or address < INJECTION or address % 4 or size < 4 or size % 4:
+            raise ValueError('Invalid HUD group-size function: ' + name)
+        functions[name] = address
+    if len(set(functions.values())) != len(names):
+        raise ValueError('Aliased HUD group-size functions')
+    return functions
+
+
 def hud_preset_bridge(named):
     """Older prepared games omit this opt-in capability entirely."""
     names=('HudPreset_Get','HudPreset_Set')
@@ -366,6 +383,7 @@ def _prepare(args):
                 'action_owner':touch_action_owner(image,named['NativeHud_PrepareActionPrompt'][0])}}
         frontend['functions'].update(jump_functions)
         frontend['functions'].update(hud_preset_bridge(named))
+        frontend['functions'].update(hud_group_size_bridge(named))
         if jump_functions:
             frontend['touch_hud']['manual_jump_bumper']={'first_quad':33,'quad_count':64}
         presentation = presentation_bridge(named)

@@ -6,3 +6,4 @@
 uint32_t HudPreset_Get(void);
 void HudPreset_Set(uint32_t preset);
 uint32_t HudPreset_Button(ControlAction action);
+uint32_t HudPreset_GameplayMask(uint32_t buttons, int gameplay);

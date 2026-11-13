@@ -37,6 +37,7 @@ class Settings {
         std::lock_guard lock(mMutex);
         GameSave.SetAvailable(false);
         mHudPreset=0;mHudPresetApplied=-1;TouchHudPreset=0;
+        mGroupSizes={100,100};mGroupSizesApplied={0,0};
         {
             std::lock_guard cheatsLock(Cheats.Mutex);
             Cheats.Snapshot={};Cheats.Edit={};Cheats.Message.clear();Cheats.Options={};
@@ -63,6 +64,13 @@ class Settings {
                 if(!Valid(mValues))throw std::runtime_error("Invalid Reframed settings");
                 mHudPreset=stored.value("hud_preset",0);
                 if(mHudPreset<0 || mHudPreset>1)mHudPreset=0;
+                for(size_t i=0;i<mGroupSizes.size();++i) {
+                    const auto key=i==0?"dpad_size":"action_button_size";
+                    if(stored.contains(key)&&stored[key].is_number_integer()) {
+                        const int value=stored[key].get<int>();
+                        if(ValidGroupSize(i,value))mGroupSizes[i]=value;
+                    }
+                }
                 mManualJump=stored.value("manual_jump",0);
                 if(mManualJump<0 || mManualJump>2)mManualJump=0;
                 mConfigured=true;
@@ -83,6 +91,7 @@ class Settings {
         for(size_t i=0;i<Keys.size();++i)saved[Keys[i]]=changed[i];
         saved["manual_jump"]=mManualJump;
         saved["hud_preset"]=mHudPreset;
+        SaveGroupSizes(saved,mGroupSizes);
         if(!Ship::Context::GetRawInstance()->GetConfig()->SetBlock("Reframed",saved)) {
             mError="Could not save settings. Your previous selection remains active.";return;
         }
@@ -98,6 +107,7 @@ class Settings {
         if(value<0 || value>2)return;
         nlohmann::json saved{{"schema",1},{"manual_jump",value},{"hud_preset",mHudPreset}};
         for(size_t i=0;i<Keys.size();++i)saved[Keys[i]]=mValues[i];
+        SaveGroupSizes(saved,mGroupSizes);
         if(!Ship::Context::GetRawInstance()->GetConfig()->SetBlock("Reframed",saved)) {
             mError="Could not save settings. Your previous selection remains active.";return;
         }
@@ -114,10 +124,28 @@ class Settings {
         const int jump=value==1?2:mManualJump;
         nlohmann::json saved{{"schema",1},{"hud_preset",value},{"manual_jump",jump}};
         for(size_t i=0;i<Keys.size();++i)saved[Keys[i]]=mValues[i];
+        SaveGroupSizes(saved,mGroupSizes);
         if(!Ship::Context::GetRawInstance()->GetConfig()->SetBlock("Reframed",saved)) {
             mError="Could not save settings. Your previous selection remains active.";return;
         }
         mHudPreset=value;mManualJump=jump;mError.clear();
+    }
+    bool HasGroupSizes()const {
+        std::lock_guard lock(mMutex);
+        return mReady && mBridge.at("functions").contains("NativeHud_SetGroupScale");
+    }
+    int GroupSize(size_t group)const {std::lock_guard lock(mMutex);return mGroupSizes.at(group);}
+    void SetGroupSize(size_t group,int value) {
+        std::lock_guard lock(mMutex);
+        if(group>=mGroupSizes.size() || !ValidGroupSize(group,value) || !HasGroupSizes())return;
+        auto changed=mGroupSizes;changed[group]=value;
+        nlohmann::json saved{{"schema",1},{"hud_preset",mHudPreset},{"manual_jump",mManualJump}};
+        for(size_t i=0;i<Keys.size();++i)saved[Keys[i]]=mValues[i];
+        SaveGroupSizes(saved,changed);
+        if(!Ship::Context::GetRawInstance()->GetConfig()->SetBlock("Reframed",saved)) {
+            mError="Could not save settings. Your previous selection remains active.";return;
+        }
+        mGroupSizes=changed;mError.clear();
     }
     void Apply(Oot3dNativeGame::NativeA32Process& process) {
         std::lock_guard lock(mMutex);
@@ -191,6 +219,13 @@ class Settings {
                 memory.Read8(NativeTouchHud.OcarinaLayout,&touchInstrument) && !touchPause && !touchInstrument;
             TouchManualJumpMode=jumpGameplay && mManualJumpApplied>=0?mManualJumpApplied:0;
             const bool touchHud=NativeTouchHud.Ready()&&TouchHudActive.load();
+            if(HasGroupSizes())for(size_t i=0;i<mGroupSizes.size();++i) {
+                const int value=touchHud?100:mGroupSizes[i];
+                if(mGroupSizesApplied[i]!=value) {
+                    const std::array<uint32_t,2> args{uint32_t(i),uint32_t(value)};
+                    invoke("NativeHud_SetGroupScale",args);mGroupSizesApplied[i]=value;
+                }
+            }
             if(touchHud||mTouchHudApplied){
                 constexpr std::array<uint32_t,4> sizes{0,75,100,125};
                 uint32_t value=sizes[mValues[3]];invoke("NativeHud_SetScalePercent",{&value,1});
@@ -199,6 +234,11 @@ class Settings {
         }catch(const std::exception& e){mError=e.what();mReady=false;}
     }
   private:
+    static bool ValidGroupSize(size_t group,int value){return group<2&&value>=50&&value<=125&&value%25==0;}
+    static void SaveGroupSizes(nlohmann::json& saved,const std::array<int,2>& values) {
+        saved["dpad_size"]=values[0];saved["action_button_size"]=values[1];
+    }
+    std::array<int,2> mGroupSizes{100,100},mGroupSizesApplied{0,0};
     OcarinaShortcutLifecycle mOcarina;
     mutable std::recursive_mutex mMutex;
     nlohmann::json mBridge;
@@ -240,10 +280,21 @@ class Panel final:public Fast::Oot3d::GraphicsSettingsPanelTab {
             if(ImGui::Combo("##hud_preset",&preset,"ReFramed\0Remake\0"))settings.SetHudPreset(preset);
             ImGui::EndDisabled();
             if(settings.HasHudPreset())
-                ImGui::TextWrapped("Remake: Ocarina left, Navi right, Item I up, and Item II down. Selecting it sets manual jump to X and moves the X item to ZR. Manual jump can still be changed under Quality of life.");
+                ImGui::TextWrapped("Remake: Ocarina left, Navi right, Item I up, and Item II down. Sword uses Y (west); the Y item uses B (south). Selecting it sets manual jump to X and moves the X item to ZR. Manual jump can still be changed under Quality of life.");
             else ImGui::TextWrapped("Update game preparation to enable HUD presets.");
             ImGui::Spacing();
             combo(3,"HUD size","Hidden\0 75%\0 100%\0 125%\0","Changes gameplay HUD size independently of this menu.");
+            ImGui::BeginDisabled(!settings.HasGroupSizes());
+            for(size_t group=0;group<2;++group) {
+                int selected=(settings.GroupSize(group)-50)/25;
+                ImGui::SetNextItemWidth(std::min(ImGui::GetContentRegionAvail().x,ImGui::GetFontSize()*16));
+                if(ImGui::Combo(group==0?"D-pad size":"Action-button size",&selected,
+                    "50%\0 75%\0 100% (default)\0 125%\0"))
+                    settings.SetGroupSize(group,50+selected*25);
+            }
+            ImGui::EndDisabled();
+            ImGui::TextWrapped("Adjusts each group on top of HUD size. Action buttons include ZR. Touch-control sizes are separate.");
+            if(!settings.HasGroupSizes())ImGui::TextWrapped("Update game preparation to enable individual HUD sizes.");
         }else if(mPage=="Quality of life") {
             combo(6,"Movement speed","Normal\0+10%\0+20%\0","Walking and running; other actions stay normal.");
             combo(7,"Roll speed","Normal\0+10%\0+20%\0","Increases roll speed and distance.");

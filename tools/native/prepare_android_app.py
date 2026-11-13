@@ -33,12 +33,12 @@ def prepare(engine, private_kit=None, preparation_native_stage=None):
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
     text = gradle.read_text()
-    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9', '2.6.0', '0.6.1', '0.6.2', '0.6.3', '0.6.4'):
-        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.6.5"')
-    if 'versionName = "0.6.5"' not in text:
+    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9', '2.6.0', '0.6.1', '0.6.2', '0.6.3', '0.6.4', '0.6.5'):
+        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.6.9"')
+    if 'versionName = "0.6.9"' not in text:
         raise ValueError('Android Preview version context changed')
-    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 19', text)
-    if 'versionCode = 19' not in text: raise ValueError('Android version code context changed')
+    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 23', text)
+    if 'versionCode = 23' not in text: raise ValueError('Android version code context changed')
     gradle.write_text(text)
     shutil.copy2(Path(__file__).with_name('preparation_identity.py'), root/'preparation_identity.py')
     shutil.copy2(Path(__file__).with_name('android_runtime.py'), root/'android_runtime.py')

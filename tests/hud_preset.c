@@ -16,6 +16,13 @@ int main(void) {
             assert(Controls_Resolve(button, button) == actions[i]);
             assert(Controls_Resolve(button, 0) == actions[i]);
         }
+        for (uint32_t mask=0; mask<4096; ++mask) {
+            assert(HudPreset_GameplayMask(mask,0)==mask);
+            const uint32_t mapped=HudPreset_GameplayMask(mask,1);
+            assert((mapped & ~(BUTTON_B|BUTTON_Y))==(mask & ~(BUTTON_B|BUTTON_Y)));
+            assert(!!(mapped & BUTTON_B)==!!(mask & (preset?BUTTON_Y:BUTTON_B)));
+            assert(!!(mapped & BUTTON_Y)==!!(mask & (preset?BUTTON_B:BUTTON_Y)));
+        }
         assert(Controls_Resolve(0, 0) == CONTROL_ACTION_NONE);
         assert(Controls_Resolve(BUTTON_SELECT, BUTTON_SELECT) == CONTROL_ACTION_ITEMS_MENU);
         const uint32_t chord = BUTTON_L1 | BUTTON_R1;

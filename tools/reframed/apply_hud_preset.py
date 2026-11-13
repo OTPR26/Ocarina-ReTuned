@@ -44,16 +44,35 @@ def apply(root: Path):
             ]
             for old, new in pairs:
                 text = replace_once(text, old, new)
+            boundary = "\n}\n\nu32 InputRemap_TryOpenItemsMenu(void* menuManager) {"
+            mapping = """
+    /* Remap only final gameplay input, after native menu navigation. */
+    const int remakeGameplay = globalCtx && gSaveContext.gameMode == 0 &&
+        gSaveContext.health && *(volatile u32*)0x0050AF68 == 2 &&
+        !sItemsMenuRequested && !InputRemap_IsItemsMenuOpen() &&
+        !InputRemap_IsSaveMenuOpen() && !InputRemap_IsOcarinaUiOpen() &&
+        !InputRemap_IsGameOverUiOpen();
+#define REMAKE_MASK(value) value = HudPreset_GameplayMask(value, remakeGameplay)
+    REMAKE_MASK(hidPad->curr.val); REMAKE_MASK(hidPad->pressed.val);
+    REMAKE_MASK(hidPad->released.val);
+    REMAKE_MASK(*gameHeld); REMAKE_MASK(*gamePressed); REMAKE_MASK(*gameReleased);
+    REMAKE_MASK(rInputCtx.cur.val); REMAKE_MASK(rInputCtx.pressed.val);
+    REMAKE_MASK(rInputCtx.up.val);
+#undef REMAKE_MASK
+"""
+            text = replace_once(text, boundary, mapping + boundary)
+
         else:
-            text = replace_once(text, 'static void NativeHud_RebuildPositions(void) {', '''static u32 sHudPresetApplied;
-static void NativeHud_PositionPreset(void) {
-    if (HudPreset_Get() != 1) return;
-    NativeHud_TranslateQuad(8, -34.0f, 0.0f); /* Ocarina: left */
-    NativeHud_TranslateQuad(9, 17.0f, 20.0f); /* Navi: right */
-    NativeHud_TranslateQuad(10, 17.0f, -20.0f); /* Item I: up */
-    NativeHud_TranslateQuad(12, 17.0f, -20.0f); /* Item I ammo */
-}
-static void NativeHud_RebuildPositions(void) {''')
+            if 'static void NativeHud_PositionPreset(void)' not in text:
+                text = replace_once(text, 'static void NativeHud_RebuildPositions(void) {', '''static u32 sHudPresetApplied;
+    static void NativeHud_PositionPreset(void) {
+        if (HudPreset_Get() != 1) return;
+        NativeHud_TranslateQuad(8, -34.0f, 0.0f); /* Ocarina: left */
+        NativeHud_TranslateQuad(9, 17.0f, 20.0f); /* Navi: right */
+        NativeHud_TranslateQuad(10, 17.0f, -20.0f); /* Item I: up */
+        NativeHud_TranslateQuad(12, 17.0f, -20.0f); /* Item I ammo */
+    }
+    static void NativeHud_RebuildPositions(void) {''')
             text = replace_once(text, '        gNativeHudPositions[i] = sNativeHudBasePositions[i];\n    }',
                                 '        gNativeHudPositions[i] = sNativeHudBasePositions[i];\n    }\n    NativeHud_PositionPreset();')
             text = replace_once(text, '    const u8 dual = ScreenPresentation_IsDual();', '''    const u8 dual = ScreenPresentation_IsDual();
@@ -61,7 +80,41 @@ static void NativeHud_RebuildPositions(void) {''')
         sHudPresetApplied = HudPreset_Get();
         NativeHud_RebuildPositions();
     }''')
+            if '// Restoration-sized gameplay cluster; retain the menu diagrams.' not in text:
+                text = replace_once(text, '    if (sNativeHudScalePercent == 100) {', '''    if (!sNativeHudDualMenuLayout && !sNativeHudOcarinaLayout) {
+        // Restoration-sized gameplay cluster; retain the menu diagrams.
+        NativeHud_ScaleQuad(4, 40.0f, 78.5f, 0.5f);
+        NativeHud_ScaleQuadRange(8, 12, 40.0f, 78.5f, 0.65f);
+        NativeHud_ScaleQuad(23, 40.0f, 78.5f, 0.65f);
+    }
+    if (sNativeHudScalePercent == 100) {''')
+        if filename == 'native_hud.c':
+            text = replace_once(text,
+                '    NativeHud_TranslateQuad(12, 17.0f, -20.0f); /* Item I ammo */',
+                '''    NativeHud_TranslateQuad(12, 17.0f, -20.0f); /* Item I ammo */
+    if (!sNativeHudDualMenuLayout && !sNativeHudOcarinaLayout) {
+        NativeHud_TranslateQuad(5, -17.0f, -17.0f); /* Sword: west */
+        NativeHud_TranslateQuad(7, 17.0f, 17.0f); /* Y item: south */
+        NativeHud_TranslateQuad(29, 17.0f, 17.0f); /* Y item ammo */
+    }''')
+            text = replace_once(text,
+                '        NativeHud_ScaleQuadRange(8, 12, 40.0f, 78.5f, 0.65f);',
+                '''        for (u32 quad=8; quad<=11; ++quad) {
+            const float* p = gNativeHudPositions + quad * 12;
+            NativeHud_ScaleQuad(quad, (p[0]+p[3])*0.5f,
+                                (p[1]+p[7])*0.5f, 1.1f);
+        }
+        NativeHud_ScaleQuadRange(8, 12, 40.0f, 78.5f, 0.65f);''')
+            text = replace_once(text,
+                '        NativeHud_ScaleQuad(23, 40.0f, 78.5f, 0.65f);',
+                '        NativeHud_ScaleQuad(23, 40.0f, 78.5f, 0.65f);\n'
+                '        NativeHud_TranslateQuad(4, 0.0f, -11.0f);\n'
+                '        for (u32 quad=8; quad<=12; ++quad) NativeHud_TranslateQuad(quad, 0.0f, -11.0f);\n'
+                '        NativeHud_TranslateQuad(23, 0.0f, -11.0f);')
         p.write_text(text)
+
+    from apply_hud_sizes import apply as apply_hud_sizes
+    apply_hud_sizes(root)
 
 
 if __name__ == '__main__':

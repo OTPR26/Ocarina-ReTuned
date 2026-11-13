@@ -1,6 +1,7 @@
 """Adapt the pinned SDL/Vulkan host for Apple's mobile SDKs."""
 from pathlib import Path
 import argparse,sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from apply_macos_port import apply as apply_macos
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'reframed'))
@@ -8,6 +9,8 @@ from apply_native_port import edit
 
 def apply(engine):
     engine=Path(engine)
+    from patch_motion_composition import apply as patch_motion
+    patch_motion(engine)
     if "RETUNED_APPLE_MOBILE" not in (engine/"tools/oot3d/native_game_runtime/oot3d_native_game.cpp").read_text():
         apply_macos(engine)
     runtime=engine/'runtime/three_ds_recomp'
@@ -46,7 +49,7 @@ def apply(engine):
          'void GfxWindowBackendSDL2::SetDimensions(uint32_t width, uint32_t height, int32_t posX, int32_t posY) {\n#if defined(__ANDROID__) || defined(__IOS__)')
     app=engine/'ports/apple'
     app.mkdir(parents=True,exist_ok=True)
-    for name in ('app.cmake','apple_main.mm','startup_status.h','startup_status.mm','patch_sdl_scenes.py','finalize_bundle.py','touch_controls.mm','touch_layout_editor.mm.inc','touch_controls.h','touch_input.cpp','touch_input_api.h','texture_folder.mm','television_remote.mm','television_resolution.h','apple_paths.h'):
+    for name in ('app.cmake','apple_main.mm','startup_status.h','startup_status.mm','patch_sdl_scenes.py','patch_sdl_motion.py','controller_motion_diagnostics.h','finalize_bundle.py','touch_controls.mm','touch_layout_editor.mm.inc','touch_controls.h','touch_input.cpp','touch_input_api.h','texture_folder.mm','television_remote.mm','television_resolution.h','apple_paths.h'):
         (app/name).write_text(Path(__file__).with_name(name).read_text())
     (app/'audit_frontend_settings.py').write_bytes(
         (Path(__file__).resolve().parents[1]/'audit_frontend_settings.py').read_bytes())

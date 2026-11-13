@@ -34,10 +34,10 @@ inline bool PlaceTouchHud(std::span<float> positions,const TouchHudAnchors& anch
  if(positions.size()<33*12 || !ValidTouchHudAnchors(anchors)||!std::isfinite(aspect)||aspect<=0)return false;
  // Quad roles are exported by the Reframed HUD schema, independent of ROM addresses.
  constexpr std::array<unsigned,7> icons{5,6,7,9,11,10,8};
- const std::array<unsigned,7> slots=hudPreset==1?std::array<unsigned,7>{1,2,3,7,5,4,6}:std::array<unsigned,7>{1,2,3,4,5,6,7};
+ const std::array<unsigned,7> slots=hudPreset==1?std::array<unsigned,7>{3,2,1,7,5,4,6}:std::array<unsigned,7>{1,2,3,4,5,6,7};
  std::array<std::array<float,2>,8> delta{};
  for(unsigned i=0;i<icons.size();++i){const auto c=HudQuadCenter(positions,icons[i]);const auto slot=slots[i];const auto target=TouchHudPoint(anchors[jumpMode==2&&slot==2?8:slot],aspect);delta[slot]={target[0]-c[0],target[1]-c[1]};TranslateHudQuad(positions,icons[i],delta[slot][0],delta[slot][1]);}
- for(const auto [quad,slot]:std::array{std::pair{12u,hudPreset==1?4u:6u},std::pair{23u,5u},std::pair{28u,2u},std::pair{29u,3u}})TranslateHudQuad(positions,quad,delta[slot][0],delta[slot][1]);
+ for(const auto [quad,slot]:std::array{std::pair{12u,hudPreset==1?4u:6u},std::pair{23u,5u},std::pair{28u,2u},std::pair{29u,hudPreset==1?1u:3u}})TranslateHudQuad(positions,quad,delta[slot][0],delta[slot][1]);
  // The native touch controller supplies these button bases and D-pad cross.
  for(unsigned q=1;q<=4;++q)for(unsigned v=0;v<4;++v){positions[q*12+v*3]=0;positions[q*12+v*3+1]=0;}
  return true;

@@ -13,11 +13,11 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "FileDescription", "Ocarina ReTuned Preview\0"
-            VALUE "FileVersion", "0.6.7 Preview\0"
+            VALUE "FileVersion", "0.6.9 Preview\0"
             VALUE "InternalName", "OcarinaReTuned\0"
             VALUE "OriginalFilename", "OcarinaReTuned.exe\0"
             VALUE "ProductName", "Ocarina ReTuned\0"
-            VALUE "ProductVersion", "0.6.7 Preview\0"
+            VALUE "ProductVersion", "0.6.9 Preview\0"
         END
     END
     BLOCK "VarFileInfo"

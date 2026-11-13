@@ -84,7 +84,7 @@ class AndroidRomSetup(RomSetup):
         self.runtime_library = Path(runtime_library).resolve()
         self.environment['LD_LIBRARY_PATH'] = str(self.sdk / 'compiler-libraries')
         self.title_shards = 64
-        self.title_shard_strategy = 'stable'
+        self.title_shard_strategy = 'retuned-update'
         self._worker_lock = threading.Lock()
         self._workers = {}
         self.specification = None

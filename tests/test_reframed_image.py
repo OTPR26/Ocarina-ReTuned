@@ -51,6 +51,17 @@ class ReframedImageTests(unittest.TestCase):
             with self.subTest(symbol=bad),self.assertRaises(ValueError):
                 image.hud_preset_bridge(dict(valid,HudPreset_Get=bad))
 
+    def test_hud_group_sizes_require_complete_executable_bridge(self):
+        self.assertEqual(image.hud_group_size_bridge({}),{})
+        valid={'NativeHud_GetGroupScale':(image.INJECTION,8,'FUNC','1'),
+               'NativeHud_SetGroupScale':(image.INJECTION+8,24,'FUNC','1')}
+        self.assertEqual(image.hud_group_size_bridge(valid),{name:symbol[0] for name,symbol in valid.items()})
+        with self.assertRaises(ValueError):image.hud_group_size_bridge({'NativeHud_GetGroupScale':valid['NativeHud_GetGroupScale']})
+        for bad in ((image.BASE,8,'FUNC','1'),(image.INJECTION+1,8,'FUNC','1'),
+                    (image.INJECTION,0,'FUNC','1'),(image.INJECTION,8,'OBJECT','1'),valid['NativeHud_SetGroupScale']):
+            with self.subTest(symbol=bad),self.assertRaises(ValueError):
+                image.hud_group_size_bridge(dict(valid,NativeHud_GetGroupScale=bad))
+
     def test_presentation_capability_is_explicit_and_complete(self):
         self.assertIsNone(image.presentation_bridge({}))
         get = 'ScreenPresentation_GetMode'

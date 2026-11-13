@@ -108,10 +108,10 @@ Keep a separate backup of saves before installing a Preview or changing signing 
 - R/ZR item selection: use R to open an item-selection menu and ZR to use the selected item, building on the optional Remake HUD preset.
 
 - Expand the Cheats menu toward Ship of Harkinian parity, adding and testing more options.
-- Windows portable mode ([implementation and testing notes](documentation/Windows-portable-mode.md)) for the next release: opt in under Settings → General to copy saves, settings, and prepared game data from AppData into a `user` folder beside the app. Keep the original AppData copy, verify the migration before switching, and make the portable folder movable without preparing the ROM again.
 - Regional ROM support: Japan, Korea, and Taiwan, following European support in 0.5.8. See [regional support](documentation/Regional-support.md).
 - Portable player-model library: convert and export models on Mac, Windows, and Linux; import compatible packages into a Models library on iOS, tvOS, and other platforms; select child and adult models before starting gameplay. Include Original Link, compatibility checks, and a transfer flow for Apple TV. On-device raw PAK conversion on Apple platforms is a separate follow-up.
 - Continue investigating Android startup crashes using the new diagnostic reports: [#1](https://github.com/OTPR26/Ocarina-ReTuned/issues/1) and [#3](https://github.com/OTPR26/Ocarina-ReTuned/issues/3).
+- Improve experimental Mali compatibility: identify working custom-driver versions, investigate Android swapchain/buffer failures in #3 separately from the black gameplay output in [#26](https://github.com/OTPR26/Ocarina-ReTuned/issues/26), and add a small rendering diagnostic that does not require ROM preparation. Profile performance after rendering is reliable; validate changes with affected-device testers.
 - Further preparation-cache improvements for small game-code updates.
 - Prepare iOS and tvOS apps on Windows and Linux without requiring users to own a Mac. The planned approach uses bundled open-source compiler tools and a portable game-module interface, with all ROM processing kept local. This is under investigation and is not available in the current Preview.
 

@@ -91,5 +91,20 @@ static void NativeHud_PositionJumpBumper(void) {
         rows=['    '+', '.join(str(n) for n in indices[i:i+16])+',' for i in range(0,len(indices),16)]
         text=text[:opening+1]+'\n'+'\n'.join(rows)+'\n'+text[end:]
         p.write_text(text)
+    # Update both fresh and already-staged HUD sources.
+    text=p.read_text()
+    replacements = [
+        ('NativeHud_SetQuadRect(6,377.0f,24.0f,385.0f,16.0f);',
+         'NativeHud_SetQuadRect(6,372.0f,26.0f,384.0f,14.0f);'),
+        ('out[vertex*3]=p[vertex*2];out[vertex*3+1]=p[vertex*2+1];out[vertex*3+2]=0;',
+         'out[vertex*3]=381.0f+(p[vertex*2]-381.0f)*0.9f;\n'
+         '            out[vertex*3+1]=20.0f+(p[vertex*2+1]-20.0f)*0.9f;\n'
+         '            out[vertex*3+2]=0;'),
+    ]
+    for old,new in replacements:
+        if new not in text:
+            if text.count(old)!=1:raise ValueError('Jump shoulder layout context changed')
+            text=text.replace(old,new)
+    p.write_text(text)
     from apply_hud_preset import apply as apply_hud_preset
     apply_hud_preset(root)

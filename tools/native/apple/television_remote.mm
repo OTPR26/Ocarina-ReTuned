@@ -1,7 +1,16 @@
 #import <GameController/GameController.h>
+#include "controller_motion_diagnostics.h"
 #include <imgui.h>
 #include "fast/oot3d/retuned_television_remote.h"
 #include "fast/oot3d/graphics_settings_window.h"
+extern "C" void RetunedTVStartMotionDiagnostics() {
+ const char* enabled=std::getenv("RETUNED_MOTION_DIAGNOSTICS");
+ if(!enabled || std::strcmp(enabled,"1")!=0)return;
+ std::fprintf(stderr,"RETUNED_MOTION diagnostics_started\n");
+ [NSTimer scheduledTimerWithTimeInterval:2.0 repeats:YES block:^(NSTimer*) {
+  RetunedControllerMotionDiagnostics();
+ }];
+}
 namespace {
 void NativeMenuGamepadFallback() {
  auto& io=ImGui::GetIO();
@@ -23,6 +32,7 @@ void NativeMenuGamepadFallback() {
 }
 }
 extern "C" void RetunedTVUpdateRemote(bool startup,bool settings) {
+ RetunedControllerMotionDiagnostics();
  using namespace RetunedFrontend;
  if(startup||settings)NativeMenuGamepadFallback();
  TelevisionRemoteButtons input{};

@@ -17,3 +17,10 @@ uint32_t HudPreset_Button(ControlAction action) {
     default: return 0;
     }
 }
+
+uint32_t HudPreset_GameplayMask(uint32_t buttons, int gameplay) {
+    if (!sPreset || !gameplay) return buttons;
+    return (buttons & ~(BUTTON_B | BUTTON_Y)) |
+        ((buttons & BUTTON_B) ? BUTTON_Y : 0) |
+        ((buttons & BUTTON_Y) ? BUTTON_B : 0);
+}
