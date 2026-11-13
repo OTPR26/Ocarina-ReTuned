@@ -25,11 +25,13 @@ class RomSetupTransactions(unittest.TestCase):
                 executable = tools / name
                 executable.write_text('#!/bin/sh\nexit 0\n')
                 executable.chmod(0o755)
-            parent = {'PATH': '/usr/bin:/bin', 'CUSTOM': 'preserved'}
+            existing = Path(temporary) / 'existing-path'
+            existing.mkdir()
+            parent = {'PATH': str(existing), 'CUSTOM': 'preserved'}
             with patch.object(setup, 'MAC_BUILD_TOOL_PATHS', (str(tools),)):
                 result = setup.mac_build_environment(parent)
                 self.assertEqual(setup.mac_build_environment(result), result)
-            self.assertEqual(parent['PATH'], '/usr/bin:/bin')
+            self.assertEqual(parent['PATH'], str(existing))
             self.assertEqual(result['CUSTOM'], 'preserved')
             self.assertTrue(result['PATH'].startswith(parent['PATH'] + os.pathsep))
             for name in ('cmake', 'ninja'):
