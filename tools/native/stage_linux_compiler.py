@@ -65,7 +65,12 @@ def stage(sysroot, output, architecture, packages):
     for name in ('as', 'ld', 'ar', 'ranlib', 'strip', 'nm'):
         tool = root / f'usr/bin/{triple}-{name}'
         if tool.is_file():
-            (output / 'bin' / name).symlink_to(f'../sysroot/usr/bin/{triple}-{name}')
+            wrapper = output / 'bin' / name
+            wrapper.write_text('#!/bin/sh\n'
+                'd=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\n'
+                'export LD_LIBRARY_PATH="$d/../runtime${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"\n'
+                f'exec "$d/../sysroot/usr/bin/{triple}-{name}" "$@"\n')
+            wrapper.chmod(0o755)
     for name, compiler in (('cc', 'gcc'), ('c++', 'g++')):
         wrapper = output / 'bin' / name
         wrapper.write_text('#!/bin/sh\nset -eu\n'
