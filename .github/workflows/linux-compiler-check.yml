@@ -1,0 +1,46 @@
+name: Linux preparation compiler check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: linux-compiler-check-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  compiler:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: ARM64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Download audited compiler package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p input reports
+          gh release download v0.7.1 --repo OTPR26/Ocarina-ReTuned --pattern "Ocarina-ReTuned-0.7.1-Linux-$ARCH.tar.gz" --pattern SHA256-Checksums.txt --dir input
+          cd input
+          grep "  Ocarina-ReTuned-0.7.1-Linux-$ARCH.tar.gz$" SHA256-Checksums.txt | sha256sum --check -
+          tar -xzf "Ocarina-ReTuned-0.7.1-Linux-$ARCH.tar.gz"
+      - name: Reproduce original failure and validate corrected tools
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          python3 -m unittest discover -s tests -p test_linux_compiler_staging.py
+          sudo python3 tools/native/test_linux_compiler_isolated.py --package "input/Ocarina-ReTuned-Linux-$ARCH" --report "reports/compiler-$ARCH.json"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Linux-Compiler-Check-${{ matrix.arch }}-${{ github.sha }}
+          path: reports/*.json
+          if-no-files-found: error
+          retention-days: 3

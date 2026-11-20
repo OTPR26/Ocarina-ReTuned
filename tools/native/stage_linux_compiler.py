@@ -9,6 +9,7 @@ import shutil
 
 
 TARGETS = {'x86_64': ('x86_64-linux-gnu', 62), 'aarch64': ('aarch64-linux-gnu', 183)}
+BINUTILS = ('as', 'ld', 'ar', 'ranlib', 'strip', 'nm')
 COMMON_LICENSES = ('GPL-2', 'GPL-3', 'LGPL-2.1', 'LGPL-3', 'GFDL-1.3')
 
 
@@ -62,10 +63,17 @@ def stage(sysroot, output, architecture, packages):
         for path in (root / 'usr/lib' / triple).glob(pattern):
             shutil.copy2(path, runtime / path.name, follow_symlinks=True)
     (output / 'bin').mkdir()
-    for name in ('as', 'ld', 'ar', 'ranlib', 'strip', 'nm'):
+    for name in BINUTILS:
         tool = root / f'usr/bin/{triple}-{name}'
         if tool.is_file():
-            (output / 'bin' / name).symlink_to(f'../sysroot/usr/bin/{triple}-{name}')
+            # CMake invokes ar/ranlib directly, outside the compiler's environment.
+            wrapper = output / 'bin' / name
+            wrapper.write_text('#!/bin/sh\nset -eu\n'
+                'root=$(CDPATH= cd -- "${0%/*}/.." && pwd)\n'
+                'unset LD_PRELOAD\n'
+                'export LD_LIBRARY_PATH="$root/runtime"\n'
+                f'exec "$root/sysroot/usr/bin/{triple}-{name}" "$@"\n')
+            wrapper.chmod(0o755)
     for name, compiler in (('cc', 'gcc'), ('c++', 'g++')):
         wrapper = output / 'bin' / name
         wrapper.write_text('#!/bin/sh\nset -eu\n'

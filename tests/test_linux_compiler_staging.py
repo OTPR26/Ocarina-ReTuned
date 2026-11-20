@@ -2,6 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 
 spec = importlib.util.spec_from_file_location('linux_compiler_stage',
@@ -45,6 +46,31 @@ class LinuxCompilerStaging(unittest.TestCase):
             moved = output.with_name('moved tools')
             output.rename(moved)
             self.assertTrue((moved / 'bin/ld').is_file())
+
+    def test_direct_binutils_load_bundled_runtime_after_relocation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / 'sysroot'
+            receipts = self.fixture(root)
+            for name in stage.BINUTILS:
+                tool = root / ('usr/bin/x86_64-linux-gnu-' + name)
+                if not tool.exists():
+                    tool.write_bytes((root / 'usr/bin/x86_64-linux-gnu-as').read_bytes())
+            output = root.with_name('tools')
+            stage.stage(root, output, 'x86_64', receipts)
+            moved = output.with_name('moved tools')
+            output.rename(moved)
+            for name in stage.BINUTILS:
+                # A probe executable observes the environment and argument boundaries
+                # that the actual ELF tool receives, without needing Linux on the host.
+                target = moved / ('sysroot/usr/bin/x86_64-linux-gnu-' + name)
+                target.write_text('#!/bin/sh\n'
+                    'printf "%s\\n" "$LD_LIBRARY_PATH" "${LD_PRELOAD-unset}" "$#" "$1"\n')
+                target.chmod(0o755)
+                result = subprocess.run([str(moved / 'bin' / name), 'object with spaces.o'],
+                    env={'PATH': '/nonexistent', 'LD_LIBRARY_PATH': '/wrong/runtime'},
+                    capture_output=True, text=True, check=True)
+                self.assertEqual(result.stdout.splitlines(),
+                    [str(moved / 'runtime'), 'unset', '1', 'object with spaces.o'])
 
     def test_external_link_is_rejected_before_copying(self):
         with tempfile.TemporaryDirectory() as temporary:
