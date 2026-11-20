@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Exercise release tools in a chroot without system compilers or binutils libraries."""
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,6 +12,9 @@ from stage_linux_compiler import stage
 
 
 def validate(package, report):
+    chroot = shutil.which('chroot')
+    if not chroot:
+        raise RuntimeError('The isolated compiler check requires chroot')
     tools = Path(package).resolve() / 'setup/build-tools'
     old = tools / 'toolchain'
     manifest = json.loads((old / 'toolchain-manifest.json').read_text())
@@ -42,7 +44,7 @@ def validate(package, report):
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(path, destination, follow_symlinks=True)
         def run(command, check=True):
-            result = subprocess.run(['chroot', str(root), *command],
+            result = subprocess.run([chroot, str(root), *command],
                 env={'PATH': '/nonexistent', 'LC_ALL': 'C', 'HOME': '/tmp'},
                 text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=180)
             print(result.stdout, end='', flush=True)
