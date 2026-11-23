@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import plistlib
 import re
 from pathlib import Path
 import shlex
@@ -69,11 +70,29 @@ def configure(engine, build, extra):
         *['-D' + k + '=' + str(v) for k, v in flags.items()])
 
 
+def moltenvk_framework(vendor, platform):
+    manifests = list(vendor.glob('**/dynamic/MoltenVK.xcframework/Info.plist'))
+    if len(manifests) != 1:
+        raise ValueError('Expected one dynamic MoltenVK XCFramework')
+    manifest = manifests[0]
+    data = plistlib.loads(manifest.read_bytes())
+    slices = [entry for entry in data['AvailableLibraries']
+              if entry['SupportedPlatform'] == platform
+              and 'arm64' in entry['SupportedArchitectures']
+              and not entry.get('SupportedPlatformVariant')]
+    if len(slices) != 1:
+        raise ValueError('Expected one ARM64 device framework for ' + platform)
+    entry = slices[0]
+    result = (manifest.parent / entry['LibraryIdentifier'] / entry['LibraryPath']).resolve()
+    if not result.is_relative_to(vendor.resolve()) or not result.is_dir():
+        raise ValueError('Invalid MoltenVK framework path')
+    return result
+
+
 def apple(platform, engine, work, out):
     patch(engine)
     vendor = fetch('moltenvk', work)
-    slice_name = 'ios-arm64' if platform == 'ios' else 'tvos-arm64'
-    framework = next(vendor.rglob(slice_name + '/MoltenVK.framework'))
+    framework = moltenvk_framework(vendor, platform)
     headers = next(vendor.rglob('include/vulkan/vulkan.h')).parents[1]
     build = work / 'build'
     sdk = 'iphoneos' if platform == 'ios' else 'appletvos'
@@ -175,7 +194,8 @@ def switch(engine, work, out):
     build = work / 'build'
     configure(engine, build, {
         'CMAKE_TOOLCHAIN_FILE': sdk / 'cmake/Switch.cmake',
-        'OOT3D_ENABLE_VULKAN_RENDERER': 'OFF', 'RETUNED_REPRODUCIBLE_PATHS': 'ON',
+        'OOT3D_ENABLE_VULKAN_RENDERER': 'OFF', 'THREE_DS_RECOMP_ENABLE_NRI': 'OFF',
+        'RETUNED_REPRODUCIBLE_PATHS': 'ON',
         'CMAKE_PROJECT_Oot3dRecomp_INCLUDE': ROOT / 'tools/native/switch/LinkTitle.cmake',
         'RETUNED_SWITCH_TITLE_ARCHIVE': title, 'RETUNED_SWITCH_DEKO': 'ON',
         # Some SDK images report tinyxml2_FOUND without the required namespaced target.

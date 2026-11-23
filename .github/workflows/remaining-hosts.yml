@@ -51,6 +51,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
+      - name: Test artifact boundaries and Apple slice selection
+        run: python3 -m unittest discover -s tests -p test_host_components.py
       - name: Install build utilities
         run: brew install cmake ninja ccache pkg-config autoconf automake libtool shaderc
       - uses: actions/cache/restore@v5
@@ -120,6 +122,8 @@ jobs:
           path: dependencies/switchwaker
           persist-credentials: false
           sparse-checkout: runtime/third_party/uam
+      - name: Test artifact boundaries and Apple slice selection
+        run: python3 -m unittest discover -s tests -p test_host_components.py
       - name: Install host utilities
         run: |
           apt-get update

@@ -40,5 +40,28 @@ class HostComponents(unittest.TestCase):
             self.assertEqual(len(record['sha256']), 64)
 
 
+class AppleFrameworkSelection(unittest.TestCase):
+    def test_device_slice_can_contain_multiple_architectures(self):
+        import plistlib
+        spec = importlib.util.spec_from_file_location('host_build', ROOT / 'tools/ci/build_remaining_hosts.py')
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+        with tempfile.TemporaryDirectory() as temp:
+            vendor = Path(temp)
+            framework = vendor / 'dynamic/MoltenVK.xcframework'
+            device = framework / 'tvos-arm64_arm64e/MoltenVK.framework'
+            device.mkdir(parents=True)
+            data = {'AvailableLibraries': [
+                {'LibraryIdentifier': 'tvos-arm64_arm64e', 'LibraryPath': 'MoltenVK.framework',
+                 'SupportedPlatform': 'tvos', 'SupportedArchitectures': ['arm64', 'arm64e']},
+                {'LibraryIdentifier': 'tvos-arm64-simulator', 'LibraryPath': 'MoltenVK.framework',
+                 'SupportedPlatform': 'tvos', 'SupportedArchitectures': ['arm64'],
+                 'SupportedPlatformVariant': 'simulator'}]}
+            (framework / 'Info.plist').write_bytes(plistlib.dumps(data))
+            self.assertEqual(build.moltenvk_framework(vendor, 'tvos'), device.resolve())
+            with self.assertRaises(ValueError):
+                build.moltenvk_framework(vendor, 'ios')
+
+
 if __name__ == '__main__':
     unittest.main()
