@@ -202,6 +202,10 @@ def switch(engine, work, out):
     run(sys.executable, ROOT / 'tools/native/switch/deko_backend/build_uam.py',
         '--source', uam, '--output', work / 'uam', '--sdk', sdk)
     switch_xml_dependency(engine)
+    hook = work / 'switch-host.cmake'
+    hook.write_text('include("' + str(ROOT / 'tools/native/switch/LinkTitle.cmake') + '")\n'
+                    'add_compile_options("-ffile-prefix-map=' + str(ROOT) + '=/source" '
+                    '"-fmacro-prefix-map=' + str(ROOT) + '=/source")\n')
     title = work / 'empty-title.a'
     run(sdk / 'devkitA64/bin/aarch64-none-elf-ar', 'rcs', title)
     build = work / 'build'
@@ -209,7 +213,7 @@ def switch(engine, work, out):
         'CMAKE_TOOLCHAIN_FILE': sdk / 'cmake/Switch.cmake',
         'OOT3D_ENABLE_VULKAN_RENDERER': 'OFF', 'THREE_DS_RECOMP_ENABLE_NRI': 'OFF',
         'RETUNED_REPRODUCIBLE_PATHS': 'ON',
-        'CMAKE_PROJECT_Oot3dRecomp_INCLUDE': ROOT / 'tools/native/switch/LinkTitle.cmake',
+        'CMAKE_PROJECT_Oot3dRecomp_INCLUDE': hook,
         'RETUNED_SWITCH_TITLE_ARCHIVE': title, 'RETUNED_SWITCH_DEKO': 'ON',
         'RETUNED_SDL_SOURCE': sdl, 'RETUNED_UAM_SOURCE': uam,
         'RETUNED_UAM_LIBRARY': work / 'uam/libretuned_uam.a',
