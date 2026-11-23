@@ -1,0 +1,149 @@
+name: Additional platform hosts
+run-name: Host components — ${{ inputs.platform }}
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Build one platform; never a full release matrix
+        type: choice
+        required: true
+        default: ios
+        options: [ios, tvos, windows-arm64, switch]
+permissions:
+  contents: read
+concurrency:
+  group: additional-platform-hosts
+  cancel-in-progress: false
+jobs:
+  apple-and-windows:
+    if: github.repository == 'OTPR26/Ocarina-ReTuned' && inputs.platform != 'switch'
+    runs-on: xcode-27
+    timeout-minutes: 90
+    env:
+      PLATFORM: ${{ inputs.platform }}
+      CCACHE_DIR: ${{ github.workspace }}/.compiler-cache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 1G
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Require a public repository on a standard runner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: test "$(gh api repos/OTPR26/Ocarina-ReTuned --jq .visibility)" = public
+      - uses: actions/checkout@v6
+        with:
+          repository: coccofresco/TriAevum
+          ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
+          path: engine
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        if: inputs.platform == 'windows-arm64'
+        with:
+          repository: microsoft/vcpkg
+          ref: ef7dbf94b9198bc58f45951adcf1f041fcbc5ea0
+          path: dependencies/vcpkg
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install build utilities
+        run: brew install cmake ninja ccache pkg-config autoconf automake libtool shaderc
+      - uses: actions/cache/restore@v5
+        id: cache
+        with:
+          path: |
+            .compiler-cache
+            .vcpkg-cache
+          key: additional-hosts-v1-${{ inputs.platform }}-${{ hashFiles('tools/native/**', 'tools/frontend/**', 'tools/reframed/**', 'tools/ci/**') }}
+          restore-keys: additional-hosts-v1-${{ inputs.platform }}-
+      - name: Build neutral components
+        run: python tools/ci/build_remaining_hosts.py "$PLATFORM"
+      - name: Audit and archive components
+        run: python tools/ci/archive_host_components.py "$PLATFORM"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Ocarina-ReTuned-Host-${{ inputs.platform }}-${{ github.sha }}
+          path: artifacts/Ocarina-ReTuned-Host-*.zip
+          if-no-files-found: error
+          retention-days: 3
+      - uses: actions/cache/save@v5
+        if: success() && steps.cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            .compiler-cache
+            .vcpkg-cache
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+  switch:
+    if: github.repository == 'OTPR26/Ocarina-ReTuned' && inputs.platform == 'switch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container:
+      image: devkitpro/devkita64@sha256:1fc388c3a0d34bd2045a6dadcb1020e069d5f876a187fd705de14b4440c00282
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.compiler-cache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 1G
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Require a public repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          request = urllib.request.Request('https://api.github.com/repos/OTPR26/Ocarina-ReTuned', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN']})
+          assert json.load(urllib.request.urlopen(request))['visibility'] == 'public'
+          PY
+      - uses: actions/checkout@v6
+        with:
+          repository: coccofresco/TriAevum
+          ref: 17218b0cfdb944645bb5cde5249f313dca7e53ce
+          path: engine
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: devkitPro/SDL
+          ref: 0738d3c9f6993875e2f3dd0e8cc0bb4ae4440b4e
+          path: dependencies/sdl
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: centollOS/SwitchWakerHD
+          ref: 44dc0e23e35ed10495cea7c6866e7e5a3e3aba4d
+          path: dependencies/switchwaker
+          persist-credentials: false
+          sparse-checkout: runtime/third_party/uam
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install host utilities
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ccache ninja-build
+          python -m pip install 'cmake==3.31.6'
+      - uses: actions/cache/restore@v5
+        id: cache
+        with:
+          path: .compiler-cache
+          key: additional-hosts-v1-switch-${{ hashFiles('tools/native/**', 'tools/frontend/**', 'tools/reframed/**', 'tools/ci/**') }}
+          restore-keys: additional-hosts-v1-switch-
+      - name: Build neutral Switch link inputs
+        run: python tools/ci/build_remaining_hosts.py switch
+      - name: Audit and archive components
+        run: python tools/ci/archive_host_components.py switch
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Ocarina-ReTuned-Host-switch-${{ github.sha }}
+          path: artifacts/Ocarina-ReTuned-Host-*.zip
+          if-no-files-found: error
+          retention-days: 3
+      - uses: actions/cache/save@v5
+        if: success() && steps.cache.outputs.cache-hit != 'true'
+        with:
+          path: .compiler-cache
+          key: ${{ steps.cache.outputs.cache-primary-key }}
