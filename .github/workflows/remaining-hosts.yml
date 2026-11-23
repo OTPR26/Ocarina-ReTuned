@@ -61,7 +61,7 @@ jobs:
           path: |
             .compiler-cache
             .vcpkg-cache
-          key: additional-hosts-v1-${{ inputs.platform }}-${{ hashFiles('tools/ci/build_remaining_hosts.py', 'tools/native/windows-cross-ports/**') }}
+          key: additional-hosts-v1-${{ inputs.platform }}-${{ hashFiles('tools/ci/build_remaining_hosts.py', 'tools/native/build_windows_cross.py', 'tools/native/windows-cross-ports/**') }}
           restore-keys: additional-hosts-v1-${{ inputs.platform }}-
       - name: Build neutral components
         run: python tools/ci/build_remaining_hosts.py "$PLATFORM"
@@ -134,7 +134,7 @@ jobs:
         id: cache
         with:
           path: .compiler-cache
-          key: additional-hosts-v1-switch-${{ hashFiles('tools/ci/build_remaining_hosts.py', 'tools/native/windows-cross-ports/**') }}
+          key: additional-hosts-v1-switch-${{ hashFiles('tools/ci/build_remaining_hosts.py', 'tools/native/build_windows_cross.py', 'tools/native/windows-cross-ports/**') }}
           restore-keys: additional-hosts-v1-switch-
       - name: Build neutral Switch link inputs
         run: python tools/ci/build_remaining_hosts.py switch

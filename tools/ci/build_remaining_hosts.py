@@ -163,7 +163,9 @@ def windows(engine, work, out):
                    'dwmapi.dll', 'cfgmgr32.dll', 'dbghelp.dll', 'vulkan-1.dll'}
         if any(name.lower() not in allowed and not name.lower().startswith('api-ms-win-') for name in names):
             raise ValueError('Unbundled Windows runtime dependency: ' + ', '.join(names))
-        shutil.copy2(binary, out / binary.name)
+        staged = out / binary.name
+        shutil.copy2(binary, staged)
+        run(llvm / 'bin/llvm-strip', '--strip-debug', staged)
     windows_dependency_notices(vcpkg, out / 'licenses', 'arm64-mingw-static')
 
 
