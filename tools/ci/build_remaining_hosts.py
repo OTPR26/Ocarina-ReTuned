@@ -176,6 +176,16 @@ def check_commands(build, target):
     return commands
 
 
+def switch_xml_dependency(engine):
+    path = engine / 'runtime/three_ds_recomp/cmake/dependencies/switch.cmake'
+    text = path.read_text()
+    old = 'find_package(tinyxml2 QUIET)\nif(NOT tinyxml2_FOUND)'
+    new = 'if(NOT TARGET tinyxml2::tinyxml2)'
+    if old not in text and new not in text:
+        raise ValueError('Unexpected Switch XML dependency configuration')
+    path.write_text(text.replace(old, new))
+
+
 def switch(engine, work, out):
     patch(engine)
     sdk = Path(os.environ['DEVKITPRO'])
@@ -191,6 +201,7 @@ def switch(engine, work, out):
         '--engine', engine, '--sdl', sdl, '--sdk', sdk)
     run(sys.executable, ROOT / 'tools/native/switch/deko_backend/build_uam.py',
         '--source', uam, '--output', work / 'uam', '--sdk', sdk)
+    switch_xml_dependency(engine)
     title = work / 'empty-title.a'
     run(sdk / 'devkitA64/bin/aarch64-none-elf-ar', 'rcs', title)
     build = work / 'build'
@@ -200,8 +211,6 @@ def switch(engine, work, out):
         'RETUNED_REPRODUCIBLE_PATHS': 'ON',
         'CMAKE_PROJECT_Oot3dRecomp_INCLUDE': ROOT / 'tools/native/switch/LinkTitle.cmake',
         'RETUNED_SWITCH_TITLE_ARCHIVE': title, 'RETUNED_SWITCH_DEKO': 'ON',
-        # Some SDK images report tinyxml2_FOUND without the required namespaced target.
-        'CMAKE_DISABLE_FIND_PACKAGE_tinyxml2': 'ON',
         'RETUNED_SDL_SOURCE': sdl, 'RETUNED_UAM_SOURCE': uam,
         'RETUNED_UAM_LIBRARY': work / 'uam/libretuned_uam.a',
     })
