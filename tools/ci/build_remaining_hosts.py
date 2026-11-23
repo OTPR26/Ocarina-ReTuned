@@ -178,6 +178,8 @@ def switch(engine, work, out):
         'OOT3D_ENABLE_VULKAN_RENDERER': 'OFF', 'RETUNED_REPRODUCIBLE_PATHS': 'ON',
         'CMAKE_PROJECT_Oot3dRecomp_INCLUDE': ROOT / 'tools/native/switch/LinkTitle.cmake',
         'RETUNED_SWITCH_TITLE_ARCHIVE': title, 'RETUNED_SWITCH_DEKO': 'ON',
+        # Some SDK images report tinyxml2_FOUND without the required namespaced target.
+        'CMAKE_DISABLE_FIND_PACKAGE_tinyxml2': 'ON',
         'RETUNED_SDL_SOURCE': sdl, 'RETUNED_UAM_SOURCE': uam,
         'RETUNED_UAM_LIBRARY': work / 'uam/libretuned_uam.a',
     })
