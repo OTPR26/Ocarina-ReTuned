@@ -64,6 +64,7 @@ jobs:
           key: additional-hosts-v1-${{ inputs.platform }}-${{ hashFiles('tools/ci/build_remaining_hosts.py', 'tools/native/build_windows_cross.py', 'tools/native/windows-cross-ports/**') }}
           restore-keys: additional-hosts-v1-${{ inputs.platform }}-
       - name: Build neutral components
+        id: build
         run: python tools/ci/build_remaining_hosts.py "$PLATFORM"
       - name: Audit and archive components
         run: python tools/ci/archive_host_components.py "$PLATFORM"
@@ -74,7 +75,7 @@ jobs:
           if-no-files-found: error
           retention-days: 3
       - uses: actions/cache/save@v5
-        if: success() && steps.cache.outputs.cache-hit != 'true'
+        if: always() && steps.build.outcome == 'success' && steps.cache.outputs.cache-hit != 'true'
         with:
           path: |
             .compiler-cache
@@ -137,6 +138,7 @@ jobs:
           key: additional-hosts-v1-switch-${{ hashFiles('tools/ci/build_remaining_hosts.py', 'tools/native/build_windows_cross.py', 'tools/native/windows-cross-ports/**') }}
           restore-keys: additional-hosts-v1-switch-
       - name: Build neutral Switch link inputs
+        id: build
         run: python tools/ci/build_remaining_hosts.py switch
       - name: Audit and archive components
         run: python tools/ci/archive_host_components.py switch
@@ -147,7 +149,7 @@ jobs:
           if-no-files-found: error
           retention-days: 3
       - uses: actions/cache/save@v5
-        if: success() && steps.cache.outputs.cache-hit != 'true'
+        if: always() && steps.build.outcome == 'success' && steps.cache.outputs.cache-hit != 'true'
         with:
           path: .compiler-cache
           key: ${{ steps.cache.outputs.cache-primary-key }}

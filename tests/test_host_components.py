@@ -24,6 +24,19 @@ class HostComponents(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         module.check_file(path, root)
 
+    def test_only_exact_public_compiler_assertion_paths_are_allowed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = root / 'host.exe'
+            path.write_bytes(module.LLVM_RUNTIME_PATHS[0])
+            module.check_file(path, root)
+            for value in (module.LLVM_RUNTIME_PATHS[0][:-1] + b'.other\0',
+                          b'/Users/runner/work/Ocarina-ReTuned/project.cpp\0',
+                          b'/Users/private/source.cpp\0'):
+                path.write_bytes(value)
+                with self.assertRaises(ValueError):
+                    module.check_file(path, root)
+
     def test_symlink_cannot_escape_artifact_root(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
