@@ -127,9 +127,12 @@ def windows(engine, work, out):
     build = work / 'windows/build'
     check_commands(build, 'triaevum_public_runtime')
     targets = json.loads((build / 'triaevum-runtime-targets-Release.json').read_text())
-    for key in ('runtime', 'stub'):
-        binary = Path(targets[key]).resolve()
-        if not binary.is_relative_to(build) or binary_architecture(binary, 'windows') != 'arm64':
+    loader = (vcpkg / 'installed/arm64-mingw-static/bin/vulkan-1.dll').resolve()
+    binaries = [Path(targets[key]).resolve() for key in ('runtime', 'stub')]
+    if any(not binary.is_relative_to(build) for binary in binaries):
+        raise ValueError('Windows target escaped its build directory')
+    for binary in binaries + [loader]:
+        if binary_architecture(binary, 'windows') != 'arm64':
             raise ValueError('Unexpected Windows ARM64 host component')
         verify(engine, binary)
         imports = subprocess.check_output([str(llvm / 'bin/llvm-objdump'), '-p', str(binary)], text=True)
@@ -138,7 +141,7 @@ def windows(engine, work, out):
                    'ole32.dll', 'oleaut32.dll', 'comdlg32.dll', 'comctl32.dll', 'imm32.dll',
                    'winmm.dll', 'version.dll', 'setupapi.dll', 'ws2_32.dll', 'ntdll.dll',
                    'bcrypt.dll', 'ucrtbase.dll', 'opengl32.dll', 'hid.dll', 'shlwapi.dll',
-                   'dwmapi.dll', 'cfgmgr32.dll'}
+                   'dwmapi.dll', 'cfgmgr32.dll', 'dbghelp.dll', 'vulkan-1.dll'}
         if any(name.lower() not in allowed and not name.lower().startswith('api-ms-win-') for name in names):
             raise ValueError('Unbundled Windows runtime dependency: ' + ', '.join(names))
         shutil.copy2(binary, out / binary.name)
@@ -155,9 +158,14 @@ def check_commands(build, target):
 def switch(engine, work, out):
     patch(engine)
     sdk = Path(os.environ['DEVKITPRO'])
+    expected = json.loads((ROOT / 'tools/ci/switch-sdk.json').read_text())['sdk_files']
+    for name, digest in expected.items():
+        with (sdk / name).open('rb') as stream:
+            if hashlib.file_digest(stream, 'sha256').hexdigest() != digest:
+                raise ValueError('Switch SDK differs from the published preparation kit: ' + name)
     sdl = ROOT / 'dependencies/sdl'
     uam = ROOT / 'dependencies/switchwaker/runtime/third_party/uam'
-    run(sys.executable, ROOT / 'tools/native/switch/apply_switch_port.py', engine)
+    run(sys.executable, ROOT / 'tools/native/switch/apply_switch_port.py', '--engine', engine)
     run(sys.executable, ROOT / 'tools/native/switch/deko_backend/apply.py',
         '--engine', engine, '--sdl', sdl, '--sdk', sdk)
     run(sys.executable, ROOT / 'tools/native/switch/deko_backend/build_uam.py',

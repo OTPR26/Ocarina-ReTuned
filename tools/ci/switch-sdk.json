@@ -1,0 +1,12 @@
+{
+  "source": "Ocarina ReTuned 0.6.9 Switch preparation kit (also included in 0.7.2)",
+  "sdk_files": {
+    "libnx/lib/libdeko3dd.a": "ea458c2b32448ed35520258d72775c52ecea2d480f0c01b236a6dc86d536e9bb",
+    "portlibs/switch/lib/libz.a": "b923529e2b74133d6dbb519b1a4b2a3565944c7a8b59ef44167066a5f54bf3e0",
+    "portlibs/switch/lib/libEGL.a": "4222bb9b61791d948864322c1da9f4f21c084a3726a8002b8abcc682b3ecd820",
+    "portlibs/switch/lib/libglapi.a": "b353b7ed59f4097ee23e3d18a7fd92b073fa3620719be6899400bc48c0d84777",
+    "portlibs/switch/lib/libdrm_nouveau.a": "2ee6a72d62c9ef28510572c897afd55f71f505309b58adeb2a94fd67176195e6",
+    "portlibs/switch/lib/libglad.a": "47709f4a56829b383761c24c5c0005054283eb6c9e26530d7dc23458972a5f9f",
+    "portlibs/switch/lib/libSDL2.a": "c9b56659800a8fd5304f3ddf1e7647e707ffc4b7d60b3073286ce5ae2b233429"
+  }
+}

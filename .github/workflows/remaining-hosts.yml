@@ -24,6 +24,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/.compiler-cache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_MAXSIZE: 1G
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_UPGRADE: 1
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite
     steps:
       - uses: actions/checkout@v6
@@ -57,7 +59,7 @@ jobs:
           path: |
             .compiler-cache
             .vcpkg-cache
-          key: additional-hosts-v1-${{ inputs.platform }}-${{ hashFiles('tools/native/**', 'tools/frontend/**', 'tools/reframed/**', 'tools/ci/**') }}
+          key: additional-hosts-v1-${{ inputs.platform }}-${{ hashFiles('tools/ci/build_remaining_hosts.py', 'tools/native/windows-cross-ports/**') }}
           restore-keys: additional-hosts-v1-${{ inputs.platform }}-
       - name: Build neutral components
         run: python tools/ci/build_remaining_hosts.py "$PLATFORM"
@@ -118,19 +120,17 @@ jobs:
           path: dependencies/switchwaker
           persist-credentials: false
           sparse-checkout: runtime/third_party/uam
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
       - name: Install host utilities
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ccache ninja-build
-          python -m pip install 'cmake==3.31.6'
+          apt-get install -y --no-install-recommends ccache
+          python3 --version
+          cmake --version
       - uses: actions/cache/restore@v5
         id: cache
         with:
           path: .compiler-cache
-          key: additional-hosts-v1-switch-${{ hashFiles('tools/native/**', 'tools/frontend/**', 'tools/reframed/**', 'tools/ci/**') }}
+          key: additional-hosts-v1-switch-${{ hashFiles('tools/ci/build_remaining_hosts.py', 'tools/native/windows-cross-ports/**') }}
           restore-keys: additional-hosts-v1-switch-
       - name: Build neutral Switch link inputs
         run: python tools/ci/build_remaining_hosts.py switch
