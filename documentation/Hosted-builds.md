@@ -32,3 +32,24 @@ installation path no longer depends on that directory. Record the run, exact
 source revision, artifact digest, and replacement procedure before deletion.
 Do not remove Apple's SDKs if this Mac is still used to prepare/sign private
 Apple apps, or the Switch SDK if private Switch preparation still needs it.
+
+## Choosing a build
+
+| Target | Workflow | Selection |
+| --- | --- | --- |
+| Android host | `android-native-host.yml` | No matrix |
+| Android APK | `android-native-app.yml` | Reuse the successful host run and exact revision |
+| Mac | `native-arm64.yml` | `platform=macos` |
+| Windows x64 | `windows-portable.yml` | No matrix |
+| Linux x64 / ARM64 | `desktop-native.yml` | `platform=linux` or `linux-arm64` |
+| iOS / tvOS / Windows ARM64 / Switch components | `remaining-hosts.yml` | Select exactly one platform |
+
+Use the existing release download when that platform has not changed. Avoid the
+older workflows' `both` selection when only one target needs rebuilding.
+
+To replace a removed local host cache, run the corresponding workflow at the
+reviewed source revision, download its successful artifact, and repeat the
+release asset and identity audits before staging it. Artifacts expire after
+three days in the additional-host workflow; the checked-in recipe and pinned
+public dependencies remain available to rebuild them. A successful compilation
+does not replace device testing or the final release audit.
