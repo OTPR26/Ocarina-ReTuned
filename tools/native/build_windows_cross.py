@@ -6,6 +6,7 @@ No ROM or generated title module is needed. Build outputs stay in --work.
 """
 import argparse
 import os
+import shutil
 from pathlib import Path
 import subprocess
 
@@ -96,6 +97,8 @@ endif()
     for option in ('IMMERSE', 'NRI_UPSCALER_SDKS', 'DLSS_MODULE', 'SSSR', 'CACAO'):
         flags['THREE_DS_RECOMP_ENABLE_' + option] = 'OFF'
     flags.update(THREE_DS_RECOMP_OFFER_EXPERIMENTAL_GI='OFF', ENABLE_SCRIPTING='OFF', INCLUDE_MPQ_SUPPORT='OFF')
+    if shutil.which('ccache'):
+        flags.update(CMAKE_C_COMPILER_LAUNCHER='ccache', CMAKE_CXX_COMPILER_LAUNCHER='ccache')
     run('cmake', '-S', engine, '-B', work / 'build', '-G', 'Ninja',
         *['-D' + key + '=' + value for key, value in flags.items()])
     run('cmake', '--build', work / 'build', '--target', 'triaevum_public_runtime',

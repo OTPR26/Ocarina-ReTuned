@@ -147,7 +147,8 @@ def windows(engine, work, out):
     check_commands(build, 'triaevum_public_runtime')
     targets = json.loads((build / 'triaevum-runtime-targets-Release.json').read_text())
     loader = (vcpkg / 'installed/arm64-mingw-static/bin/vulkan-1.dll').resolve()
-    binaries = [Path(targets[key]).resolve() for key in ('runtime', 'stub')]
+    # The runtime has no title-DLL import; its build-time stub is not a download.
+    binaries = [Path(targets['runtime']).resolve()]
     if any(not binary.is_relative_to(build) for binary in binaries):
         raise ValueError('Windows target escaped its build directory')
     for binary in binaries + [loader]:

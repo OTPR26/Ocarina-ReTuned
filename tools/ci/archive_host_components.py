@@ -61,6 +61,7 @@ def main():
     result = audit([archive])
     if result['findings']:
         archive.unlink()
+        print(json.dumps(result['findings'], indent=2))
         raise ValueError('Host asset audit failed')
 
 
