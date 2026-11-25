@@ -76,3 +76,21 @@ sp.run([cmake,'-S',folder,'-B',build,'-G','Ninja',*args],check=True)
 sp.run([cmake,'--build',build],check=True)
 sp.run([build/('probe.exe' if windows else 'probe')],check=True)
 print('Packaged host, preparation preflight, compiler, linker, and compiled executable passed.',flush=True)
+
+if not windows:
+    launch=sp.Popen([root/'Ocarina-ReTuned.sh'],cwd=root,env=env)
+    try:
+        for attempt in range(60):
+            listing=sp.check_output(['xwininfo','-root','-tree'],text=True)
+            if 'Ocarina ReTuned - Setup' in listing:
+                print('Visible setup window confirmed through the shipped launcher.',flush=True)
+                break
+            if launch.poll() is not None:
+                raise RuntimeError(f'Launcher exited before setup appeared: {launch.returncode}')
+            time.sleep(0.5)
+        else:
+            raise RuntimeError('Setup window missing: '+listing)
+    finally:
+        if launch.poll() is None:
+            launch.terminate()
+            launch.wait(timeout=15)
