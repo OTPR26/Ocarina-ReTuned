@@ -1,34 +1,18 @@
-name: Released desktop package checks
+name: Version corrected desktop packages
 on: workflow_dispatch
 permissions:
   contents: read
-  actions: read
 jobs:
-  check:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - {platform: Windows-x64, runner: windows-2025}
-          - {platform: Windows-ARM64, runner: windows-11-arm}
-    runs-on: ${{ matrix.runner }}
+  package:
+    runs-on: macos-15
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Install desktop audio and graphics runtime
-        if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y libpulse0 libvulkan1 libglx0
-      - uses: msys2/setup-msys2@3c51bf698df1e37b2261f53cb67797b97761185c
+      - run: python3 tools/native/version_release.py
+      - uses: actions/upload-artifact@v7
         with:
-          msystem: ${{ matrix.platform == 'Windows-x64' && 'CLANG64' || 'CLANGARM64' }}
-          install: ${{ matrix.platform == 'Windows-x64' && 'mingw-w64-clang-x86_64-mesa' || 'mingw-w64-clang-aarch64-mesa' }}
-          cache: false
-      - name: Locate software graphics driver
-        shell: msys2 {0}
-        run: echo "TEST_GL_DIR=$(cygpath -w "$MINGW_PREFIX/bin")" >> "$GITHUB_ENV"
-      - name: Test the published package
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python tools/native/check_preview_desktop.py ${{ matrix.platform }}
+          name: Desktop-hotfix-0.8.1
+          path: hotfix/*.zip
+          retention-days: 3
