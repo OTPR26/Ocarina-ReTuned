@@ -105,6 +105,13 @@ static void NativeHud_PositionJumpBumper(void) {
         if new not in text:
             if text.count(old)!=1:raise ValueError('Jump shoulder layout context changed')
             text=text.replace(old,new)
+    flat = """        const float u=66.5f/512.0f;
+        const float v=1.0f-3.5f/256.0f;
+        for(u32 vertex=0;vertex<4;++vertex){uv[vertex*2]=u;uv[vertex*2+1]=v;}"""
+    glass = '        for(u32 component=0;component<8;++component)uv[component]=ManualJump_BumperUVs[i][component];'
+    if glass not in text:
+        if text.count(flat)!=1:raise ValueError('Jump shoulder UV context changed')
+        text=text.replace(flat,glass)
     p.write_text(text)
     from apply_hud_preset import apply as apply_hud_preset
     apply_hud_preset(root)

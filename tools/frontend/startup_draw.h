@@ -65,7 +65,27 @@ inline void DrawStartup(Fast::Fast3dGui& gui,bool settingsVisible) {
   ImGui::SetWindowFontScale(menu.TextScale);
   auto menuButton=[&](const char* label,int row){
    ImGui::SetCursorPos({w-margin-menu.Width,menu.Top+row*(menu.Height+menu.Gap)});
-   return ImGui::Button(label,{menu.Width,menu.Height});
+   ImGui::PushStyleColor(ImGuiCol_NavCursor,ImVec4(0,0,0,0));
+   const bool pressed=ImGui::InvisibleButton(label,{menu.Width,menu.Height},ImGuiButtonFlags_EnableNav);
+   ImGui::PopStyleColor();
+   const auto min=ImGui::GetItemRectMin(),max=ImGui::GetItemRectMax();
+   const bool selected=ImGui::IsItemHovered() || ImGui::IsItemFocused();
+   if(selected || ImGui::IsItemActive()) {
+    const ImU32 color=ImGui::GetColorU32(ImGui::IsItemActive()?ImGuiCol_ButtonActive:ImGuiCol_ButtonHovered);
+    const int firstVertex=draw->VtxBuffer.Size;
+    draw->AddRectFilled(min,max,color,8.f*scale,ImDrawFlags_RoundCornersRight);
+    for(int i=firstVertex;i<draw->VtxBuffer.Size;++i) {
+     auto& vertex=draw->VtxBuffer[i];
+     const float fade=std::clamp((vertex.pos.x-min.x)/(max.x-min.x),0.f,1.f);
+     const auto alpha=static_cast<ImU32>((vertex.col>>IM_COL32_A_SHIFT)*fade+.5f);
+     vertex.col=(vertex.col & ~IM_COL32_A_MASK)|(alpha<<IM_COL32_A_SHIFT);
+    }
+   }
+   {
+    const auto text=ImGui::CalcTextSize(label);
+    draw->AddText({max.x-12.f*scale-text.x,min.y+(menu.Height-text.y)*.5f},ImGui::GetColorU32(ImGuiCol_Text),label);
+   }
+   return pressed;
   };
   if(menu.ShowSetup) {
    if(menuButton("Setup",0))SetupVisible=true;
