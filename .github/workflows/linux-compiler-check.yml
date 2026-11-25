@@ -9,8 +9,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {platform: Linux-x86_64, runner: ubuntu-24.04}
-          - {platform: Linux-ARM64, runner: ubuntu-24.04-arm}
+          - {platform: Windows-x64, runner: windows-2025}
+          - {platform: Windows-ARM64, runner: windows-11-arm}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
     steps:
@@ -19,14 +19,8 @@ jobs:
           persist-credentials: false
       - name: Install desktop audio and graphics runtime
         if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y libsdl2-2.0-0 libvulkan1 libglx0 mesa-vulkan-drivers x11-utils xvfb xauth
+        run: sudo apt-get update -qq && sudo apt-get install -y libpulse0 libvulkan1 libglx0
       - name: Test the published package
         env:
           GH_TOKEN: ${{ github.token }}
-        run: xvfb-run -a python tools/native/check_preview_desktop.py ${{ matrix.platform }}
-      - uses: actions/upload-artifact@v7
-        if: matrix.platform == 'Windows-x64'
-        with:
-          name: Windows-x64-package-candidate
-          path: candidate/*.zip
-          retention-days: 3
+        run: python tools/native/check_preview_desktop.py ${{ matrix.platform }}
