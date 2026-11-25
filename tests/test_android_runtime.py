@@ -4,7 +4,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools/native'))
-from android_runtime import verify_runtime
+from android_runtime import verify_runtime, verify_sdl
 from elf_fixture import elf
 
 
@@ -30,6 +30,20 @@ class AndroidRuntimeTests(unittest.TestCase):
             host.write_bytes(elf(imports=('__cxa_finalize',), weak=('__cxa_optional',)))
             runtime.write_bytes(elf())
             verify_runtime({'libTriAevum.so': host, 'libc++_shared.so': runtime})
+
+    def test_controller_runtime_must_be_shared(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            host = Path(temporary) / 'host.so'
+            sdl = Path(temporary) / 'libSDL2.so'
+            sdl.write_bytes(elf(exports=('SDL_InitSubSystem',)))
+            host.write_bytes(elf(exports=('SDL_InitSubSystem', 'PLATFORM_hid_init')))
+            with self.assertRaisesRegex(ValueError, 'shared SDL2'):
+                verify_sdl(host, sdl)
+            host.write_bytes(elf(imports=('SDL_InitSubSystem',), exports=('PLATFORM_hid_init',)))
+            with self.assertRaisesRegex(ValueError, 'second SDL'):
+                verify_sdl(host, sdl)
+            host.write_bytes(elf(imports=('SDL_InitSubSystem',)))
+            verify_sdl(host, sdl)
 
     def test_non_elf_input_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:

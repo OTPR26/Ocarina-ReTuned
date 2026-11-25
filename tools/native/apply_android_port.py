@@ -4,14 +4,26 @@ import argparse
 from pathlib import Path
 import subprocess
 from apply_common_port import apply as apply_common
+from apply_android_driver import edit
 
 REVISION = '17218b0cfdb944645bb5cde5249f313dca7e53ce'
+
+
+def apply_shared_sdl(root):
+    runtime = root / 'ports/android/runtime/CMakeLists.txt'
+    anchor = 'add_subdirectory("${root}" product)'
+    edit(runtime, anchor, 'set(SDL_SHARED ON CACHE BOOL "" FORCE)\n'
+         'set(SDL_STATIC OFF CACHE BOOL "" FORCE)\n' + anchor +
+         '\nget_target_property(retuned_sdl_type SDL2::SDL2 TYPE)\n'
+         'if(NOT retuned_sdl_type STREQUAL "SHARED_LIBRARY")\n'
+         '    message(FATAL_ERROR "Android requires a shared SDL2 library for JNI")\nendif()')
 
 
 def apply(root):
     root = Path(root)
     if subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip() != REVISION:
         raise ValueError('Unexpected native runtime revision.')
+    apply_shared_sdl(root)
     apply_common(root)
     from apply_android_clock import apply as apply_clock
     apply_clock(root)

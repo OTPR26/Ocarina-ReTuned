@@ -53,3 +53,31 @@ def verify_runtime(libraries):
                          or re.match(r'_Z(?:N[KOR]?St|St|T[VIS]NSt|n[aw]|d[al])', symbol))
         if missing:
             raise ValueError('Android C++ runtime mismatch in ' + name + ': ' + ', '.join(missing))
+
+
+def verify_sdl(host, sdl):
+    host_exports, host_imports = dynamic_symbols(host)
+    sdl_exports, _ = dynamic_symbols(sdl)
+    controller_init = 'SDL_InitSubSystem'
+    if controller_init not in host_imports or controller_init not in sdl_exports:
+        raise ValueError('Android host must import SDL_InitSubSystem from shared SDL2')
+    if host_exports & {controller_init, 'SDL_hid_init', 'PLATFORM_hid_init'}:
+        raise ValueError('Android host embeds a second SDL controller runtime')
+
+
+def verify_apk_sdl(apk):
+    import tempfile
+    import zipfile
+
+    with zipfile.ZipFile(apk) as archive, tempfile.TemporaryDirectory() as temp:
+        lib = 'lib/arm64-v8a/'
+        host = archive.extract(lib + 'libTriAevum.so', temp)
+        sdl = archive.extract(lib + 'libSDL2.so', temp)
+        verify_sdl(host, sdl)
+
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Check the Android APK uses shared SDL2')
+    parser.add_argument('apk', type=Path)
+    verify_apk_sdl(parser.parse_args().apk)

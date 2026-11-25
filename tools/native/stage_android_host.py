@@ -2,7 +2,7 @@
 """Archive only neutral Android host libraries, excluding translated title code."""
 import argparse
 from audit_neutral_shaders import verify as verify_neutral_shaders
-from android_runtime import verify_runtime
+from android_runtime import verify_runtime, verify_sdl
 from audit_frontend_settings import verify as verify_frontend_settings
 import hashlib
 import json
@@ -38,6 +38,7 @@ def stage(engine, build, ndk, output):
         sources[name] = build / 'product' / name
     commands = subprocess.check_output(['ninja', '-C', str(build), '-t', 'commands', 'oot3d_native_game'], text=True)
     verify_runtime(sources)
+    verify_sdl(sources['libTriAevum.so'], sources['libSDL2.so'])
     verify_frontend_settings(sources['libTriAevum.so'], require_dual=True)
     if any(token in commands for token in ('oot3d_whole_aot_shard_', '/oot3d_whole_aot_cpp/', '/oot3d_a32_generated/')):
         raise ValueError('The public host must not compile game-derived title sources.')
@@ -54,6 +55,8 @@ def stage(engine, build, ndk, output):
                 raise ValueError('Host library is not AArch64: ' + name)
             dynamic = subprocess.check_output([str(llvm / 'bin/llvm-readelf'), '-d', str(source)], text=True)
             needed = set(re.findall(r'\(NEEDED\).*\[(.*?)\]', dynamic))
+            if name == 'libTriAevum.so' and 'libSDL2.so' not in needed:
+                raise ValueError('Missing shared SDL2 dependency in Android host')
             if needed - allowed:
                 raise ValueError('Unpackaged host dependency: ' + name)
             segments = subprocess.check_output([str(llvm / 'bin/llvm-readelf'), '-l', '--wide', str(source)], text=True)

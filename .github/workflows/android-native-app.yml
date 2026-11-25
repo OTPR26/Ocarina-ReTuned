@@ -72,6 +72,7 @@ jobs:
           gradle -p engine/ports/android :app:assembleRelease \
             -PtriaevumSdlSource="$GITHUB_WORKSPACE/sdl" \
             -PtriaevumNativeStage="$GITHUB_WORKSPACE/stage/Ocarina-ReTuned-Native-Android"
+          python tools/native/android_runtime.py engine/ports/android/app/build/outputs/apk/release/app-release-unsigned.apk
           mkdir -p artifacts
           cp engine/ports/android/app/build/outputs/apk/release/app-release-unsigned.apk artifacts/Ocarina-ReTuned-Native-Android-arm64-unsigned.apk
           python - <<'PY'
