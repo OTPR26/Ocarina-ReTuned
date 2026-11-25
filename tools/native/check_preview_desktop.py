@@ -71,6 +71,13 @@ if windows:
     from ctypes import wintypes
     user32=ctypes.windll.user32
     callback=ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    # SDL loads opengl32 by name. Provide the test machine's software driver.
+    import shutil
+    gl=Path(os.environ['TEST_GL_DIR'])
+    shutil.copyfile(gl/'opengl32.dll', root/'opengl32.dll')
+    env['PATH']=str(gl)+os.pathsep+env['PATH']
+    env['SDL_OPENGL_LIBRARY']=str(root/'opengl32.dll')
+    env['GALLIUM_DRIVER']='llvmpipe'
     launch=sp.Popen([host],cwd=root,env=env)
     titles=set()
     @callback
