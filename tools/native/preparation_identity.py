@@ -85,6 +85,9 @@ def stamp_desktop(kit):
     project = (base / metadata['script']).resolve().parents[2]
     collect(project / 'tools/native')
     collect(project / 'tools/reframed')
+    if (base / 'randomizer').is_dir():
+        collect(base / 'randomizer')
+        collect(project / 'tools/randomizer')
     for path in (project / 'resources').rglob('*'):
         if path.is_file() and 'interface' not in path.relative_to(project / 'resources').parts:
             collect(path)

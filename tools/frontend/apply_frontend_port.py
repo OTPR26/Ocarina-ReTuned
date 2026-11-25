@@ -158,6 +158,8 @@ def apply(engine):
     sys.path.insert(0,str(source.parents[1]/"tools/native/setup"))
     from apply_setup import apply as apply_setup
     apply_setup(engine)
+    from apply_graphics_settings_trace import apply as apply_graphics_trace
+    apply_graphics_trace(engine)
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('engine',type=Path);apply(p.parse_args().engine)

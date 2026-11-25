@@ -19,10 +19,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class RomPreparationService extends Service {
     static final String STATUS = "org.triaevum.android.ROM_SETUP_STATUS";
     static final String CANCEL = "cancel";
+    static final String RANDOMIZER_JOB = "randomizer-job";
     private final AtomicBoolean running = new AtomicBoolean();
     private final AtomicBoolean cancelRequested = new AtomicBoolean();
     private PowerManager.WakeLock wakeLock;
-    private File cancelFile;
+    private volatile File cancelFile;
+    private volatile File randomizerJob;
     private long startedAt, stageStartedAt;
     private String currentStage = "";
     private PendingIntent pending;
@@ -39,8 +41,16 @@ public final class RomPreparationService extends Service {
             if (!running.get()) stopSelf();
             return START_NOT_STICKY;
         }
+        String jobId = intent == null ? null : intent.getStringExtra(RANDOMIZER_JOB);
+        File job = jobId == null ? null : randomizerJob(this, jobId);
+        if (jobId != null && job == null) return START_NOT_STICKY;
         lifecycle.removeCallbacks(shutdown);
-        if (!running.compareAndSet(false, true)) return START_NOT_STICKY;
+        if (!running.compareAndSet(false, true)) {
+            if (job != null && !job.equals(randomizerJob))
+                writeRandomizerStatus(job, "error", "Another preparation is already running.");
+            return START_NOT_STICKY;
+        }
+        randomizerJob = job;
         cancelRequested.set(false);
         NotificationManager manager = getSystemService(NotificationManager.class);
         manager.createNotificationChannel(new NotificationChannel("rom-setup", "ROM preparation", NotificationManager.IMPORTANCE_LOW));
@@ -48,7 +58,7 @@ public final class RomPreparationService extends Service {
         pending = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         startForeground(204, new Notification.Builder(this, "rom-setup")
             .setSmallIcon(android.R.drawable.stat_sys_download).setContentTitle("Ocarina ReTuned")
-            .setContentText("Preparing your ROM on this device").setContentIntent(pending)
+            .setContentText(job == null ? "Preparing your ROM on this device" : "Preparing Randomizer").setContentIntent(pending)
             .setOngoing(true).setProgress(0, 0, true).build());
         PowerManager power = getSystemService(PowerManager.class);
         wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, getPackageName() + ":rom-setup");
@@ -67,8 +77,32 @@ public final class RomPreparationService extends Service {
             }
         } catch (Exception ignored) { }
         final boolean reuseInputs = intent != null && intent.getBooleanExtra("reuse-inputs", false);
-        new Thread(() -> prepare(selected, reuseInputs), "retuned-rom-setup").start();
+        new Thread(() -> {
+            if (job == null) prepare(selected, reuseInputs);
+            else prepareRandomizer(job);
+        }, "retuned-rom-setup").start();
         return START_NOT_STICKY;
+    }
+
+    static File randomizerJob(Context context, String id) {
+        if (!id.matches("[0-9a-f]{32}")) return null;
+        File job = new File(context.getFilesDir(), "randomizer/jobs/" + id);
+        File seed = new File(job, "seed.json");
+        return seed.isFile() && seed.length() > 0 && seed.length() <= 8 * 1024 * 1024 ? job : null;
+    }
+
+    private static void writeRandomizerStatus(File job, String stage, String message) {
+        try {
+            AtomicFile file = new AtomicFile(new File(job, "status.json"));
+            byte[] bytes = new JSONObject().put("stage", stage).put("message", message)
+                .put("worker_pid", android.os.Process.myPid())
+                .toString().getBytes(StandardCharsets.UTF_8);
+            FileOutputStream output = file.startWrite();
+            try { output.write(bytes); file.finishWrite(output); }
+            catch (IOException error) { file.failWrite(output); throw error; }
+        } catch (Exception error) {
+            android.util.Log.e("ReTunedSetup", "Could not save randomizer status", error);
+        }
     }
 
     public void progress(String stage, String message) {
@@ -76,6 +110,10 @@ public final class RomPreparationService extends Service {
     }
 
     public synchronized void progressDetailed(String stage, String message, long completed, long total) {
+        if (randomizerJob != null) {
+            writeRandomizerStatus(randomizerJob, stage, message);
+            return;
+        }
         long now = System.currentTimeMillis();
         if (!stage.equals(currentStage)) {
             if (PreparationProgress.index(currentStage) >= 0 && !stage.equals("error") && !stage.equals("cancelled"))
@@ -101,6 +139,37 @@ public final class RomPreparationService extends Service {
                     .setContentText(message).setContentIntent(pending).setOngoing(!stage.equals("complete"))
                     .setProgress(PreparationProgress.MAX, position, false).build());
         } catch (Exception error) { android.util.Log.e("ReTunedSetup", "Could not save setup status", error); }
+    }
+
+    private void prepareRandomizer(File job) {
+        cancelFile = new File(job, "cancel");
+        try (PreparationSession session = PreparationSession.acquire(new File(getFilesDir(), "native-data"))) {
+            progress("tools", "Preparing the local randomizer tools…");
+            File kit = PreparationKit.install(this);
+            if (cancelFile.exists()) { progress("cancelled", "Randomizer preparation cancelled."); return; }
+            if (!Python.isStarted()) Python.start(new AndroidPlatform(getApplicationContext()));
+            Python.getInstance().getModule("retuned_setup_entry").callAttr("prepare_randomizer",
+                kit.getAbsolutePath(), getApplicationInfo().nativeLibraryDir,
+                new File(getFilesDir(), "randomizer").getAbsolutePath(), job.getAbsolutePath(), this);
+            progress("complete", "Randomizer is ready.");
+        } catch (Exception error) {
+            android.util.Log.e("ReTunedSetup", "Local randomizer preparation failed", error);
+            if (cancelFile.exists()) progress("cancelled", "Randomizer preparation cancelled.");
+            else progress("error", "Randomizer preparation could not finish. See the preparation log.");
+        } finally {
+            finishWorker();
+        }
+    }
+
+    private void finishWorker() {
+        lifecycle.post(() -> {
+            running.set(false);
+            cancelFile = null;
+            randomizerJob = null;
+            if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+            stopForeground(STOP_FOREGROUND_REMOVE); stopSelf();
+            lifecycle.postDelayed(shutdown, 300);
+        });
     }
 
     private void prepare(String selected, boolean reuseInputs) {
@@ -165,12 +234,7 @@ public final class RomPreparationService extends Service {
                 try { getContentResolver().releasePersistableUriPermission(Uri.parse(selected), Intent.FLAG_GRANT_READ_URI_PERMISSION); }
                 catch (SecurityException ignored) { }
             }
-            lifecycle.post(() -> {
-                running.set(false);
-                if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
-                stopForeground(STOP_FOREGROUND_REMOVE); stopSelf();
-                lifecycle.postDelayed(shutdown, 300);
-            });
+            finishWorker();
         }
     }
 

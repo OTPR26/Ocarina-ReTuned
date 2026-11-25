@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "status": "audit-only",
+  "canonical_region": "EUR",
+  "randomizer_base": 6815744,
+  "keep_reframed": [
+    ".patch_loader",
+    ".patch_MultiplyPlayerSpeed",
+    ".patch_RunAnimationSpeed",
+    ".patch_CamUpdate",
+    ".patch_SaveMenuIgnoreOpen",
+    ".loader"
+  ],
+  "compose_before_activation": [
+    ".patch_before_GlobalContext_Update",
+    ".patch_after_GlobalContext_Update"
+  ],
+  "additional_runtime_gates": [
+    "Replace SariaUI custom SVC bridge with supported native integration",
+    "Compose initialization and resource hooks and validate every displaced instruction",
+    "Include all new functions, assembly entry points, and returns in AOT coverage",
+    "Relocate seed messages and serialize runtime tables against the built ELF ABI",
+    "Provide seed-scoped extended save persistence before gameplay",
+    "Resolve custom reward objects from verified local game resources"
+  ]
+}

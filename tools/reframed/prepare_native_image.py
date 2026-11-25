@@ -458,6 +458,7 @@ def _prepare(args):
         'file_offset': INJECTION - BASE, 'file_size': size, 'writable': True, 'executable': True})
     (out / 'process-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     receipt = {'schema': 1, 'private_local_artifact': True, 'redistributable': False,
+        'mod_elf_sha256': hashlib.sha256(args.elf.read_bytes()).hexdigest(),
         'base_sha256': BASE_SHA256, 'mod_ips_sha256': hashlib.sha256(args.ips.read_bytes()).hexdigest(),
         'code_sha256': hashlib.sha256(image).hexdigest(), 'patch_records': len(intervals),
         'added_functions': additions, 'native_loader': {'address': loader, 'bytes': 12}}

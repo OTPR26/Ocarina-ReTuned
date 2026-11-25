@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import tempfile
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -90,17 +91,42 @@ class SwitchSetup(RomSetup):
             if name not in symbols:
                 raise SetupError('Prepared Switch title ABI is incomplete')
 
-    def export_sd(self, installation, output, textures=None, nsp_packer=None, nsp_keys=None):
+    def export_sd(self, installation, output, textures=None, nsp_packer=None, nsp_keys=None, randomizer_prepared=None):
         if output.exists():
             raise SetupError('Choose a new SD output folder; existing files are preserved')
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=output.parent, prefix='.retuned-switch-') as temp:
+            work = Path(temp)
+            staged = work / 'sd'
+            self._export_sd(installation, staged, work, textures, nsp_packer, nsp_keys, randomizer_prepared)
+            if output.exists():
+                raise SetupError('SD output folder was created during preparation')
+            staged.rename(output)
+        self.progress({'stage': 'complete', 'message': 'Private Switch SD layout ready: ' + str(output)})
+
+    def _export_sd(self, installation, output, work, textures, nsp_packer, nsp_keys, randomizer_prepared):
         self.checkpoint('linking', 'Linking your prepared Switch game…')
-        binary = installation / 'OcarinaReTuned.elf'
-        self.run([self.host, *link_arguments(self.link_recipe, self.link_kit, self.sdk,
-            installation / 'libretuned_switch_title.a', binary)])
-        nacp = installation / 'OcarinaReTuned.nacp'
+        binary = work / 'OcarinaReTuned.elf'
+        title = installation / 'libretuned_switch_title.a'
+        if randomizer_prepared:
+            from randomizer_title import combine, stage_data
+            sys.path.insert(0, str(ROOT.parents[1] / 'randomizer'))
+            record = json.loads(randomizer_prepared.read_text())
+            archive = randomizer_prepared.parent / record['module']
+            manifest_path = randomizer_prepared.parent / record['manifest']
+            if archive.name != 'libretuned_switch_title.a':
+                raise SetupError('Choose a prepared Switch Randomizer runtime')
+            combined = work / 'combined.a'
+            combine(title, archive, combined, self.sdk / 'devkitA64/bin', self.suffix)
+            self.run([self.host, *link_arguments(self.link_recipe, self.link_kit, self.sdk, combined, binary)])
+            stage_data(manifest_path, archive, output / 'switch/oot3dre/randomizer/runtime')
+        else:
+            self.run([self.host, *link_arguments(self.link_recipe, self.link_kit, self.sdk,
+                title, binary)])
+        nacp = work / 'OcarinaReTuned.nacp'
         self.run([self.sdk / ('tools/bin/nacptool' + self.suffix), '--create',
-            'Ocarina ReTuned', 'OTPR26', '0.6.2', nacp])
-        nro = installation / 'Ocarina-ReTuned.nro'
+            'Ocarina ReTuned', 'OTPR26', '0.8.0', nacp])
+        nro = work / 'Ocarina-ReTuned.nro'
         self.run([self.sdk / ('tools/bin/elf2nro' + self.suffix), binary, nro,
             '--nacp=' + str(nacp), '--icon=' + str(self.link_kit / 'icon.jpg')])
         self.checkpoint('copying', 'Creating the private SD-card layout…')
@@ -128,7 +154,7 @@ class SwitchSetup(RomSetup):
         (install / 'PRIVATE-GAME-DATA.txt').write_text('Prepared from your ROM. Do not redistribute this folder or NRO.\n')
         if nsp_packer:
             self.checkpoint('packaging', 'Packaging your private Switch NSP…')
-            package = installation / 'nsp-build'
+            package = work / 'nsp-build'
             for name in ('exefs', 'control', 'output', 'temp', 'nca', 'backup'):
                 (package / name).mkdir(parents=True)
             self.run([self.sdk / ('tools/bin/elf2nso' + self.suffix), binary, package / 'exefs/main'])
@@ -143,13 +169,16 @@ class SwitchSetup(RomSetup):
                 command.extend(['--' + option, package / name])
             self.run(command, cwd=package)
             shutil.copyfile(package / 'output/0100f0260a000000.nsp', output / 'Ocarina-ReTuned.nsp')
-        self.progress({'stage': 'complete', 'message': 'Private Switch SD layout ready: ' + str(output)})
+
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('kit', 'sdk', 'rom', 'work-dir', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--randomizer', action='store_true', help='Prepare normal and randomized gameplay from your ROM')
+    mode.add_argument('--randomizer-prepared', type=Path, help='Locally prepared switch-arm64 Randomizer result JSON')
     parser.add_argument('--mobile-textures', type=Path)
     parser.add_argument('--jobs', type=int, default=2)
     add_model_arguments(parser)
@@ -166,10 +195,19 @@ def main():
     setup = SwitchSetup(sdk=args.sdk, link_kit=kit.parent / 'switch-host', json_include=kit.parent / 'headers',
         **options, jobs=args.jobs, progress=lambda e: print(e['message'], flush=True))
     installation = setup.prepare(args.rom, args.work_dir)
-    with prepared_models(installation, child=args.child_model, adult=args.adult_model) as exported:
+    with prepared_models(installation, child=args.child_model, adult=args.adult_model) as exported, tempfile.TemporaryDirectory(dir=args.work_dir) as temporary:
+        if args.randomizer:
+            sys.path.insert(0, str(ROOT.parents[1] / 'randomizer'))
+            from prepare_rom import build_title
+            from prepare_run import write
+            work = Path(temporary)
+            result = build_title(args.rom, kit, setup, 'switch-arm64', work,
+                                 dict(switch_sdk=setup.sdk, json_headers=setup.json_include))
+            args.randomizer_prepared = work / 'ready.json'
+            write(args.randomizer_prepared, result)
         setup.export_sd(exported, args.output, args.mobile_textures,
             args.nsp_packer.resolve() if args.nsp_packer else None,
-            args.nsp_keys.resolve() if args.nsp_keys else None)
+            args.nsp_keys.resolve() if args.nsp_keys else None, args.randomizer_prepared)
     print('Use full-memory homebrew launching. Never redistribute the prepared game.')
 
 

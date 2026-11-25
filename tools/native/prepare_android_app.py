@@ -17,28 +17,144 @@ def replace(path, before, after):
     path.write_text(source.replace(before, after))
 
 
-def prepare(engine, private_kit=None, preparation_native_stage=None):
+def install_randomizer_documents(activity):
+    shutil.copy2(Path(__file__).parent/'android/RandomizerDocuments.java',activity.parent/'RandomizerDocuments.java')
+    if 'private RandomizerDocuments retunedRuns;' not in activity.read_text():
+        replace(activity,'    private TextureFolder retunedTextures;', '''    private TextureFolder retunedTextures;
+    private RandomizerDocuments retunedRuns;
+    public boolean retunedImportRun(int slot){return retunedRuns!=null&&retunedRuns.chooseImport(slot);}
+    public boolean retunedExportRun(int slot,byte[] bytes){return retunedRuns!=null&&retunedRuns.chooseExport(slot,bytes);}
+    public String retunedTakeRunDocument(){return retunedRuns==null?"":retunedRuns.takeResult();}''')
+    replace(activity,'    private RandomizerDocuments retunedRuns;',
+            '    private RandomizerDocuments retunedRuns;\n    public boolean retunedLaunchRun(String arguments,int slot,boolean newGame){return RandomizerSession.queue(this,arguments,slot,newGame);}')
+    replace(activity, '    private RandomizerDocuments retunedRuns;',
+            '''    private RandomizerDocuments retunedRuns;
+    public boolean retunedPrepareRandomizer(String id) {
+        if (RomPreparationService.randomizerJob(this, id) == null) return false;
+        startForegroundService(new android.content.Intent(this, RomPreparationService.class)
+            .putExtra(RomPreparationService.RANDOMIZER_JOB, id));
+        return true;
+    }''')
+    replace(activity,'        retunedTextures=new TextureFolder(this);',
+            '        retunedTextures=new TextureFolder(this);\n        retunedRuns=new RandomizerDocuments(this);')
+    replace(activity,'        if(request==TextureFolder.REQUEST',
+            '        if(retunedRuns!=null&&retunedRuns.result(request,result,data))return;\n        if(request==TextureFolder.REQUEST')
+
+
+def add_randomizer_tools(assets, recipe=None):
+    import hashlib
+    import json
+    import tempfile
+    import zipfile
+
+    source = Path(__file__).resolve().parents[1] / 'randomizer'
+    archive = assets / 'preparation-kit.zip'
+    scripts = ('prepare_run.py', 'compose_image.py', 'stage_runtime.py', 'plan_hooks.py',
+               'audit_runtime.py', 'validate_seed.py', 'hook_policy.json')
+    with tempfile.TemporaryDirectory(dir=assets) as temporary:
+        stage = Path(temporary)
+        with zipfile.ZipFile(archive) as original:
+            for name in ('engine/preparation-runtime.json',
+                         'engine/tools/oot3d/native_a32_runtime/whole_aot_cpp.py',
+                         'engine/tools/oot3d/native_a32_runtime/upstream/recomp/a32_vfp_binary64.cpp'):
+                original.extract(name, stage)
+            import sys
+            sys.path.insert(0, str(source))
+            try:
+                from apply_translation import apply
+                apply(stage / 'engine')
+            finally:
+                sys.path.pop(0)
+            manifest_path = stage / 'engine/preparation-runtime.json'
+            manifest = json.loads(manifest_path.read_text())
+            replacements = {}
+            for path in (stage / 'engine/tools').rglob('*'):
+                if path.is_file():
+                    contents = path.read_bytes()
+                    manifest['files'][path.relative_to(stage / 'engine').as_posix()] = hashlib.sha256(contents).hexdigest()
+                    replacements['randomizer-engine/' + path.relative_to(stage / 'engine').as_posix()] = contents
+            replacements['randomizer-engine/preparation-runtime.json'] = json.dumps(manifest, indent=2).encode()
+            for name in scripts:
+                replacements['project/tools/randomizer/' + name] = (source / name).read_bytes()
+            if recipe is not None:
+                from stage_preparation_sources import digest
+                sys.path.insert(0, str(source))
+                try:
+                    from stage_recipe import HUD, IPS, RUNTIME
+                    from prepare_resources import ARCHIVE_SHA256, DEFAULT_ARCHIVE
+                finally:
+                    sys.path.pop(0)
+                for name, expected in [('hud.elf', HUD), ('hud.ips', IPS), ('runtime.elf', RUNTIME)]:
+                    if digest(recipe / name) != expected:
+                        raise ValueError('Unexpected Randomizer recipe file: ' + name)
+                    replacements['randomizer/' + name] = (recipe / name).read_bytes()
+                proof = json.loads((recipe / 'runtime-receipt.json').read_text())
+                if proof['elf_sha256'] != RUNTIME or proof['hud_sha256'] != HUD:
+                    raise ValueError('Invalid Randomizer runtime receipt')
+                replacements['randomizer/runtime-receipt.json'] = (recipe / 'runtime-receipt.json').read_bytes()
+                if digest(DEFAULT_ARCHIVE) != ARCHIVE_SHA256:
+                    raise ValueError('Unexpected Randomizer artwork archive')
+                for name in ('prepare_rom.py', 'prepare_resources.py', 'assets/zelda_ootr_assets.zar',
+                             'COPYING', 'NOTICE.md', 'UPSTREAM-LICENSE.md'):
+                    replacements['project/tools/randomizer/' + name] = (source / name).read_bytes()
+                replacements['project/tools/native/rom_setup.py'] = (source.parent/'native/rom_setup.py').read_bytes()
+            updated = stage / 'preparation-kit.zip'
+            with zipfile.ZipFile(updated, 'w', compression=zipfile.ZIP_DEFLATED) as output:
+                for entry in original.infolist():
+                    if entry.filename not in replacements:
+                        from copy import copy as copy_entry
+                        with original.open(entry) as data, output.open(copy_entry(entry), 'w') as copy:
+                            shutil.copyfileobj(data, copy)
+                    if entry.filename.startswith('engine/') and not entry.is_dir():
+                        name = 'randomizer-' + entry.filename
+                        if name not in replacements:
+                            with original.open(entry.filename) as data, output.open(name, 'w') as copy:
+                                shutil.copyfileobj(data, copy)
+                for name, contents in replacements.items():
+                    output.writestr(name, contents)
+        updated.replace(archive)
+    from preparation_identity import stream_hash
+    metadata = assets / 'preparation-kit.json'
+    manifest = json.loads(metadata.read_text())
+    with archive.open('rb') as stream:
+        manifest['sha256'] = stream_hash(stream)
+    with zipfile.ZipFile(archive) as bundle:
+        manifest['unpacked_bytes'] = sum(entry.file_size for entry in bundle.infolist())
+    metadata.write_text(json.dumps(manifest, sort_keys=True) + '\n')
+
+
+def prepare(engine, private_kit=None, preparation_native_stage=None, private_randomizer=False, randomizer_recipe=None):
+    if randomizer_recipe and (private_kit or private_randomizer or preparation_native_stage is None):
+        raise ValueError('Choose a public preparation kit and native host for a release recipe.')
+    if private_randomizer and (private_kit is None or preparation_native_stage is None):
+        raise ValueError('Randomizer test tools require a private preparation kit and native stage.')
     root = Path(engine) / 'ports/android'
     shutil.copytree(Path(__file__).parent/'android/drawable',root/'app/src/main/res/drawable',dirs_exist_ok=True)
     notices=root/'app/src/main/assets/licenses'
     notices.mkdir(parents=True,exist_ok=True)
+    randomizer_notices = notices / 'randomizer'
+    randomizer_notices.mkdir(exist_ok=True)
+    for name in ('NOTICE.md', 'COPYING', 'UPSTREAM-LICENSE.md'):
+        shutil.copy2(Path(__file__).parents[1] / 'randomizer' / name, randomizer_notices / name)
     shutil.copytree(Path(__file__).parents[2]/'resources/licenses/android-driver',notices/'android-driver',dirs_exist_ok=True)
     shutil.copy2(Path(__file__).parents[2]/'resources/fonts/LICENSE.txt',notices/'interface-font-OFL.txt')
     shutil.copytree(Path(__file__).parents[2]/'resources/licenses/player-models', notices/'player-models', dirs_exist_ok=True)
     shutil.copytree(Path(__file__).resolve().parents[2]/'resources/fonts/interface',notices/'interface-fonts',dirs_exist_ok=True,ignore=shutil.ignore_patterns('*.ttf'))
     shutil.copytree(Path(__file__).parents[2]/'resources/icons/android',root/'app/src/main/res',dirs_exist_ok=True)
-    replace(root/'app/src/main/AndroidManifest.xml', 'android:allowBackup="false"',
-            'android:allowBackup="false" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"')
+    manifest = root/'app/src/main/AndroidManifest.xml'
+    manifest.write_text(manifest.read_text().replace('android:icon="@mipmap/ic_launcher"', 'android:icon="@mipmap/ic_launcher_round"'))
+    replace(manifest, 'android:allowBackup="false"',
+            'android:allowBackup="false" android:icon="@mipmap/ic_launcher_round" android:roundIcon="@mipmap/ic_launcher_round"')
     gradle = root / 'app/build.gradle.kts'
     replace(gradle, 'applicationId = "org.triaevum.android"',
             'applicationId = "io.github.otpr26.ocarinaretuned"')
     text = gradle.read_text()
-    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9', '2.6.0', '0.6.1', '0.6.2', '0.6.3', '0.6.4', '0.6.5', '0.6.6', '0.6.7', '0.6.8', '0.6.9', '0.6.10'):
-        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.7.0"')
-    if 'versionName = "0.7.0"' not in text:
+    for previous in ('0.1-intro-dev', '0.1.0-native-prototype', '0.1.0-preview', '0.1.2-preview', '0.1.3-preview', '0.1.4-preview', '0.2.0-preview', '0.5.0', '0.5.1-rc1', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9', '2.6.0', '0.6.1', '0.6.2', '0.6.3', '0.6.4', '0.6.5', '0.6.6', '0.6.7', '0.6.8', '0.6.9', '0.6.10', '0.7.0'):
+        text = text.replace('versionName = "' + previous + '"', 'versionName = "0.8.0"')
+    if 'versionName = "0.8.0"' not in text:
         raise ValueError('Android Preview version context changed')
-    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 24', text)
-    if 'versionCode = 24' not in text: raise ValueError('Android version code context changed')
+    text = re.sub(r'\bversionCode = [0-9]+\b', 'versionCode = 25', text)
+    if 'versionCode = 25' not in text: raise ValueError('Android version code context changed')
     gradle.write_text(text)
     shutil.copy2(Path(__file__).with_name('preparation_identity.py'), root/'preparation_identity.py')
     shutil.copy2(Path(__file__).with_name('android_runtime.py'), root/'android_runtime.py')
@@ -81,6 +197,7 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
     if 'retunedTextures=new TextureFolder(this);' not in activity.read_text():
         replace(activity,'        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);',
                 '        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);\n        retunedTextures=new TextureFolder(this);')
+    install_randomizer_documents(activity)
     if 'private TouchOverlay touchOverlay;' not in activity.read_text():
         replace(activity,'public final class TriAevumActivity extends SDLActivity {',
                 'public final class TriAevumActivity extends SDLActivity {\n    private TouchOverlay touchOverlay;')
@@ -117,7 +234,7 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
 
 
     # The Java bootstrap can run before SDL/title loading on a clean install.
-    for name in ('GraphicsDriver.java', 'GraphicsDriverRestartActivity.java', 'GraphicsDriverPickerActivity.java', 'GraphicsDriverProbeService.java', 'RomSetupActivity.java', 'RomPreparationActivity.java', 'RomPreparationService.java', 'PreparationSession.java', 'PreparationProgress.java', 'GameSession.java', 'PreparationUpdate.java', 'PreparationKit.java', 'SaveFilesCore.java', 'SaveDocumentStore.java', 'SaveFiles.java', 'SaveFilesActivity.java', 'PlayerModelsActivity.java', 'StartupReport.java', 'NativeCrashReport.java', 'StartupDiagnostics.java', 'StartupDiagnosticsActivity.java'):
+    for name in ('RandomizerSession.java', 'RandomizerRestartActivity.java', 'GraphicsDriver.java', 'GraphicsDriverRestartActivity.java', 'GraphicsDriverPickerActivity.java', 'GraphicsDriverProbeService.java', 'RomSetupActivity.java', 'RomPreparationActivity.java', 'RomPreparationService.java', 'PreparationSession.java', 'PreparationProgress.java', 'GameSession.java', 'PreparationUpdate.java', 'PreparationKit.java', 'SaveFilesCore.java', 'SaveDocumentStore.java', 'SaveFiles.java', 'SaveFilesActivity.java', 'PlayerModelsActivity.java', 'StartupReport.java', 'NativeCrashReport.java', 'StartupDiagnostics.java', 'StartupDiagnosticsActivity.java'):
         shutil.copy2(Path(__file__).parent/'android'/name, activity.parent/name)
     manifest = root/'app/src/main/AndroidManifest.xml'
     text = manifest.read_text()
@@ -156,12 +273,12 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
         ET.SubElement(application, 'activity', {attribute('name'): '.SaveFilesActivity', attribute('exported'): 'false', attribute('screenOrientation'): 'sensorLandscape'})
     if not any(node.get(attribute('name')) == '.RomPreparationService' for node in application.findall('service')):
         ET.SubElement(application, 'service', {attribute('name'): '.RomPreparationService', attribute('exported'): 'false', attribute('process'): ':preparation', attribute('foregroundServiceType'): 'dataSync'})
-    for kind, name, process in (('activity', '.GraphicsDriverPickerActivity', ':drivers'), ('activity', '.GraphicsDriverRestartActivity', ':driverrestart'), ('service', '.GraphicsDriverProbeService', ':driverprobe')):
+    for kind, name, process in (('activity', '.RandomizerRestartActivity', ':randomizerrestart'), ('activity', '.GraphicsDriverPickerActivity', ':drivers'), ('activity', '.GraphicsDriverRestartActivity', ':driverrestart'), ('service', '.GraphicsDriverProbeService', ':driverprobe')):
         if not any(node.get(attribute('name')) == name for node in application.findall(kind)):
             ET.SubElement(application, kind, {attribute('name'): name, attribute('exported'): 'false', attribute('process'): process})
     for node in list(application.findall('activity')):
         if node.get(attribute('name')) == '.GraphicsDriverActivity': application.remove(node)
-        if node.get(attribute('name')) in ('.GraphicsDriverPickerActivity', '.GraphicsDriverRestartActivity'):
+        if node.get(attribute('name')) in ('.RandomizerRestartActivity', '.GraphicsDriverPickerActivity', '.GraphicsDriverRestartActivity'):
             node.set(attribute('theme'), '@android:style/Theme.Translucent.NoTitleBar')
             node.set(attribute('configChanges'), 'orientation|screenSize|keyboardHidden')
     old_driver_ui = activity.parent/'GraphicsDriverActivity.java'
@@ -279,6 +396,8 @@ tasks.named("preBuild") { dependsOn("stampPreparationIdentity") }
             shutil.copytree(source, destination, dirs_exist_ok=True)
         print('Private preparation fixture staged for local testing; do not publish this package.')
 
+    if private_randomizer or randomizer_recipe:
+        add_randomizer_tools(asset, randomizer_recipe)
     if preparation_native_stage is not None:
         from preparation_identity import stamp_android
         stamp_android(asset, root/'app/src/main/jniLibs/arm64-v8a', Path(preparation_native_stage)/'arm64-v8a')
@@ -293,5 +412,8 @@ if __name__ == '__main__':
     parser.add_argument('engine', type=Path)
     parser.add_argument('--private-preparation-kit', type=Path)
     parser.add_argument('--preparation-native-stage', type=Path)
+    parser.add_argument('--private-randomizer-preparation', action='store_true')
+    parser.add_argument('--randomizer-recipe', type=Path)
     args = parser.parse_args()
-    prepare(args.engine, args.private_preparation_kit, args.preparation_native_stage)
+    prepare(args.engine, args.private_preparation_kit, args.preparation_native_stage,
+            args.private_randomizer_preparation, args.randomizer_recipe)

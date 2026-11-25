@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -79,6 +80,53 @@ class ApplePreparationTests(unittest.TestCase):
             self.assertEqual(arguments[arguments.index('--title-plugin') + 1],
                              '@BUNDLE@/Frameworks/triaevum_title_aot.framework/triaevum_title_aot')
             self.assertNotIn(temporary, json.dumps([manifest, profile]))
+
+    def test_randomizer_fixture_cannot_mix_image_or_seed_and_uses_its_own_save_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            code, seed = b'combined image', b'fixture seed'
+            (root / 'code.bin').write_bytes(code)
+            (root / 'seed.json').write_bytes(seed)
+            (root / 'process-manifest.json').write_text(json.dumps({
+                'source': {'code_bin_sha256': hashlib.sha256(code).hexdigest()},
+                'randomizer_proof': {'seed_file': 'seed.json', 'seed_layout': {'schema': 1},
+                                     'seed_sha256': hashlib.sha256(seed).hexdigest()},
+            }))
+            _, profile = apple.private_documents(root, randomizer_test=True)
+            args = profile['arguments']
+            self.assertEqual(args[args.index('--save-data') + 1], '@DATA@/randomizer/bootstrap')
+            for path in (root / 'code.bin', root / 'seed.json'):
+                with self.subTest(path=path.name):
+                    expected = path.read_bytes()
+                    path.write_bytes(b'different')
+                    with self.assertRaisesRegex(ValueError, 'seed and image must match'):
+                        apple.private_documents(root, randomizer_test=True)
+                    path.write_bytes(expected)
+
+    def test_combined_package_shares_identical_resources_and_isolates_code_and_seed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            normal, alternate = root / 'PrivateGame', root / 'prepared'
+            normal.mkdir()
+            alternate.mkdir()
+            for name, data in [('exheader.bin', b'header'), ('romfs.bin', b'game resources')]:
+                (normal / name).write_bytes(data)
+                (alternate / name).write_bytes(data)
+            (normal / 'code.bin').write_bytes(b'normal game')
+            (alternate / 'code.bin').write_bytes(b'randomized game')
+            (alternate / 'seed.json').write_bytes(b'initial seed')
+            document = {'source': {'code_bin_sha256': hashlib.sha256(b'randomized game').hexdigest()},
+                        'randomizer_proof': {'seed_file': 'seed.json', 'seed_layout': {'schema': 1},
+                            'seed_sha256': hashlib.sha256(b'initial seed').hexdigest(), 'activation_allowed': False}}
+            (alternate / 'process-manifest.json').write_text(json.dumps(document))
+            with self.assertRaisesRegex(ValueError, 'isolated test'):
+                apple.stage_randomizer_resources(normal, alternate, 'io.github.otpr26.ocarinaretuned')
+            staged = apple.stage_randomizer_resources(normal, alternate, 'io.github.otpr26.ocarinaretuned.randomizer-test')
+            self.assertEqual(staged['source']['code_bin_path'], '@BUNDLE@/PrivateGame/Randomizer/code.bin')
+            self.assertEqual(staged['source']['romfs_image_path'], '@BUNDLE@/PrivateGame/romfs.bin')
+            self.assertEqual({p.name for p in (normal / 'Randomizer').iterdir()},
+                             {'code.bin', 'seed.json', 'process-manifest.json'})
+            self.assertEqual((normal / 'code.bin').read_bytes(), b'normal game')
 
 
 if __name__ == '__main__':

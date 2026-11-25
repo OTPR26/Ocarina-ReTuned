@@ -27,6 +27,8 @@ KIT="$RESOURCES/setup"
   --output "/path/to/Ocarina-ReTuned-Prepared.ipa"
 ```
 
+To include Randomizer, add `--randomizer` to the command. This prepares both game modes from your ROM on the Mac. Choose **Start Game** for your normal saves or **Randomizer** to create or continue a seed on the device.
+
 To include player-model PAKs, add `--child-model "/path/to/child.pak"`, `--adult-model "/path/to/adult.pak"`, or both. The Mac Preview includes the converter. Omit a model option to keep Original Link for that age.
 
 Run the script with `--help` to see all options. Preparation compiles the game for your device and can take several minutes. Keep the resulting IPA private: it contains your game data.

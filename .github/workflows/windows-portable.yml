@@ -13,6 +13,7 @@ jobs:
     timeout-minutes: 180
     env:
       VULKAN_SDK: C:\VulkanSDK\1.4.328.1
+      VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/tools/native/windows-triplets
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\vcpkg-cache,readwrite
     steps:
       - uses: actions/checkout@v6
@@ -33,8 +34,8 @@ jobs:
         id: vcpkg_cache
         with:
           path: vcpkg-cache
-          key: retuned-windows-portable-x64-v1-${{ github.sha }}
-          restore-keys: retuned-windows-portable-x64-v1-
+          key: retuned-windows-portable-x64-v2-${{ github.sha }}
+          restore-keys: retuned-windows-portable-x64-v2-
       - name: Stage pinned portable Windows compiler
         shell: pwsh
         run: |
@@ -132,4 +133,4 @@ jobs:
         if: always() && steps.vcpkg_cache.outputs.cache-hit != 'true'
         with:
           path: vcpkg-cache
-          key: retuned-windows-portable-x64-v1-${{ github.sha }}
+          key: retuned-windows-portable-x64-v2-${{ github.sha }}

@@ -242,6 +242,14 @@ extern "C" void RetunedSaveSyncConfigure(const char* saves) {
   }];
  });
  std::scoped_lock guard(lock);
+ // A randomized profile must travel with its seed and extended state, never
+ // through the ordinary seven-file cloud or tvOS recovery snapshot.
+ if(!saves) {
+  root=nil;generation++;busy=false;pending=nil;conflictRecord=nil;
+  conflict=false;forceLocal=false;latestLocal=nil;request=false;
+  status=@"Randomizer saves use run export and import.";
+  return;
+ }
  root=[NSString stringWithUTF8String:saves];
 #if TARGET_OS_TV
  RestoreTVBackup(NSUserDefaults.standardUserDefaults,root);

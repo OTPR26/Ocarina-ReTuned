@@ -33,6 +33,29 @@ def apply(root):
 - (void)sceneWillEnterForeground:(UIScene *)scene { SDL_OnApplicationWillEnterForeground(); }
 - (void)sceneDidBecomeActive:(UIScene *)scene { SDL_OnApplicationDidBecomeActive(); }''')
     change(root/'SDL_uikitappdelegate.m','    [self performSelector:@selector(postFinishLaunch) withObject:nil afterDelay:0.0];','    /* The scene delegate starts the SDL main loop after its window scene connects. */')
+    # UIKit can connect a scene before it becomes active. Do not enter the
+    # synchronous SDL game loop until GPU submissions are permitted.
+    change(root/'SDL_uikitappdelegate.m', '- (void)postFinishLaunch\n{', '''- (void)postFinishLaunch
+{
+    if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive) {
+        [self performSelector:@selector(postFinishLaunch) withObject:nil afterDelay:0.05];
+        return;
+    }''')
+    # A lifecycle notification can arrive before the renderer installs its
+    # event watch (startup), or while an event pump is nested in native UI.
+    # Keep servicing UIKit, but do not return to any render caller while
+    # inactive. The existing renderer watch drains submitted work on resign.
+    change(root/'SDL_uikitevents.m', '    /* See the comment in the function definition. */', '''    /* ReTuned: never return to rendering while UIKit denies foreground GPU work. */
+    if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_RENDER, "Display lifecycle: waiting for foreground");
+        while (UIKit_EventPumpEnabled &&
+               UIApplication.sharedApplication.applicationState != UIApplicationStateActive) {
+            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.05, TRUE);
+        }
+        SDL_LogInfo(SDL_LOG_CATEGORY_RENDER, "Display lifecycle: foreground ready");
+    }
+
+    /* See the comment in the function definition. */''')
     change(root/'SDL_uikitwindow.m','        uiwindow = [[SDL_uikitwindow alloc] initWithFrame:data.uiscreen.bounds];','''        UIWindowScene *windowScene = nil;
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             if ([scene isKindOfClass:UIWindowScene.class] && ((UIWindowScene *)scene).screen == data.uiscreen) {

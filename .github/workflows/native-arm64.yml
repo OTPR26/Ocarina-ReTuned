@@ -69,6 +69,9 @@ jobs:
           python3 tools/reframed/apply_renderer_port.py engine
           python3 tools/native/apply_audio_port.py engine
           python3 tools/frontend/apply_frontend_port.py engine
+          python3 tools/randomizer/fetch_source.py build/randomizer-source
+          python3 tools/randomizer/apply_translation.py engine
+          python3 tools/randomizer/apply_mac_launcher.py engine --source build/randomizer-source
           clang++ -std=c++20 -fsanitize=address,undefined tests/native_audio_buffer.cpp -o native-audio-buffer-test
           ./native-audio-buffer-test
           clang++ -std=c++20 -fsanitize=address,undefined tests/save_sync.cpp -o save-sync-test

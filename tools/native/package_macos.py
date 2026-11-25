@@ -90,12 +90,16 @@ def package(engine, build, output, identity="-", entitlements=None, profile=None
         shutil.copy2(Path(__file__).resolve().parents[2]/'resources/icons/macos/OcarinaReTuned.icns', resources/'OcarinaReTuned.icns')
         metadata = {'CFBundleIconFile':'OcarinaReTuned.icns', 'CFBundleName': 'Ocarina ReTuned', 'CFBundleDisplayName': 'Ocarina ReTuned',
             'CFBundleExecutable': 'retuned-native', 'CFBundleIdentifier': 'io.github.otpr26.ocarinaretuned',
-            'CFBundlePackageType': 'APPL', 'CFBundleVersion': '16',
-            'CFBundleShortVersionString': '0.6.2', 'NSHighResolutionCapable': True,
+            'CFBundlePackageType': 'APPL', 'CFBundleVersion': '25',
+            'CFBundleShortVersionString': '0.8.0', 'NSHighResolutionCapable': True,
             'LSMinimumSystemVersion': minimum_macos}
         (contents / 'Info.plist').write_bytes(plistlib.dumps(metadata))
         notices = resources / 'licenses'
         notices.mkdir()
+        randomizer_notices = notices / 'randomizer'
+        randomizer_notices.mkdir()
+        for name in ('NOTICE.md', 'COPYING', 'UPSTREAM-LICENSE.md'):
+            shutil.copy2(Path(__file__).resolve().parents[1] / 'randomizer' / name, randomizer_notices / name)
         shutil.copy2(Path(__file__).resolve().parents[2] / "resources/fonts/LICENSE.txt", notices / "interface-font-OFL.txt")
         shutil.copytree(Path(__file__).resolve().parents[2]/'resources/fonts/interface',notices/'interface-fonts',dirs_exist_ok=True,ignore=shutil.ignore_patterns('*.ttf'))
         for name in ('LICENSE_SCOPE.md', 'THIRD_PARTY_NOTICES.md'):

@@ -73,7 +73,7 @@ def sanitize_csv(source, destination, keep):
         writer.writerows(rows)
 
 
-def stage(engine, output):
+def stage(engine, output, randomizer=False):
     engine, output = Path(engine).resolve(), Path(output).resolve()
     if output.exists():
         raise ValueError('Refusing to replace an existing preparation tree')
@@ -105,13 +105,19 @@ def stage(engine, output):
         sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'reframed'))
         from apply_native_port import apply_translation_support
         apply_translation_support(staged)
+        patches = ['tools/reframed/apply_native_port.py', 'tools/reframed/query_memory.cpp.inc']
+        if randomizer:
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'randomizer'))
+            from apply_translation import apply
+            apply(staged)
+            patches.append('tools/randomizer/apply_translation.py')
         # Only ABI override declarations, never the original function selection.
         (staged / external).write_text(json.dumps({'external_functions': overrides}, indent=2) + '\n')
         files = {p.relative_to(staged).as_posix(): digest(p) for p in sorted(staged.rglob('*')) if p.is_file()}
         manifest = {'format': 'retuned_preparation_runtime_v1', 'source_revision': revision,
                     'files': files, 'upstream_files': originals,
                     'local_patches': {name: digest(Path(__file__).resolve().parents[2] / name)
-                        for name in ('tools/reframed/apply_native_port.py', 'tools/reframed/query_memory.cpp.inc')},
+                        for name in patches},
                     'source': 'https://github.com/coccofresco/TriAevum/tree/' + revision}
         (staged / 'preparation-runtime.json').write_text(json.dumps(manifest, indent=2) + '\n')
         staged.rename(output)
@@ -122,6 +128,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--engine', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--randomizer', action='store_true')
     options = parser.parse_args()
-    result = stage(options.engine, options.output)
+    result = stage(options.engine, options.output, options.randomizer)
     print('Staged', len(result['files']), 'pinned preparation source files; no ROM or generated title read.')

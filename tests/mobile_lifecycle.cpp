@@ -13,7 +13,12 @@ int main() {
   send(SDL_APP_WILLENTERFOREGROUND);assert(!gate.Active()&&resumed==0);
   send(SDL_APP_DIDENTERFOREGROUND);assert(gate.Active()&&resumed==1);
   send(SDL_APP_DIDENTERFOREGROUND);assert(resumed==1);
+  // Watch installed after will-resign: did-background must still quiesce.
+  send(SDL_APP_DIDENTERBACKGROUND);assert(!gate.Active()&&paused==2);
+  send(SDL_APP_DIDENTERBACKGROUND);assert(paused==2);
+  send(SDL_APP_WILLENTERFOREGROUND);assert(!gate.Active());
+  send(SDL_APP_DIDENTERFOREGROUND);assert(gate.Active()&&resumed==2);
  }
- send(SDL_APP_WILLENTERBACKGROUND);assert(paused==1);
+ send(SDL_APP_WILLENTERBACKGROUND);assert(paused==2);
  SDL_Quit();
 }

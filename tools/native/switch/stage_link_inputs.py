@@ -36,6 +36,9 @@ def collect(command, *, build, sdk, title, output):
     title_count = 0
     index = 0
     for index, token in enumerate(args):
+        # Prefix maps apply when compiling sources. The staged recipe links objects only.
+        if token.startswith(('-ffile-prefix-map=', '-fmacro-prefix-map=', '-fdebug-prefix-map=')):
+            continue
         if index and args[index-1] == '-o':
             recipe.append('@OUTPUT@')
             continue

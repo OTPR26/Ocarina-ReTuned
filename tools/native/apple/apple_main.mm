@@ -9,6 +9,7 @@
 #include "startup_status.h"
 #include "television_resolution.h"
 #include "apple_paths.h"
+#include "background_failure.h"
 #include <cstdio>
 #include <exception>
 #include <filesystem>
@@ -23,6 +24,7 @@ extern "C" void RetunedTVStartMotionDiagnostics();
 #if TARGET_OS_IOS && !TARGET_OS_TV
 extern "C" void RetunedInitializeTextureFolder(const char* dataDirectory);
 #endif
+extern "C" bool RetunedIsIPhone() { return UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPhone; }
 extern "C" float RetunedAppleScreenScale() { return static_cast<float>(UIScreen.mainScreen.nativeScale); }
 
 
@@ -110,9 +112,11 @@ static int RunPreparedAppleGame() {
         SDL_setenv("RETUNED_DATA_DIRECTORY", data.UTF8String, 1);
         SDL_setenv("RETUNED_RESOURCE_DIRECTORY", [[bundle stringByAppendingPathComponent:@"PrivateGame"] UTF8String], 1);
         std::filesystem::current_path(data.UTF8String);
+        const bool previousBackgroundFailure=RetunedPreserveSettingsAfterBackgroundFailure(data);
         std::freopen([[data stringByAppendingPathComponent:@"logs/stdout.log"] UTF8String],"w",stdout);
         std::freopen([[data stringByAppendingPathComponent:@"logs/stderr.log"] UTF8String],"w",stderr);
         std::setvbuf(stdout,nullptr,_IOLBF,0);
+        if(previousBackgroundFailure)std::fprintf(stderr,"Display lifecycle: preserved settings after background GPU denial\n");
 #if TARGET_OS_TV
         RetunedTVStartMotionDiagnostics();
 #endif

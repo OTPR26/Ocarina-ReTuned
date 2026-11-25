@@ -11,7 +11,7 @@ def prepare(output):
     icon=root/'resources/artwork/ocarina-icon.png'
     for density,size in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]:
         resize(icon,output/'android'/('mipmap-'+density)/'ic_launcher.png',size)
-        resize(icon,output/'android'/('mipmap-'+density)/'ic_launcher_round.png',size)
+    subprocess.run(['swift', Path(__file__).with_name('prepare_android_icon.swift'), icon, output/'android'], check=True)
     asset=output/'apple/Assets.xcassets/AppIcon.appiconset';asset.mkdir(parents=True,exist_ok=True)
     resize(icon,asset/'AppIcon.png',1024)
     (asset/'Contents.json').write_text(json.dumps({'images':[{'idiom':'universal','platform':'ios','size':'1024x1024','filename':'AppIcon.png'}],'info':{'version':1,'author':'OTPR26'}},indent=2))

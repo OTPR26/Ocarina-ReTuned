@@ -2,7 +2,7 @@
 #pragma once
 #include <array>
 namespace RetunedFrontend {
-enum class SettingsPage { General, Controls, Touch, Graphics, Audio, Hud, QualityOfLife, About, SaveStates, Advanced, SaveFiles, Mods, Cheats };
+enum class SettingsPage { General, Controls, Touch, Graphics, Audio, Hud, QualityOfLife, About, SaveStates, Advanced, SaveFiles, Mods, Cheats, Randomizer };
 struct SettingsCategory { SettingsPage Page; const char* Label; const char* Description; };
 inline constexpr std::array SettingsCategories{
  SettingsCategory{SettingsPage::General,"General","Make Ocarina ReTuned comfortable on your screen."},
@@ -14,12 +14,14 @@ inline constexpr std::array SettingsCategories{
  SettingsCategory{SettingsPage::QualityOfLife,"Quality of life","Small changes for a more comfortable adventure."},
  SettingsCategory{SettingsPage::Cheats,"Cheats","Optional resource cheats and inventory amounts."},
  SettingsCategory{SettingsPage::Mods,"Models","Player appearance and imported models."},
+ SettingsCategory{SettingsPage::Randomizer,"Randomizer","Set up a new randomized adventure and view your current seed."},
  SettingsCategory{SettingsPage::About,"About","About Ocarina ReTuned and its contributors."},
  SettingsCategory{SettingsPage::SaveStates,"Save states","Manage save states."},
  SettingsCategory{SettingsPage::Advanced,"Advanced","Additional rendering options."},
  SettingsCategory{SettingsPage::SaveFiles,"Saves","Import, export, and choose a save folder."}
 };
-inline constexpr bool CategoryVisible(SettingsPage page,bool mobile,bool touch) {
+inline constexpr bool CategoryVisible(SettingsPage page,bool mobile,bool touch,bool randomizer=false) {
+ if(page==SettingsPage::Randomizer)return randomizer;
  if(page==SettingsPage::SaveFiles){
 #ifdef __ANDROID__
  return true;

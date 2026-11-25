@@ -1,4 +1,5 @@
 #include "first_run.h"
+#include "game_handoff.h"
 #include "rom_picker.h"
 #include "preparation_version.h"
 #include "macos_profile.h"
@@ -45,6 +46,7 @@ Path preparationKit;
 bool preparationRequested=false;
 bool playerModelsRequested=false;
 bool portableRequested=false;
+RetunedSetup::GameHandoff gameHandoff;
 std::string Text(const Path& path) { auto s=path.u8string();return {s.begin(),s.end()}; }
 Path FromText(const std::string& s) {return Path(std::u8string(s.begin(),s.end()));}
 Json Read(const Path& p) {std::ifstream f(p);return Json::parse(f);}
@@ -92,7 +94,7 @@ std::wstring Quote(const std::wstring& value) {
     out.append(slashes*2,L'\\');return out+L'"';
 }
 #endif
-int Run(const std::vector<std::string>& arguments,bool wait=true) {
+int Run(const std::vector<std::string>& arguments,bool wait=true,bool freshProcess=false) {
 #if defined(_WIN32)
     std::wstring command;
     for(auto& a:arguments){if(!command.empty())command+=L' ';command+=Quote(FromText(a).wstring());}
@@ -103,6 +105,10 @@ int Run(const std::vector<std::string>& arguments,bool wait=true) {
     CloseHandle(process.hThread);CloseHandle(process.hProcess);return static_cast<int>(result);
 #else
     std::vector<char*> argv;for(auto& a:arguments)argv.push_back(const_cast<char*>(a.c_str()));argv.push_back(nullptr);
+    if(!wait && freshProcess) {
+        pid_t child=0;
+        return posix_spawnp(&child,argv[0],nullptr,nullptr,argv.data(),environ);
+    }
     if(!wait){execvp(argv[0],argv.data());return errno;}
     pid_t pid;int result=posix_spawnp(&pid,argv[0],nullptr,nullptr,argv.data(),environ);if(result)return result;
     int status=0;while(waitpid(pid,&status,0)<0){if(errno!=EINTR)return -1;}
@@ -208,6 +214,14 @@ struct RomBrowser {
 }
 
 bool RetunedFirstRun(int argc,char** argv,Path& profile) {
+    RetunedFrontend::RequestGameLaunch=[](std::vector<std::string> arguments,int slot,bool newGame) {
+        if(!RetunedFrontend::StartupVisible || preparationRequested || playerModelsRequested || portableRequested)
+            return false;
+        if(!gameHandoff.Queue({std::move(arguments),slot,newGame}))return false;
+        SDL_Event event{};event.type=SDL_QUIT;
+        if(SDL_PushEvent(&event)==1)return true;
+        gameHandoff.Cancel();return false;
+    };
     const bool requested=argc==4&&std::string(argv[1])=="--prepare-game"&&std::string(argv[2])=="--launch-profile";
     if(requested)profile=FromText(argv[3]);
     else if(argc==1)profile=DefaultRoot()/"native-launch.json";
@@ -423,6 +437,24 @@ bool RetunedFirstRun(int argc,char** argv,Path& profile) {
 }
 
 int RetunedFinishPreparationRequest(int result) {
+    if(auto launch=gameHandoff.Take()) {
+        if(result!=0)return result;
+        // Do not carry the previous run's mode into the next process.
+        for(const char* name:{"RETUNED_RANDOMIZER_ACTIVE_SLOT","RETUNED_RANDOMIZER_START_NORMAL",
+                             "RETUNED_RANDOMIZER_NEW_GAME","RETUNED_RANDOMIZER_CONTINUE"}) {
+#if defined(_WIN32)
+            _putenv_s(name,"");
+#else
+            unsetenv(name);
+#endif
+        }
+        if(launch->randomizerSlot>=0) {
+            SDL_setenv("RETUNED_RANDOMIZER_ACTIVE_SLOT",std::to_string(launch->randomizerSlot).c_str(),1);
+            SDL_setenv(launch->newGame?"RETUNED_RANDOMIZER_NEW_GAME":"RETUNED_RANDOMIZER_CONTINUE","1",1);
+        } else SDL_setenv("RETUNED_RANDOMIZER_START_NORMAL","1",1);
+        launch->arguments.insert(launch->arguments.begin(),Text(ExecutablePath()));
+        return Run(launch->arguments,false,true);
+    }
 #if defined(_WIN32)
     if(portableRequested) {
         auto target=preparationProfile;

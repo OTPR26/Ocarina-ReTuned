@@ -11,7 +11,7 @@ class MobileLifecycleGate {
  static int Watch(void* data,SDL_Event* event) {
   auto& gate=*static_cast<MobileLifecycleGate*>(data);
   try {
-   if(event->type==SDL_APP_WILLENTERBACKGROUND&&gate.active.exchange(false)){gate.pauseGpu();SDL_LogInfo(SDL_LOG_CATEGORY_RENDER,"Display lifecycle: GPU paused");}
+   if((event->type==SDL_APP_WILLENTERBACKGROUND || event->type==SDL_APP_DIDENTERBACKGROUND)&&gate.active.exchange(false)){gate.pauseGpu();SDL_LogInfo(SDL_LOG_CATEGORY_RENDER,"Display lifecycle: GPU paused");}
    if(event->type==SDL_APP_DIDENTERFOREGROUND&&!gate.active.load()){gate.resumeGpu();gate.active=true;SDL_LogInfo(SDL_LOG_CATEGORY_RENDER,"Display lifecycle: GPU resumed");}
   } catch(const std::exception& error){SDL_LogError(SDL_LOG_CATEGORY_RENDER,"Display lifecycle: %s",error.what());}
   return 1;

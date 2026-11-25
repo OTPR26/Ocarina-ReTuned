@@ -1,5 +1,11 @@
 # Hosted builds
 
+Build every changed release target with GitHub Actions at the reviewed revision.
+If a new feature needs packaging steps that are missing from a workflow, add
+them there before the next release build. Reuse the audited artifact from the
+same revision or carry forward the previous download for an unchanged target.
+Keep private Android signing, device installation, and final identity checks local.
+
 Use **Additional platform hosts** for iOS, tvOS, Windows ARM64, and Switch
 runtime components. Select one platform per manual run. Nothing runs on push,
 pull request, a schedule, or a release event. Existing Android, Mac, Windows

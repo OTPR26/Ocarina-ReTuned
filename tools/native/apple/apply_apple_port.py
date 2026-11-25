@@ -49,7 +49,7 @@ def apply(engine):
          'void GfxWindowBackendSDL2::SetDimensions(uint32_t width, uint32_t height, int32_t posX, int32_t posY) {\n#if defined(__ANDROID__) || defined(__IOS__)')
     app=engine/'ports/apple'
     app.mkdir(parents=True,exist_ok=True)
-    for name in ('app.cmake','apple_main.mm','startup_status.h','startup_status.mm','patch_sdl_scenes.py','patch_sdl_motion.py','controller_motion_diagnostics.h','finalize_bundle.py','touch_controls.mm','touch_layout_editor.mm.inc','touch_controls.h','touch_input.cpp','touch_input_api.h','texture_folder.mm','television_remote.mm','television_resolution.h','apple_paths.h'):
+    for name in ('app.cmake','apple_main.mm','startup_status.h','startup_status.mm','patch_sdl_scenes.py','patch_sdl_motion.py','controller_motion_diagnostics.h','finalize_bundle.py','touch_controls.mm','touch_layout_editor.mm.inc','touch_controls.h','touch_input.cpp','touch_input_api.h','texture_folder.mm','television_remote.mm','television_resolution.h','apple_paths.h','background_failure.h'):
         (app/name).write_text(Path(__file__).with_name(name).read_text())
     (app/'audit_frontend_settings.py').write_bytes(
         (Path(__file__).resolve().parents[1]/'audit_frontend_settings.py').read_bytes())

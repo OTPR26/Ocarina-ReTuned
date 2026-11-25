@@ -2,6 +2,7 @@
 #pragma once
 #if defined(__APPLE__)
 extern "C" {
+// nullptr detaches ordinary cloud sync and recovery for an isolated run.
 void RetunedSaveSyncConfigure(const char* saves);
 bool RetunedSaveSyncRecoverLocal(const char* saves);
 void RetunedSaveSyncTick(bool startup);

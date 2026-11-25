@@ -293,6 +293,44 @@ def activate(root, stage, installation_id, make_profile, profile_root=None):
     return target
 
 
+def extract_verified_inputs(engine, rom, work, input_pins, checkpoint):
+    inputs = work / "inputs"
+    release = engine / "tools/triaevum_release"
+    extract = load_module('_retuned_prepare_inputs', PROJECT / 'tools/native/prepare_inputs.py')
+    verified = extract.prepare(engine, rom, inputs)
+    input_region = verified['region']
+    input_keys, expected_inputs = input_plan(input_pins, input_region)
+    checkpoint('normalizing', 'Preparing compatible game resources…')
+    adapter = load_module('_retuned_copy_adapter', release / 'input_copy_adapter.py')
+    region = load_module('_retuned_region', release / 'oot3d_region_assets.py')
+    normalize_regional_inputs(inputs, work, input_region, copy_adapter=adapter,
+        usa_resources=region, recipe=json.loads((release /
+            'input_coverage/recipes/adapters/oot3d-usa-ef210566-copies.json').read_text()))
+    if any(digest(work / name) != expected for name, expected in expected_inputs.items()):
+        raise SetupError('The ROM could not be normalized to the supported version.')
+    return input_region, input_keys, expected_inputs
+
+
+def prepare_reframed_image(engine, work, ips, elf, readelf, aliases):
+    a32 = engine / "tools/oot3d/native_a32_runtime"
+    inputs = work / "inputs"
+    process_tool = load_module('_retuned_process_manifest', a32 / 'build_process_manifest.py')
+    base_manifest = process_tool.build_manifest(
+        inputs / 'exheader.bin', work / 'canonical-code.bin', work / 'romfs.bin')
+    # The ReFramed atlas needs the original pack's texture identities.
+    base_manifest['texture_hash_aliases'] = aliases
+    write_json(work / 'base-manifest.json', base_manifest)
+    inventory_tool = load_module('_retuned_inventory', a32 / 'generate_aot.py')
+    inventory_tool.add_local_entry_intervals(a32 / 'upstream/analysis/codebin_function_inventory.csv',
+        a32 / 'runtime_discovered_entries.csv', work / 'inventory.csv', 0x100000)
+    image = work / 'image'
+    patcher = load_module('_retuned_mod_image', PROJECT / 'tools/reframed/prepare_native_image.py')
+    patcher.prepare(argparse.Namespace(code=work / 'canonical-code.bin', ips=ips, elf=elf,
+        inventory=work / 'inventory.csv', manifest=work / 'base-manifest.json', readelf=readelf,
+        output=image, native_frontend=True, save_context=0x587958))
+    return image
+
+
 class RomSetup:
     def __init__(self, *, engine, ips, elf, host, readelf='arm-none-eabi-readelf',
                  cmake='cmake', cmake_args=(), jobs=2, progress=None, cancel=None, profile_root=None,
@@ -460,18 +498,7 @@ class RomSetup:
                 raise SetupError('Verified game inputs are unavailable or damaged. Choose your ROM once to refresh them; your existing game and saves are unchanged.')
         else:
             self.checkpoint('extracting', 'Extracting and verifying your ROM…')
-            extract = load_module('_retuned_prepare_inputs', PROJECT / 'tools/native/prepare_inputs.py')
-            verified = extract.prepare(engine, rom, inputs)
-            input_region = verified['region']
-            input_keys, expected_inputs = input_plan(input_pins, input_region)
-            self.checkpoint('normalizing', 'Preparing compatible game resources…')
-            adapter = load_module('_retuned_copy_adapter', release / 'input_copy_adapter.py')
-            region = load_module('_retuned_region', release / 'oot3d_region_assets.py')
-            normalize_regional_inputs(inputs, work, input_region, copy_adapter=adapter,
-                usa_resources=region, recipe=json.loads((release /
-                    'input_coverage/recipes/adapters/oot3d-usa-ef210566-copies.json').read_text()))
-            if any(digest(work / name) != expected for name, expected in expected_inputs.items()):
-                raise SetupError('The ROM could not be normalized to the supported version.')
+            input_region, input_keys, expected_inputs = extract_verified_inputs(engine, rom, work, input_pins, self.checkpoint)
             self.input_cache.store(input_keys[0], {name: work / name for name in expected_inputs})
         self.checkpoint('assets', 'Installing the bundled HUD and menu resources…')
         ui_assets = load_module('_retuned_ui_assets', PROJECT / 'tools/native/prepare_ui_assets.py')
@@ -489,21 +516,8 @@ class RomSetup:
                                                    work / 'model-romfs.bin', previous_manifest)
             if selected_models:
                 (work / 'model-romfs.bin').replace(work / 'romfs.bin')
-        process_tool = load_module('_retuned_process_manifest', a32 / 'build_process_manifest.py')
-        base_manifest = process_tool.build_manifest(
-            inputs / 'exheader.bin', work / 'canonical-code.bin', work / 'romfs.bin')
-        # The ReFramed atlas needs the original pack's texture identities.
-        base_manifest['texture_hash_aliases'] = asset_receipt['texture_hash_aliases']
-        write_json(work / 'base-manifest.json', base_manifest)
-        inventory_tool = load_module('_retuned_inventory', a32 / 'generate_aot.py')
-        inventory_tool.add_local_entry_intervals(a32 / 'upstream/analysis/codebin_function_inventory.csv',
-            a32 / 'runtime_discovered_entries.csv', work / 'inventory.csv', 0x100000)
         self.checkpoint('patching', 'Applying the ReTuned HUD and menu integration…')
-        image = work / 'image'
-        patcher = load_module('_retuned_mod_image', PROJECT / 'tools/reframed/prepare_native_image.py')
-        patcher.prepare(argparse.Namespace(code=work / 'canonical-code.bin', ips=self.ips, elf=self.elf,
-            inventory=work / 'inventory.csv', manifest=work / 'base-manifest.json', readelf=self.readelf,
-            output=image, native_frontend=True, save_context=0x587958))
+        image = prepare_reframed_image(engine, work, self.ips, self.elf, self.readelf, asset_receipt['texture_hash_aliases'])
         generated = work / 'title-source'
         translation_inputs = {p.relative_to(a32).as_posix(): digest(p) for p in a32.rglob('*')
             if p.is_file() and p.suffix in ('.py', '.json', '.csv') and '__pycache__' not in p.parts}
@@ -601,6 +615,21 @@ class RomSetup:
             'runtime_revision': RUNTIME_REVISION, 'platform': platform.system(), 'architecture': platform.machine(),
             'private_local_artifact': True, 'redistributable': False,
             'files': {p.relative_to(stage).as_posix(): digest(p) for p in stage.rglob('*') if p.is_file()}})
+        kit = getattr(self, 'mac_randomizer_kit', None)
+        if kit is not None:
+            sys.path.insert(0, str(PROJECT / 'tools/randomizer'))
+            from prepare_rom import build_title
+            from stage_runtime import stage_runtime
+            self.checkpoint('compiling', 'Preparing Randomizer for this Mac…')
+            headers = kit.parent / json.loads(kit.read_text())['json_include']
+            result = build_title(rom, kit, self, 'mac-arm64', work / 'randomizer',
+                                 dict(json_headers=headers), input_cache=self.input_cache if rom is None else None,
+                                 region=input_region)
+            store = profile_root / 'randomizer/runtime-store'
+            retained = stage_runtime(result['manifest'], result['module'], store)
+            active = work / 'randomizer-active.json'
+            write_json(active, {'runtime': Path(retained['manifest']).parent.name})
+            os.replace(active, store / 'active.json')
         self.checkpoint('activating', 'Finishing setup…')
         target = activate(root, stage, installation_id,
             lambda target: launch_profile(self.profile_root or root, target, input_region=input_region), profile_root=self.profile_root)
@@ -819,6 +848,8 @@ def main():
             raise SetupError('The local preparation kit is incomplete.')
         setup = RomSetup(**options, jobs=args.jobs, progress=progress,
             cancel=FileCancellation(args.cancel_file) if args.cancel_file else None)
+        if sys.platform == 'darwin' and args.kit and (args.kit.parent / 'randomizer/runtime.elf').is_file():
+            setup.mac_randomizer_kit = args.kit.resolve()
         if args.check_kit:
             setup.preflight()
             progress({'stage': 'checked', 'message': 'Local preparation tools are ready.'})

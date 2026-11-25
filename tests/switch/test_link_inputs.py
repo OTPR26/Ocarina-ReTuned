@@ -16,7 +16,7 @@ class LinkInputTests(unittest.TestCase):
             (build/'main.o').write_bytes(b'neutral host');(build/'title.a').write_bytes(b'private fixture')
             (sdk/'lib').mkdir();(sdk/'lib/libnx.a').write_bytes(b'sdk')
             command=shlex.join([str(sdk/'devkitA64/bin/aarch64-none-elf-g++'),'-L'+str(sdk/'lib'),
-                'main.o','-Wl,--whole-archive',str(build/'title.a'),'-Wl,--no-whole-archive',
+                '-ffile-prefix-map='+str(build)+'=/src','main.o','-Wl,--whole-archive',str(build/'title.a'),'-Wl,--no-whole-archive',
                 str(sdk/'lib/libnx.a'),'-o','OcarinaReTuned.elf'])+' && :'
             with patch.object(module.subprocess,'run',return_value=SimpleNamespace(stdout='T host_function\n')):
                 result=module.collect(command,build=build,sdk=sdk,title=build/'title.a',output=base/'out')

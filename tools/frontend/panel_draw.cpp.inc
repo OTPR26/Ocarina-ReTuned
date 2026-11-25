@@ -5,7 +5,7 @@ void GraphicsSettingsPanel::Draw() {
     if(RetunedFrontend::RequestedSettingsPage>=0){
         const auto requested=static_cast<SettingsPage>(RetunedFrontend::RequestedSettingsPage);
         for(const auto& category:RetunedFrontend::SettingsCategories)
-            if(category.Page==requested && RetunedFrontend::CategoryVisible(requested,mobile,touch))page=requested;
+            if(category.Page==requested && RetunedFrontend::CategoryVisible(requested,mobile,touch,RetunedFrontend::RandomizerMenu.Available()))page=requested;
         RetunedFrontend::RequestedSettingsPage=-1;
     }
     static auto previousPage=page;
@@ -13,7 +13,7 @@ void GraphicsSettingsPanel::Draw() {
     ImGui::BeginChild("##Navigation",ImVec2(RetunedFrontend::NavigationWidth(ImGui::GetContentRegionAvail().x,font),0),true);
     float selectedCategoryY=0;
     for(const auto& category:RetunedFrontend::SettingsCategories){
-        if(!RetunedFrontend::CategoryVisible(category.Page,mobile,touch))continue;
+        if(!RetunedFrontend::CategoryVisible(category.Page,mobile,touch,RetunedFrontend::RandomizerMenu.Available()))continue;
         const bool selected=page==category.Page;
         if(selected)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));
         const bool activated=ImGui::Button(category.Label,ImVec2(-1,std::max(font*2.5f,44.f)));
@@ -160,6 +160,7 @@ void GraphicsSettingsPanel::Draw() {
       case SettingsPage::QualityOfLife:
         ImGui::SeparatorText("Link movement");drawTabs("Quality of life");break;
       case SettingsPage::Cheats:RetunedFrontend::DrawCheats();break;
+      case SettingsPage::Randomizer:RetunedFrontend::DrawRandomizerSettings();break;
       case SettingsPage::Mods:
 #ifdef __ANDROID__
         RetunedFrontend::DrawAndroidMods();

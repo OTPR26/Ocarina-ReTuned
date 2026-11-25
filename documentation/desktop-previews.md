@@ -1,11 +1,10 @@
 # Windows and Linux native previews
 
-Local builds produce Windows x64 and Linux x86_64
+The [hosted release workflows](Hosted-builds.md) produce Windows and Linux
 hosts from the pinned runtime with ReTuned's shared menus, controls and audio
-changes. It stages only the host, bootstrap library, dependency closure,
+changes. Each package includes only the host, bootstrap library, dependency closure,
 controller mappings and notices. No private title, ROM, extracted game data,
-textures or saves are supplied in neutral host packages. GitHub Actions is not
-used for final Preview builds.
+textures or saves are supplied in neutral host packages.
 
 The upstream translated vertex shader tables and precompiled title shader pack
 are removed before compilation. The generic PICA decompiler instead consumes

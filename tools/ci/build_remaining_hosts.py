@@ -91,6 +91,10 @@ def moltenvk_framework(vendor, platform):
 
 def apple(platform, engine, work, out):
     patch(engine)
+    generator = work / 'randomizer-source'
+    run(sys.executable, ROOT / 'tools/randomizer/fetch_source.py', generator)
+    run(sys.executable, ROOT / 'tools/randomizer/apply_translation.py', engine)
+    run(sys.executable, ROOT / 'tools/randomizer/apply_apple_launcher.py', engine, '--source', generator)
     vendor = fetch('moltenvk', work)
     framework = moltenvk_framework(vendor, platform)
     headers = next(vendor.rglob('include/vulkan/vulkan.h')).parents[1]
@@ -115,6 +119,12 @@ def apple(platform, engine, work, out):
     payload.mkdir()
     target = payload / app.name
     shutil.copytree(app, target, symlinks=True)
+    if not (target / 'randomizer-launcher-v1').is_file():
+        raise ValueError('Apple host is missing its Randomizer launcher')
+    notices = target / 'licenses/randomizer'
+    notices.mkdir(parents=True, exist_ok=True)
+    for name in ('NOTICE.md', 'COPYING', 'UPSTREAM-LICENSE.md'):
+        shutil.copy2(ROOT / 'tools/randomizer' / name, notices / name)
     (target / 'Frameworks').mkdir(exist_ok=True)
     shutil.copytree(framework, target / 'Frameworks/MoltenVK.framework', symlinks=True)
     from audit_neutral_shaders import verify
@@ -202,6 +212,10 @@ def switch(engine, work, out):
         '--engine', engine, '--sdl', sdl, '--sdk', sdk)
     run(sys.executable, ROOT / 'tools/native/switch/deko_backend/build_uam.py',
         '--source', uam, '--output', work / 'uam', '--sdk', sdk)
+    generator = work / 'randomizer-source'
+    run(sys.executable, ROOT / 'tools/randomizer/fetch_source.py', generator)
+    run(sys.executable, ROOT / 'tools/randomizer/apply_translation.py', engine)
+    run(sys.executable, ROOT / 'tools/randomizer/apply_switch_launcher.py', engine, '--source', generator)
     switch_xml_dependency(engine)
     hook = work / 'switch-host.cmake'
     hook.write_text('include("' + str(ROOT / 'tools/native/switch/LinkTitle.cmake') + '")\n'

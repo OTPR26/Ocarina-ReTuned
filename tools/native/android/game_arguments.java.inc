@@ -1,4 +1,6 @@
     @Override protected String[] getArguments() {
+        String[] randomized=RandomizerSession.arguments(this);
+        if(randomized!=null)return randomized;
         File profile = new File(getExternalFilesDir(null), "native-launch.json");
         try {
             org.json.JSONArray arguments = new JSONObject(new String(Files.readAllBytes(profile.toPath()), StandardCharsets.UTF_8)).getJSONArray("arguments");

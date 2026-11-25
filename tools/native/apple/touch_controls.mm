@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <cstdio>
 
 #include "touch_controls.h"
 #include "touch_input_api.h"
@@ -230,6 +231,9 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 @property(nonatomic) CGPoint lastPoint;
 @property(nonatomic) NSTimeInterval lastMove;
 @property(nonatomic) NSUInteger dragGeneration;
+#if defined(RETUNED_APPLE_RANDOMIZER_TEST)
+@property(nonatomic) BOOL reportedSwipe;
+#endif
 - (void)cancelInput;
 
 @end
@@ -274,8 +278,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
     self.knob.layer.cornerRadius = knobSize * 0.5;
     self.knob.center = CGPointMake(diameter * 0.5, diameter * 0.5);
     if (!self.floating) {
-        self.stickCenter = self.customPlaced ? CGPointMake(CGRectGetMidX(self.bounds),CGRectGetMidY(self.bounds)) : CGPointMake(MAX(diameter * 0.58, CGRectGetWidth(self.bounds) * 0.24),
-                                       CGRectGetHeight(self.bounds) - diameter * 0.58);
+        self.stickCenter = CGPointMake(CGRectGetMidX(self.bounds), CGRectGetMidY(self.bounds));
         self.base.center = self.stickCenter;
         self.base.hidden = NO;
     }
@@ -309,6 +312,12 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
         CGPointMake(self.stickDiameter * 0.5 + dx, self.stickDiameter * 0.5 + dy);
     SetVirtualAxis(self.controllerAxisX, ClampAxis((dx / radius) * SDL_MAX_SINT16));
     SetVirtualAxis(self.controllerAxisY, ClampAxis((dy / radius) * SDL_MAX_SINT16));
+#if defined(RETUNED_APPLE_RANDOMIZER_TEST)
+    if (!self.reportedSwipe && distance > radius * .2) {
+        self.reportedSwipe = YES;
+        std::fprintf(stderr, "Touch stick routed: %s\n", self.controllerAxisX == kAxisLeftX ? "Move" : "Look");
+    }
+#endif
 }
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
@@ -341,6 +350,9 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 }
 
 - (void)cancelInput {
+#if defined(RETUNED_APPLE_RANDOMIZER_TEST)
+    self.reportedSwipe = NO;
+#endif
     ++self.dragGeneration;
     SetVirtualAxis(self.controllerAxisX, 0);
     SetVirtualAxis(self.controllerAxisY, 0);
@@ -350,6 +362,7 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 }
 
 - (void)setFloating:(BOOL)floating {
+    if (_floating == floating) return;
     _floating = floating;
     [self cancelInput];
     [self setNeedsLayout];
@@ -601,7 +614,8 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 - (CGRect)placementRect:(NSString*)key {
     UIView* control=[self placementControls][key];
     CGRect rect=[control.superview convertRect:control.frame toView:self];
-    if(([key isEqual:@"Move"]||[key isEqual:@"Look"])&&!self.placements[key]) {
+    if([control isKindOfClass:RetunedTouchStick.class] &&
+       ((RetunedTouchStick*)control).floating && !self.placements[key]) {
         RetunedTouchStick* stick=(RetunedTouchStick*)control;CGFloat size=stick.stickDiameter;
         BOOL move=[key isEqual:@"Move"];
         rect=CGRectMake(move?self.safeAreaInsets.left+16:self.bounds.size.width*.62-size/2,
@@ -616,7 +630,18 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
     NSArray* keys=ControlKeys();
     for(NSUInteger i=0;i<keys.count;++i){
         UIView* view=controls[keys[i]];CGFloat factor=[self sizeForControl:keys[i]];
-        if([view isKindOfClass:RetunedTouchStick.class]){((RetunedTouchStick*)view).stickDiameter*=factor;continue;}
+        if([view isKindOfClass:RetunedTouchStick.class]){
+            RetunedTouchStick* stick=(RetunedTouchStick*)view;
+            const CGFloat diameter=stick.stickDiameter;
+            stick.stickDiameter*=factor;
+            if(stick==self.leftStick && !stick.floating) {
+                CGRect frame=stick.frame;
+                frame.origin.y+=diameter-stick.stickDiameter;
+                frame.size=CGSizeMake(stick.stickDiameter,stick.stickDiameter);
+                stick.frame=frame;
+            }
+            continue;
+        }
         CGPoint center=view.center;CGSize size=view.bounds.size;
         view.bounds=CGRectMake(0,0,size.width*factor,size.height*factor);view.center=center;
         if(view==self.cCross)for(UIView* button in self.cButtons){
@@ -745,18 +770,19 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
 
     CGFloat stickSize = 150.0 * scale;
     self.leftStick.stickDiameter = stickSize;
-    self.leftStick.frame = CGRectMake(0.0, 0.0, width * 0.46, height);
-    if(self.menuVisible)self.leftStick.frame=CGRectMake(left,height-bottom-stickSize,stickSize,stickSize);
+    self.leftStick.frame = self.leftStick.floating && !self.menuVisible
+        ? CGRectMake(0.0, 0.0, width * 0.5, height)
+        : CGRectMake(left, height - bottom - stickSize, stickSize, stickSize);
     CGFloat rightStickSize = 132.0 * scale;
     self.rightStick.stickDiameter = rightStickSize;
-    CGFloat rightStickStart = width * 0.52;
+    CGFloat rightStickStart = width * 0.5;
     self.rightStick.frame =
         CGRectMake(rightStickStart, 0.0, width - rightStickStart, height);
 
     self.rightStick.userInteractionEnabled=!self.menuVisible;
     CGFloat crossSize = 96.0 * scale;
     self.cCross.frame =
-        CGRectMake(left + (stickSize - crossSize) * 0.5 - 30.0 * scale,
+        CGRectMake(std::max(8.0 * scale, left + (stickSize - crossSize) * 0.5 - 38.0 * scale),
                    MAX(CGRectGetMaxY(self.buttonL.frame)+12.0*scale,height - bottom - stickSize - crossSize - 6.0 * scale),
                    crossSize, crossSize);
 
@@ -834,8 +860,9 @@ typedef NS_ENUM(NSInteger, RetunedButtonShape) {
         button.hudIcon=self.hudIcons && (button==self.buttonZR?self.manualJump==2:!(button==self.buttonX && self.manualJump==2));
         [button setNeedsLayout];
     }
-    self.buttonMap.frame=CGRectMake(CGRectGetMaxX(self.cCross.frame)+12*scale,
-        CGRectGetMidY(self.cCross.frame)-18*scale,36*scale,36*scale);
+    const CGFloat mapSize=36.0*scale;
+    self.buttonMap.frame=CGRectMake(faceCenterX-70.0*scale-mapSize*.5,
+        CGRectGetMidY(self.buttonStart.frame)-mapSize*.5,mapSize,mapSize);
     [self applyPlacements];
     const CGPoint zr=[self.buttonZR.superview convertPoint:self.buttonZR.center toView:self];
     RetunedTouchSetHudAnchor(8,zr.x/width,zr.y/height);
@@ -944,7 +971,7 @@ void RetunedIOS_SetTouchLeftStickFloating(int floating) {
     dispatch_async(dispatch_get_main_queue(), ^{
         sTouchLeftStickFloating = floating != 0;
         sTouchOverlay.leftStick.floating = sTouchLeftStickFloating;
-    sTouchOverlay.controlScale=sTouchControlScale;
+        [sTouchOverlay setNeedsLayout];
     });
 }
 
