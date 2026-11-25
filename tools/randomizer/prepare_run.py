@@ -105,9 +105,9 @@ def compile_module(config, work, generated, run, android_setup=None):
     return module
 
 
-def prepare(config, seed_path, *, android_setup=None):
+def prepare(config, seed_path, *, android_setup=None, environment=None):
     if android_setup is None:
-        return _prepare(config, seed_path)
+        return _prepare(config, seed_path, environment=environment)
     if config.get('target') != 'android-arm64':
         raise ValueError('On-device preparation requires the Android target')
     engine = Path(config['engine']).resolve()
@@ -140,7 +140,7 @@ def prepare(config, seed_path, *, android_setup=None):
         sys.path[:] = original_path
 
 
-def _prepare(config, seed_path, android_setup=None, toolkit_identity=None):
+def _prepare(config, seed_path, android_setup=None, toolkit_identity=None, *, environment=None):
     seed_path = seed_path.resolve()
     identity = digest(seed_path)
     if android_setup is None:
@@ -175,7 +175,7 @@ def _prepare(config, seed_path, android_setup=None, toolkit_identity=None):
         engine = Path(config['engine'])
         a32 = engine / 'tools/oot3d/native_a32_runtime'
         image, generated = work / 'image', work / 'source'
-        env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
+        env = dict(os.environ if environment is None else environment, PYTHONDONTWRITEBYTECODE='1')
         if config.get('target') == 'switch-arm64':
             sdk = Path(config['switch_sdk']).absolute()
             env.update(DEVKITPRO=str(sdk), DEVKITA64=str(sdk/'devkitA64'))

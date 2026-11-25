@@ -65,7 +65,7 @@ def build_title(rom, kit, setup, target, work, target_options, *, input_cache=No
                   runtime=inputs['runtime.elf'], runtime_receipt=inputs['runtime-receipt.json'],
                   engine=setup.engine, cmake=setup.cmake, ninja=ninja,
                   jobs=setup.jobs, artifacts=work/'artifacts', **target_options)
-    result = compile_title(config, inputs['bootstrap.json'])
+    result = compile_title(config, inputs['bootstrap.json'], environment=setup.environment)
     manifest = json.loads(Path(result['manifest']).read_text())
     if not verified_game_image(manifest):
         raise ValueError('Prepared Randomizer title does not match the verified game image')
